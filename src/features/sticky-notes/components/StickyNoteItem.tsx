@@ -40,24 +40,31 @@ export interface StickyNoteData {
 interface StickyNoteItemProps {
   note: StickyNoteData;
   onUpdateColor?: (id: string, color: string) => void;
-  onDelete?: (id: string) => void;
-  onPressNote?: (id: string) => void;
-  /** Fires once, when a drag ends, with the note's new world position. */
   onMove?: (id: string, x: number, y: number) => void;
+  onMoveClusterEnd?: (id: string, finalX: number, finalY: number) => void;
+  onDelete?: (id: string) => void;
+  onDragStart?: (id: string) => void;
+  onPressNote?: (id: string) => void;
   /** Live canvas zoom, so a drag can be converted from screen px to world units. */
   canvasScale?: SharedValue<number>;
   /** How many sub-notes this idea has, if any — shown as a small corner badge. */
   childCount?: number;
+  activeDragState?: SharedValue<{ id: string | null; dx: number; dy: number }>;
+  activeDragNotes?: SharedValue<string[]>;
 }
 
 export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
   note,
   onUpdateColor,
-  onDelete,
-  onPressNote,
   onMove,
+  onMoveClusterEnd,
+  onDelete,
+  onDragStart,
+  onPressNote,
   canvasScale,
   childCount,
+  activeDragState,
+  activeDragNotes,
 }) => {
   const { colors } = useTheme();
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
@@ -99,7 +106,9 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
   const dragGesture = Gesture.Pan()
     .activateAfterLongPress(120)
     .onStart(() => {
+      if (onDragStart) runOnJS(onDragStart)(note.id);
       scale.value = withSpring(1.06);
+      if (activeDragState) activeDragState.value = { id: note.id, dx: 0, dy: 0 };
       runOnJS(setLifted)(true);
     })
     .onUpdate((e) => {
@@ -108,13 +117,22 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
       // the note visibly lags the finger when zoomed out and overshoots when
       // zoomed in.
       const zoom = canvasScale?.value ?? 1;
-      translateX.value = note.x + e.translationX / zoom;
-      translateY.value = note.y + e.translationY / zoom;
+      const dx = e.translationX / zoom;
+      const dy = e.translationY / zoom;
+      translateX.value = note.x + dx;
+      translateY.value = note.y + dy;
+      if (activeDragState) activeDragState.value = { id: note.id, dx, dy };
     })
     .onEnd(() => {
       scale.value = withSpring(1);
+      if (activeDragState) activeDragState.value = { id: null, dx: 0, dy: 0 };
       runOnJS(setLifted)(false);
-      runOnJS(commitPosition)(translateX.value, translateY.value);
+      
+      if (onMoveClusterEnd) {
+        runOnJS(onMoveClusterEnd)(note.id, translateX.value, translateY.value);
+      } else {
+        runOnJS(commitPosition)(translateX.value, translateY.value);
+      }
     });
 
   const handleTap = () => {
@@ -135,14 +153,27 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
 
   const composed = Gesture.Race(dragGesture, Gesture.Exclusive(longPressGesture, tapGesture));
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { rotate: `${tilt}deg` },
-      { scale: scale.value },
-    ],
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    let extraX = 0;
+    let extraY = 0;
+    
+    // If a cluster is dragging, check if we are part of it
+    if (activeDragState && activeDragNotes && activeDragState.value.id && activeDragState.value.id !== note.id) {
+      if (activeDragNotes.value.includes(note.id)) {
+        extraX = activeDragState.value.dx;
+        extraY = activeDragState.value.dy;
+      }
+    }
+
+    return {
+      transform: [
+        { translateX: translateX.value + extraX },
+        { translateY: translateY.value + extraY },
+        { rotate: `${tilt}deg` },
+        { scale: scale.value },
+      ],
+    };
+  });
 
   return (
     <GestureDetector gesture={composed}>

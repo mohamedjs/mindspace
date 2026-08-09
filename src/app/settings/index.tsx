@@ -1,5 +1,6 @@
 import React from 'react';
-import { Alert, ScrollView, TouchableOpacity, View } from 'react-native';
+import { ScrollView, TouchableOpacity, View } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { Text } from '../../shared/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -25,7 +26,7 @@ export default function SettingsScreen() {
   const choose = (kind: 'chat' | 'transcribe') => (modelRowId: string | null) =>
     setPreference.mutate(
       { kind, modelRowId },
-      { onError: (err) => Alert.alert('Could not save', err.message) }
+      { onError: (err) => Toast.show({ type: 'error', text1: 'Could not save', text2: err.message }) }
     );
 
   return (

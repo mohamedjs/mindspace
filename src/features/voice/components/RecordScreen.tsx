@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, TouchableOpacity, View } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { Text } from '../../../shared/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -82,7 +83,11 @@ export const RecordScreen: React.FC<RecordScreenProps> = ({
 
       if (uri) onRecorded?.(recordingId, uri);
     } catch (err) {
-      Alert.alert('Recording failed', err instanceof Error ? err.message : String(err));
+      Toast.show({
+        type: 'error',
+        text1: 'Could not upload',
+        text2: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       resetRecording();
       setUiState('idle');
@@ -95,10 +100,11 @@ export const RecordScreen: React.FC<RecordScreenProps> = ({
     if (uiState !== 'recording') return;
     if (elapsedMs < FREE_MAX_RECORDING_SEC * 1000) return;
 
-    Alert.alert(
-      'Recording limit reached',
-      `Free recordings stop at ${FREE_MAX_RECORDING_SEC / 60} minutes. We saved what you captured.`
-    );
+    Toast.show({
+      type: 'info',
+      text1: 'Recording limit reached',
+      text2: `Free recordings stop at ${FREE_MAX_RECORDING_SEC / 60} minutes. We saved what you captured.`,
+    });
     handleStop();
   }, [elapsedMs, uiState, handleStop]);
 
@@ -106,10 +112,11 @@ export const RecordScreen: React.FC<RecordScreenProps> = ({
     try {
       const { granted } = await requestRecordingPermissionsAsync();
       if (!granted) {
-        Alert.alert(
-          'Microphone needed',
-          'MindSpace records your voice to turn it into notes. Enable the microphone in Settings to continue.'
-        );
+        Toast.show({
+          type: 'error',
+          text1: 'Microphone needed',
+          text2: 'MindSpace records your voice to turn it into notes. Enable the microphone in Settings to continue.',
+        });
         return;
       }
 
@@ -124,7 +131,11 @@ export const RecordScreen: React.FC<RecordScreenProps> = ({
       setIsRecording(true);
       setUiState('recording');
     } catch (err) {
-      Alert.alert('Could not start recording', err instanceof Error ? err.message : String(err));
+      Toast.show({
+        type: 'error',
+        text1: 'Could not start recording',
+        text2: err instanceof Error ? err.message : String(err),
+      });
       setUiState('idle');
     }
   }, [recorder, setIsRecording]);

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, TouchableOpacity, View } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { Text } from '../shared/ui/Text';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -115,24 +116,29 @@ export default function HomeScreen() {
       qc.invalidateQueries({ queryKey: queryKeys.notes.bySpace(spaceId!) });
       qc.invalidateQueries({ queryKey: queryKeys.credits.balance });
     },
-    onError: (err) => Alert.alert('Still not working', err.message),
+    onError: (err) => Toast.show({ type: 'error', text1: 'Still not working', text2: err.message }),
   });
 
-  // Drop the recordingId once the pipeline is done. Without this the param
-  // lives in the route forever, so the banner reappears on every later visit to
-  // this screen, and it can only ever be dismissed by recording again.
   useEffect(() => {
-    // Also accept 'transcribed' for backward compatibility with older recordings
-    if (recordingStatus !== 'completed' && recordingStatus !== 'transcribed') return;
+    // We only take action when the pipeline reaches a terminal state
+    if (recordingStatus !== 'completed' && recordingStatus !== 'transcribed' && recordingStatus !== 'failed') return;
     
-    // Provide explicit feedback when creating notes completes
     if (recordingStatus === 'completed') {
-      Alert.alert('Success', 'MindSpace finished turning your thoughts into sticky notes!');
+      Toast.show({ type: 'success', text1: 'Success', text2: 'MindSpace finished turning your thoughts into sticky notes!' });
+    } else if (recordingStatus === 'failed') {
+      Toast.show({
+        type: 'error',
+        text1: 'Something went wrong',
+        text2: 'Audio is safe on your device.',
+        props: {
+          onRetry: () => retryPipeline.mutate()
+        }
+      });
     }
     
     qc.invalidateQueries({ queryKey: queryKeys.notes.bySpace(spaceId ?? '') });
     router.setParams({ recordingId: undefined });
-  }, [recordingStatus, router, qc, spaceId]);
+  }, [recordingStatus, router, qc, spaceId, retryPipeline]);
 
   const handleUpdateColor = useCallback(
     (noteId: string, color: string) => recolor.mutate({ noteId, color }),
@@ -161,7 +167,7 @@ export default function HomeScreen() {
 
   const activeSpace = spaces?.find((s) => s.id === spaceId);
   const available = balance ? balance.creditsBalance - balance.creditsReserved : 0;
-  const showStatusBanner = recordingStatus && recordingStatus !== 'completed' && recordingStatus !== 'transcribed';
+  const showStatusBanner = recordingStatus && recordingStatus !== 'completed' && recordingStatus !== 'transcribed' && recordingStatus !== 'failed';
 
   return (
     <View className="flex-1 bg-canvas">
@@ -221,13 +227,6 @@ export default function HomeScreen() {
           <Text className="flex-1 text-sm text-ink">
             {STATUS_LABEL[recordingStatus] ?? recordingStatus}
           </Text>
-          {RETRYABLE.includes(recordingStatus) && !retryPipeline.isPending && spaceId && (
-            <TouchableOpacity onPress={() => retryPipeline.mutate()} hitSlop={10}>
-              <Text className="ml-3 text-sm font-bold text-accent">
-                Retry
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
       )}
     </View>

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { Text } from '../../shared/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -70,15 +71,15 @@ export default function KeysScreen() {
 
   const handleSave = async () => {
     if (!apiKey.trim()) {
-      Alert.alert('Enter a key', 'Paste your API key first.');
+      Toast.show({ type: 'error', text1: 'Enter a key', text2: 'Paste your API key first.' });
       return;
     }
     try {
       await saveKey.mutateAsync({ provider, apiKey: apiKey.trim() });
       setApiKey('');
-      Alert.alert('Key saved', `Requests to ${provider} will use your own key from now on.`);
+      Toast.show({ type: 'success', text1: 'Key saved', text2: `Requests to ${provider} will use your own key from now on.` });
     } catch (err) {
-      Alert.alert('Could not save key', err instanceof Error ? err.message : String(err));
+      Toast.show({ type: 'error', text1: 'Could not save key', text2: err instanceof Error ? err.message : String(err) });
     }
   };
 

@@ -10,6 +10,7 @@ import {
   View,
   type TextStyle,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { Text } from '../shared/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../providers/AuthProvider';
@@ -35,11 +36,11 @@ export default function SignInScreen() {
 
   const handleSubmit = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Missing details', 'Enter your email and password to continue.');
+      Toast.show({ type: 'error', text1: 'Missing details', text2: 'Enter your email and password to continue.' });
       return;
     }
     if (isSignUp && password.length < 8) {
-      Alert.alert('Password too short', 'Use at least 8 characters.');
+      Toast.show({ type: 'error', text1: 'Password too short', text2: 'Use at least 8 characters.' });
       return;
     }
 
@@ -49,20 +50,22 @@ export default function SignInScreen() {
         await signUp(email, password);
         // With email confirmation on, there's no session yet — say so rather
         // than leaving the user on a screen that looks like it failed.
-        Alert.alert(
-          'Check your email',
-          'We sent you a confirmation link. Open it, then sign in.'
-        );
+        Toast.show({
+          type: 'success',
+          text1: 'Check your email',
+          text2: 'We sent you a confirmation link. Open it, then sign in.',
+        });
         setMode('signIn');
       } else {
         await signIn(email, password);
         // No navigation here: _layout redirects once the session lands.
       }
     } catch (err) {
-      Alert.alert(
-        isSignUp ? 'Sign up failed' : 'Sign in failed',
-        err instanceof Error ? err.message : String(err)
-      );
+      Toast.show({
+        type: 'error',
+        text1: isSignUp ? 'Sign up failed' : 'Sign in failed',
+        text2: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setBusy(false);
     }
@@ -70,14 +73,18 @@ export default function SignInScreen() {
 
   const handleForgotPassword = async () => {
     if (!email.trim()) {
-      Alert.alert('Enter your email', 'Type your email address first, then tap reset.');
+      Toast.show({ type: 'error', text1: 'Enter your email', text2: 'Type your email address first, then tap reset.' });
       return;
     }
     try {
       await resetPassword(email);
-      Alert.alert('Reset sent', 'Check your email for a password reset link.');
+      Toast.show({ type: 'success', text1: 'Reset sent', text2: 'Check your email for a password reset link.' });
     } catch (err) {
-      Alert.alert('Could not send reset', err instanceof Error ? err.message : String(err));
+      Toast.show({
+        type: 'error',
+        text1: 'Could not send reset',
+        text2: err instanceof Error ? err.message : String(err),
+      });
     }
   };
 

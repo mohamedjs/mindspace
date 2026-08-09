@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Alert } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { RecordScreen } from '../features/voice/components/RecordScreen';
@@ -33,10 +33,11 @@ export default function RecordRoute() {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         await markRecordingFailed(recordingId, message).catch(() => {});
-        Alert.alert(
-          'Could not turn that into notes',
-          'Your audio is saved on this device. We will retry later.'
-        );
+        Toast.show({
+          type: 'error',
+          text1: 'Could not turn that into notes',
+          text2: 'Your audio is saved on this device. We will retry later.',
+        });
       }
     },
     [user, spaceId, router, qc]

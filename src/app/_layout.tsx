@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Redirect, Stack, usePathname } from 'expo-router';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { useFonts } from 'expo-font';
+import { ThemedToast } from '../shared/ui/ThemedToast';
 import { ArchitectsDaughter_400Regular } from '@expo-google-fonts/architects-daughter';
 import { BalooBhaijaan2_400Regular, BalooBhaijaan2_500Medium, BalooBhaijaan2_600SemiBold, BalooBhaijaan2_700Bold } from '@expo-google-fonts/baloo-bhaijaan-2';
 import { asyncStoragePersister, queryClient } from '../lib/query-client';
@@ -71,6 +72,7 @@ export default function RootLayout() {
             <AuthProvider>
               <ThemedStatusBar />
               <AuthGate />
+              <ThemedToast />
             </AuthProvider>
           </ThemeProvider>
         </PersistQueryClientProvider>

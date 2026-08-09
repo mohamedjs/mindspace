@@ -5,6 +5,8 @@ import { useColorScheme } from 'nativewind';
 export type ThemePreference = 'light' | 'dark' | 'system';
 
 const STORAGE_KEY = 'mindspace:theme';
+const HAND_DRAWN_KEY = 'mindspace:handdrawn';
+const CANVAS_BG_KEY = 'mindspace:canvasbg';
 
 /**
  * JS mirror of the CSS variables in global.css. Needed because a fair number of
@@ -64,6 +66,12 @@ interface ThemeValue {
   scheme: 'light' | 'dark';
   colors: Palette;
   setPreference: (next: ThemePreference) => void;
+  /** Excalidraw-style hand-drawn font for Latin text; Arabic always keeps its own face. */
+  handDrawnEnabled: boolean;
+  setHandDrawnEnabled: (next: boolean) => void;
+  /** Decorative grid + colour orbs on the canvas, vs a plain solid board. */
+  canvasBackgroundEnabled: boolean;
+  setCanvasBackgroundEnabled: (next: boolean) => void;
 }
 
 const ThemeContext = createContext<ThemeValue | null>(null);
@@ -71,15 +79,23 @@ const ThemeContext = createContext<ThemeValue | null>(null);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { colorScheme, setColorScheme } = useColorScheme();
   const [preference, setPreferenceState] = useState<ThemePreference>('system');
+  const [handDrawnEnabled, setHandDrawnEnabledState] = useState(true);
+  const [canvasBackgroundEnabled, setCanvasBackgroundEnabledState] = useState(true);
 
-  // Restore the saved choice once on mount. Until it loads we stay on
-  // 'system', which is also the sensible default for a first run.
+  // Restore saved choices once on mount. Until they load we stay on the
+  // defaults, which match the app's original always-on behaviour.
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then((saved) => {
       if (saved === 'light' || saved === 'dark' || saved === 'system') {
         setPreferenceState(saved);
         setColorScheme(saved);
       }
+    });
+    AsyncStorage.getItem(HAND_DRAWN_KEY).then((saved) => {
+      if (saved != null) setHandDrawnEnabledState(saved === '1');
+    });
+    AsyncStorage.getItem(CANVAS_BG_KEY).then((saved) => {
+      if (saved != null) setCanvasBackgroundEnabledState(saved === '1');
     });
   }, [setColorScheme]);
 
@@ -89,11 +105,30 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     AsyncStorage.setItem(STORAGE_KEY, next).catch(() => {});
   };
 
+  const setHandDrawnEnabled = (next: boolean) => {
+    setHandDrawnEnabledState(next);
+    AsyncStorage.setItem(HAND_DRAWN_KEY, next ? '1' : '0').catch(() => {});
+  };
+
+  const setCanvasBackgroundEnabled = (next: boolean) => {
+    setCanvasBackgroundEnabledState(next);
+    AsyncStorage.setItem(CANVAS_BG_KEY, next ? '1' : '0').catch(() => {});
+  };
+
   const scheme = colorScheme === 'light' ? 'light' : 'dark';
 
   return (
     <ThemeContext.Provider
-      value={{ preference, scheme, colors: palettes[scheme], setPreference }}
+      value={{
+        preference,
+        scheme,
+        colors: palettes[scheme],
+        setPreference,
+        handDrawnEnabled,
+        setHandDrawnEnabled,
+        canvasBackgroundEnabled,
+        setCanvasBackgroundEnabled,
+      }}
     >
       {children}
     </ThemeContext.Provider>

@@ -18,8 +18,10 @@ const GRID_SIZE = 24;
  * canvas pan/pinch gestures sitting on top of it.
  */
 export const CanvasBackground: React.FC = () => {
-  const { colors, scheme } = useTheme();
+  const { colors, scheme, canvasBackgroundEnabled } = useTheme();
   const isDark = scheme === 'dark';
+
+  if (!canvasBackgroundEnabled) return null;
 
   return (
     <View className="absolute inset-0" pointerEvents="none">

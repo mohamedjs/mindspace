@@ -26,7 +26,9 @@ Deno.serve(async (req) => {
     const user = await getUserOrThrow(req);
     db = userClient(req);
 
-    const { transcriptId, spaceId } = await req.json();
+    // parentNoteId is set when the user recorded from inside a note to think
+    // it through further — everything extracted then belongs under that note.
+    const { transcriptId, spaceId, parentNoteId } = await req.json();
     if (!transcriptId || !spaceId) throw new HttpError(400, 'missing_params');
 
     const { data: transcript, error: txErr } = await admin
@@ -64,6 +66,12 @@ Deno.serve(async (req) => {
     const existing = existingNotes ?? [];
     const existingTopLevel = existing.filter((n) => !n.parent_id);
     const existingIds = new Set(existing.map((n) => n.id));
+
+    // Scoped to this space's live notes, so a bad/foreign id can't attach
+    // notes to someone else's board — it just falls back to a normal extract.
+    const focusNote = parentNoteId ? existing.find((n) => n.id === parentNoteId) : undefined;
+    if (parentNoteId && !focusNote) throw new HttpError(404, 'parent_note_not_found');
+
     const provider = baseUrl ? createOpenAICompatibleProvider(baseUrl) : openrouter;
 
     const completion = await provider.chat({
@@ -72,7 +80,15 @@ Deno.serve(async (req) => {
       system: EXTRACT_THOUGHTS_SYSTEM,
       user: buildExtractUserPrompt(
         transcript.text,
-        existing.map((n) => ({ id: n.id, title: n.title, content: n.content, type: n.type }))
+        existing.map((n) => ({ id: n.id, title: n.title, content: n.content, type: n.type })),
+        focusNote
+          ? {
+              id: focusNote.id,
+              title: focusNote.title,
+              content: focusNote.content,
+              type: focusNote.type,
+            }
+          : null
       ),
       jsonMode: true,
     });
@@ -121,9 +137,17 @@ Deno.serve(async (req) => {
     const clientKeyToIndex = new Map(extraction.notes.map((n, i) => [n.clientKey, i]));
     const clientKeyToId = new Map(extraction.notes.map((n, i) => [n.clientKey, ids[i]]));
 
-    const parentIds = extraction.notes.map((note, i) =>
-      resolveParentId(note, i, { batchIndex: clientKeyToIndex, batchIds: clientKeyToId, existingIds })
-    );
+    // With a focus note, a thought the model left top-level still belongs to
+    // the note the user was speaking into — that's the whole point of
+    // recording from inside it. Nesting under a sibling in the batch is kept.
+    const parentIds = extraction.notes.map((note, i) => {
+      const resolved = resolveParentId(note, i, {
+        batchIndex: clientKeyToIndex,
+        batchIds: clientKeyToId,
+        existingIds,
+      });
+      return resolved ?? focusNote?.id ?? null;
+    });
 
     // Only top-level (parentless) notes claim a grid slot. A child instead
     // orbits its resolved parent — existing or same-batch — so the connector

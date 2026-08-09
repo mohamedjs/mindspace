@@ -40,7 +40,9 @@ async function invoke<T>(name: string, body: Record<string, unknown>): Promise<T
  */
 export async function runThinkingPipeline(
   recordingId: string,
-  spaceId: string
+  spaceId: string,
+  /** Set when recording from inside a note — the notes land under it as sub-notes. */
+  parentNoteId?: string | null
 ): Promise<ExtractResult> {
   // Never transcribe twice. On the free plan the transcribe function deletes
   // the audio once the text exists, so a retry after a failed *extraction*
@@ -56,7 +58,11 @@ export async function runThinkingPipeline(
   const transcriptId =
     existing?.id ?? (await invoke<TranscribeResult>('transcribe', { recordingId })).transcriptId;
 
-  const result = await invoke<ExtractResult>('ai-extract', { transcriptId, spaceId });
+  const result = await invoke<ExtractResult>('ai-extract', {
+    transcriptId,
+    spaceId,
+    parentNoteId: parentNoteId ?? null,
+  });
 
   // Extraction is the last step, so this is where the recording is really done.
   // Clears a stale `failed` from an earlier attempt, which the status banner

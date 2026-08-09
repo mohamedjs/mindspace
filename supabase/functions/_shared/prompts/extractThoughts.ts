@@ -1,4 +1,4 @@
-export const EXTRACT_THOUGHTS_VERSION = 'extract_thoughts@6';
+export const EXTRACT_THOUGHTS_VERSION = 'extract_thoughts@7';
 
 /**
  * Kept deliberately compact. The previous revision shipped the full database
@@ -186,7 +186,14 @@ export interface ExistingNoteContext {
 
 export function buildExtractUserPrompt(
   transcript: string,
-  existingNotes: ExistingNoteContext[]
+  existingNotes: ExistingNoteContext[],
+  /**
+   * Set when the user recorded from *inside* one note to think it through
+   * further. Everything said is about this note, so the server nests the
+   * result under it regardless — this just tells the model that, so it reads
+   * the transcript as elaboration rather than as a fresh unrelated brain dump.
+   */
+  focusNote?: ExistingNoteContext | null
 ): string {
   // The id lets the model nest a new note under an idea from a prior
   // recording via parentClientKey — see rule 7 and Example 6.
@@ -196,9 +203,21 @@ export function buildExtractUserPrompt(
         .join('\n')}\n\n`
     : 'This board is empty.\n\n';
 
+  const focus = focusNote
+    ? `The speaker opened this note and is thinking it through out loud:
+  [${focusNote.type}] id=${focusNote.id} ${focusNote.title ? `${focusNote.title}: ` : ''}${focusNote.content}
+
+Everything below is about THAT note. Write the new thoughts it contains as
+notes with parentClientKey="${focusNote.id}". If one of those thoughts is
+then elaborated on further in the same breath, nest that under its own
+clientKey instead (rule 7 still applies). Do not restate the note itself.
+
+`
+    : '';
+
   // The transcript is fenced and offsets are counted from the first character
   // inside the fence, so the model has an unambiguous origin for spans.
-  return `${board}Transcript (character offsets start at 0 on the first character below):
+  return `${board}${focus}Transcript (character offsets start at 0 on the first character below):
 """
 ${transcript}
 """

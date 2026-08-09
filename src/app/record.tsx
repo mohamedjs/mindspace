@@ -12,7 +12,10 @@ import { useAuth } from '../providers/AuthProvider';
 export default function RecordRoute() {
   const router = useRouter();
   const qc = useQueryClient();
-  const { spaceId } = useLocalSearchParams<{ spaceId: string }>();
+  const { spaceId, parentNoteId } = useLocalSearchParams<{
+    spaceId: string;
+    parentNoteId?: string;
+  }>();
   const { user } = useAuth();
 
   const handleRecorded = useCallback(
@@ -20,13 +23,22 @@ export default function RecordRoute() {
       if (!user || !spaceId) return;
 
       // Leave the recording screen immediately — the rest runs in the
-      // background. useRecordingStatus (subscribed on the canvas) drives the
-      // recorded -> transcribing -> transcribed UI while this chain runs.
-      router.replace({ pathname: '/', params: { spaceId, recordingId } });
+      // background. useRecordingStatus (subscribed on whichever screen we land
+      // on) drives the recorded -> transcribing -> transcribed UI meanwhile.
+      // Recording from inside a note goes back to that note, where its new
+      // sub-notes will appear, rather than out to the canvas.
+      if (parentNoteId) {
+        router.replace({
+          pathname: '/note/[id]',
+          params: { id: parentNoteId, spaceId, recordingId },
+        });
+      } else {
+        router.replace({ pathname: '/', params: { spaceId, recordingId } });
+      }
 
       try {
         await uploadRecording({ localUri, userId: user.id, spaceId, recordingId });
-        await runThinkingPipeline(recordingId, spaceId);
+        await runThinkingPipeline(recordingId, spaceId, parentNoteId);
         // Extraction inserted notes directly in the DB — pull them in.
         qc.invalidateQueries({ queryKey: queryKeys.notes.bySpace(spaceId) });
         qc.invalidateQueries({ queryKey: queryKeys.credits.balance });
@@ -40,7 +52,7 @@ export default function RecordRoute() {
         });
       }
     },
-    [user, spaceId, router, qc]
+    [user, spaceId, parentNoteId, router, qc]
   );
 
   if (!spaceId) {

@@ -9,9 +9,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { Text } from '../../../shared/ui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../../shared/theme';
 import { clay, shade } from '../../../shared/theme/clay';
 import { readableTextOn, luminance } from '../../../shared/theme/color';
@@ -28,10 +30,12 @@ import {
 } from '../hooks/useNotes';
 import { ColorPicker } from './ColorPicker';
 import { PeelFlap } from './PeelFlap';
+import { useRecordingStatus } from '../../voice/hooks/useRecordingStatus';
 import {
   ArrowLeft,
   Check,
   ChevronRight,
+  Mic,
   Palette,
   Plus,
   Trash2,
@@ -73,10 +77,17 @@ const TYPE_ICON: Record<NoteType, React.ElementType> = {
 interface NoteEditorProps {
   noteId: string;
   spaceId?: string;
+  /** Set on return from /record — a recording being turned into sub-notes. */
+  recordingId?: string;
   onBack: () => void;
 }
 
-export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack }) => {
+export const NoteEditor: React.FC<NoteEditorProps> = ({
+  noteId,
+  spaceId,
+  recordingId,
+  onBack,
+}) => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colors, scheme } = useTheme();
@@ -103,6 +114,29 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack 
 
   const contentRef = useRef<TextInput>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Live progress for a recording made from inside this note. The pipeline
+  // writes the sub-notes straight to the DB, so completion is the cue to
+  // refetch rather than something this screen does itself.
+  const qc = useQueryClient();
+  const { status: recordingStatus } = useRecordingStatus(recordingId ?? null);
+  const isThinking =
+    Boolean(recordingStatus) &&
+    recordingStatus !== 'completed' &&
+    recordingStatus !== 'failed';
+
+  useEffect(() => {
+    if (recordingStatus !== 'completed' && recordingStatus !== 'failed') return;
+    qc.invalidateQueries({ queryKey: ['notes'] });
+    if (recordingStatus === 'failed') {
+      Toast.show({
+        type: 'error',
+        text1: 'Could not turn that into sub-notes',
+        text2: 'Your audio is safe. Try recording again.',
+      });
+    }
+    router.setParams({ recordingId: undefined });
+  }, [recordingStatus, qc, router]);
 
   // Seed state from fetched data
   useEffect(() => {
@@ -199,6 +233,20 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack 
     },
     [router, effectiveSpaceId]
   );
+
+  /**
+   * Think this note through out loud. Reuses the normal record screen — the
+   * parentNoteId param is what makes the extraction attach its notes here as
+   * sub-notes instead of dropping fresh ideas on the canvas.
+   */
+  const startVoiceSubNotes = useCallback(() => {
+    if (dirty) updateContent.mutate({ noteId, title: title || null, content });
+    if (!effectiveSpaceId) return;
+    router.push({
+      pathname: '/record',
+      params: { spaceId: effectiveSpaceId, parentNoteId: noteId },
+    });
+  }, [dirty, updateContent, noteId, title, content, effectiveSpaceId, router]);
 
   /** Insert a bullet point prefix at the cursor position. */
   const insertBullet = useCallback(() => {
@@ -544,6 +592,20 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack 
                 );
               })}
 
+              {isThinking && (
+                <View
+                  className="mb-2 flex-row items-center px-3 py-3"
+                  style={{ backgroundColor: shade(paperBg, -0.08), borderRadius: 14 }}
+                >
+                  <ActivityIndicator size="small" color={colors.accent} style={{ marginRight: 10 }} />
+                  <Text className="flex-1 text-xs" style={{ color: mutedTextColor }}>
+                    {recordingStatus === 'transcribing'
+                      ? 'Listening to what you said…'
+                      : 'Turning your voice into sub-notes…'}
+                  </Text>
+                </View>
+              )}
+
               <View className="mt-1 flex-row items-center">
                 <TextInput
                   value={subNoteText}
@@ -558,7 +620,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack 
                 <TouchableOpacity
                   onPress={handleAddSubNote}
                   disabled={!subNoteText.trim() || createSubNote.isPending}
-                  className="h-11 w-11 items-center justify-center"
+                  className="mr-2 h-11 w-11 items-center justify-center"
                   style={clay({
                     color: colors.accent,
                     radius: 14,
@@ -570,6 +632,17 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack 
                   ) : (
                     <Plus size={18} color="#FFF" strokeWidth={2.5} />
                   )}
+                </TouchableOpacity>
+                {/* Speak the idea through instead of typing — the AI writes
+                    the sub-notes it hears into this note. */}
+                <TouchableOpacity
+                  onPress={startVoiceSubNotes}
+                  disabled={isThinking}
+                  className="h-11 w-11 items-center justify-center"
+                  style={clay({ color: shade(paperBg, -0.16), radius: 14, depth: isThinking ? 0.2 : 0.7 })}
+                  accessibilityLabel="Record sub-notes with your voice"
+                >
+                  <Mic size={18} color={textColor} strokeWidth={2.5} />
                 </TouchableOpacity>
               </View>
             </View>

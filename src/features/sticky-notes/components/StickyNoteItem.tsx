@@ -18,7 +18,7 @@ import { readableTextOn } from '../../../shared/theme/color';
 import { useTheme } from '../../../shared/theme';
 
 /** Size of the peeled bottom-right corner, in px. */
-const CURL = 38;
+const CURL = 24;
 
 export interface StickyNoteData {
   id: string;
@@ -216,7 +216,7 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
           </View>
         </View>
 
-        <PeelFlap size={CURL + 4} color={shade(paperBg, -0.15)} />
+        <PeelFlap size={CURL} color={shade(paperBg, -0.24)} />
 
         {/* Metallic push pin (مسمار) at top-center */}
         <View className="absolute -top-[9px] left-0 right-0 z-20 items-center">

@@ -42,7 +42,7 @@ import {
 } from 'lucide-react-native';
 
 /** Size of the peeled bottom-right corner, in px. */
-const CURL = 52;
+const CURL = 48;
 
 const NOTE_TYPES: NoteType[] = [
   'idea',
@@ -384,7 +384,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack 
         {/* ─── Editor body ─── */}
         <ScrollView
           className="flex-1"
-          style={{ backgroundColor: paperBg, borderBottomRightRadius: 80 }}
+          style={{ backgroundColor: paperBg, borderBottomRightRadius: CURL }}
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingTop: 24,
@@ -475,7 +475,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack 
 
       {/* ─── Peeled Corner Effect ─── */}
       <View pointerEvents="none" className="absolute bottom-0 right-0">
-        <PeelFlap size={86} color={shade(paperBg, -0.15)} />
+        <PeelFlap size={CURL} color={shade(paperBg, -0.24)} />
       </View>
 
       {/* ─── Color Picker Modal ─── */}

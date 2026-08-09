@@ -165,7 +165,9 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   }));
 
   return (
-    <SafeAreaView className="flex-1 bg-board">
+    <View className="flex-1 bg-board">
+      <CanvasBackground />
+      <SafeAreaView className="flex-1">
       {/* Header */}
       <View
         className="z-30 mx-3 mt-2 flex-row items-center justify-between px-4 py-3"
@@ -219,8 +221,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
 
       {/* Infinite pan/zoom board */}
       <GestureDetector gesture={canvasGesture}>
-        <View className="flex-1 overflow-hidden bg-board">
-          <CanvasBackground />
+        <View className="flex-1 overflow-hidden">
           <Animated.View style={[{ width: '100%', height: '100%' }, canvasAnimatedStyle]}>
             {displayNotes.map((note) => (
               <StickyNoteItem
@@ -252,6 +253,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
           <Mic size={32} color="#FFF" strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 };

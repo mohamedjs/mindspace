@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Platform } from 'react-native';
+import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 interface PeelFlapProps {
@@ -16,16 +16,13 @@ export const PeelFlap: React.FC<PeelFlapProps> = ({ size, color }) => {
         height: size,
         shadowColor: '#000',
         shadowOffset: { width: -2, height: -2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
+        shadowOpacity: 0.3,
+        shadowRadius: 3,
         elevation: 5,
       }}
     >
-      <Svg width={size} height={size} viewBox="0 0 100 100">
-        <Path
-          d="M 100 0 L 0 100 C 20 80, 80 20, 100 0 Z"
-          fill={color}
-        />
+      <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <Path d="M 0 0 L 100 0 L 0 100 Z" fill={color} />
       </Svg>
     </View>
   );

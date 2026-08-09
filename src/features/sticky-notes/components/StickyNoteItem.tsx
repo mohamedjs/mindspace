@@ -18,7 +18,7 @@ import { readableTextOn } from '../../../shared/theme/color';
 import { useTheme } from '../../../shared/theme';
 
 /** Size of the peeled bottom-right corner, in px. */
-const CURL = 24;
+const CURL = 38;
 
 export interface StickyNoteData {
   id: string;

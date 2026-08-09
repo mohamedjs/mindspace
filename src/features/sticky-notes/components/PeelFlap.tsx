@@ -23,7 +23,7 @@ export const PeelFlap: React.FC<PeelFlapProps> = ({ size, color }) => {
     >
       <Svg width={size} height={size} viewBox="0 0 100 100">
         <Path
-          d="M 100 0 C 70 30, 20 40, 0 100 C 30 90, 80 80, 100 0 Z"
+          d="M 100 0 L 0 100 C 20 80, 80 20, 100 0 Z"
           fill={color}
         />
       </Svg>

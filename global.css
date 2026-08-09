@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Semantic theme tokens as rgb triplets so Tailwind's <alpha-value> works
+ * (bg-surface/80, border-line/50, …). NativeWind applies `.dark` to the root
+ * when colorScheme is dark, so every `bg-canvas`/`text-ink` class already in
+ * the components themes itself with no per-component change.
+ *
+ * Sticky-note paper colours deliberately do NOT live here — notes are paper
+ * and stay the same pastel in both themes (see shared/constants/tokens.ts).
+ */
+@layer base {
+  :root {
+    --canvas: 245 237 227;
+    --board: 239 228 214;
+    --surface: 251 246 240;
+    --ink: 44 30 20;
+    --muted: 122 101 82;
+    --accent: 184 98 15;
+    --on-accent: 255 255 255;
+    --line: 224 210 192;
+    --warning: 176 106 0;
+  }
+
+  .dark:root {
+    --canvas: 44 30 20;
+    --board: 30 23 17;
+    --surface: 24 18 13;
+    --ink: 244 232 220;
+    --muted: 168 146 128;
+    --accent: 217 130 43;
+    --on-accent: 30 20 12;
+    --line: 58 44 32;
+    --warning: 255 213 79;
+  }
+}

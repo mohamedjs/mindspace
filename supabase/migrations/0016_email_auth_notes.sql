@@ -1,0 +1,35 @@
+-- ============================================================
+-- MindSpace Migration 0016: Email/password auth — documentation only
+-- ============================================================
+--
+-- No schema change is required for email/password auth: profiles,
+-- credit_ledger, and RLS already key off auth.uid(), which is identical
+-- whether the user is anonymous or signed up with email.
+--
+-- handle_new_user() (migration 0003) already fires on any auth.users insert,
+-- including email sign-up, and already reads new.is_anonymous (defaults to
+-- false for email sign-up) to seed profiles.is_anonymous correctly.
+--
+-- What you must configure in the Supabase Dashboard instead (no SQL):
+--
+-- 1. Authentication -> Providers -> Email
+--    - Enable "Email" provider.
+--    - "Confirm email" ON is recommended (signUp() will return a session
+--      of null until the user clicks the confirmation link — the app's
+--      sign-up screen already handles this by prompting the user to check
+--      their inbox rather than assuming an immediate session).
+--
+-- 2. Authentication -> URL Configuration
+--    - Site URL: mindspace://
+--    - Redirect URLs: add mindspace://** so the confirmation and password
+--      reset emails deep-link back into the app instead of a broken web URL.
+--      (app.json already sets "scheme": "mindspace".)
+--
+-- 3. Authentication -> Providers -> Anonymous sign-ins
+--    - Leave OFF. AuthProvider no longer calls signInAnonymously(); this
+--      only matters if you re-add an anonymous/guest path later.
+--
+-- If you still want a "continue without an account" guest path alongside
+-- email auth, say so — it would reuse the removed signInAnonymously() call
+-- and merge on first real sign-up via supabase.auth.linkIdentity(), but
+-- that merge flow is out of scope until it's asked for.

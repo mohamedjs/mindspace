@@ -16,7 +16,10 @@ export async function fetchProfile(): Promise<Profile> {
     .single();
 
   if (error) throw error;
-  return { displayName: data.display_name, email: auth.user.email ?? null };
+  return { 
+    displayName: data.display_name || auth.user.user_metadata?.full_name || null, 
+    email: auth.user.email ?? null 
+  };
 }
 
 export async function updateDisplayName(name: string): Promise<void> {

@@ -100,13 +100,43 @@ function ProfileCard() {
   );
 }
 
-export default function SettingsScreen() {
-  const router = useRouter();
-  const { signOut } = useAuth();
+function AiModelsSection() {
   const { data: models } = useModels();
   const { data: prefs } = useModelPreferences();
   const setPreference = useSetModelPreference();
-  const deleteAccount = useDeleteAccount();
+
+  const choose = (kind: 'chat' | 'transcribe') => (modelRowId: string | null) =>
+    setPreference.mutate(
+      { kind, modelRowId },
+      { onError: (err) => Toast.show({ type: 'error', text1: 'Could not save', text2: err.message }) }
+    );
+
+  return (
+    <>
+      <SectionHeading dot="#66BB6A">AI models</SectionHeading>
+      <ModelPicker
+        title="Voice → text"
+        subtitle="Which model listens to your recording and writes the transcript."
+        kind="transcribe"
+        models={models}
+        selectedId={prefs?.transcribeModelId ?? null}
+        saving={setPreference.isPending}
+        onSelect={choose('transcribe')}
+      />
+      <ModelPicker
+        title="Text → sticky notes"
+        subtitle="Which model reads the transcript and decides what the notes say."
+        kind="chat"
+        models={models}
+        selectedId={prefs?.chatModelId ?? null}
+        saving={setPreference.isPending}
+        onSelect={choose('chat')}
+      />
+    </>
+  );
+}
+
+function AppearanceSection() {
   const {
     colors,
     handDrawnEnabled,
@@ -118,11 +148,63 @@ export default function SettingsScreen() {
   } = useTheme();
   const rowStyle = clay({ color: shade(colors.surface, -0.05), radius: 18, depth: 0.5 });
 
-  const choose = (kind: 'chat' | 'transcribe') => (modelRowId: string | null) =>
-    setPreference.mutate(
-      { kind, modelRowId },
-      { onError: (err) => Toast.show({ type: 'error', text1: 'Could not save', text2: err.message }) }
-    );
+  return (
+    <>
+      <SectionHeading dot="#42A5F5">Appearance</SectionHeading>
+      <View className="mb-3">
+        <ThemeToggle />
+      </View>
+
+      <View className="mb-2.5 flex-row items-center justify-between px-4 py-3.5" style={rowStyle}>
+        <View className="flex-1 pr-3">
+          <Text className="text-base font-semibold text-ink">Hand-drawn text</Text>
+          <Text className="mt-0.5 text-xs text-muted">Excalidraw-style font instead of the system default.</Text>
+        </View>
+        <Switch
+          value={handDrawnEnabled}
+          onValueChange={setHandDrawnEnabled}
+          trackColor={{ true: colors.accent, false: shade(colors.surface, -0.15) }}
+          thumbColor={colors.surface}
+        />
+      </View>
+
+      <View className="mb-2.5 flex-row items-center justify-between px-4 py-3.5" style={rowStyle}>
+        <View className="flex-1 pr-3">
+          <Text className="text-base font-semibold text-ink">Canvas background</Text>
+          <Text className="mt-0.5 text-xs text-muted">Grid and colour orbs, or a plain solid board.</Text>
+        </View>
+        <Switch
+          value={canvasBackgroundEnabled}
+          onValueChange={setCanvasBackgroundEnabled}
+          trackColor={{ true: colors.accent, false: shade(colors.surface, -0.15) }}
+          thumbColor={colors.surface}
+        />
+      </View>
+
+      <View className="mb-6 flex-row items-center justify-between px-4 py-3.5" style={rowStyle}>
+        <View className="flex-1 pr-3">
+          <Text className="text-base font-semibold text-ink">Sub-notes on canvas</Text>
+          <Text className="mt-0.5 text-xs text-muted">
+            Show them as connected cards, or just the idea they belong to.
+          </Text>
+        </View>
+        <Switch
+          value={showChildNotes}
+          onValueChange={setShowChildNotes}
+          trackColor={{ true: colors.accent, false: shade(colors.surface, -0.15) }}
+          thumbColor={colors.surface}
+        />
+      </View>
+    </>
+  );
+}
+
+function AccountSection() {
+  const router = useRouter();
+  const { signOut } = useAuth();
+  const deleteAccount = useDeleteAccount();
+  const { colors } = useTheme();
+  const rowStyle = clay({ color: shade(colors.surface, -0.05), radius: 18, depth: 0.5 });
 
   const handleSignOut = () => {
     Alert.alert('Sign out?', undefined, [
@@ -152,6 +234,49 @@ export default function SettingsScreen() {
   };
 
   return (
+    <>
+      <SectionHeading dot="#FFCA28">Account</SectionHeading>
+      <TouchableOpacity className="mb-2.5 px-4 py-4" style={rowStyle} onPress={() => router.push('/keys')}>
+        <Text className="text-base font-semibold text-ink">Your API keys</Text>
+        <Text className="mt-0.5 text-xs text-muted">
+          Use your own provider key and these requests stop costing credits.
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity className="mb-2.5 px-4 py-4" style={rowStyle} onPress={() => router.push('/credits')}>
+        <Text className="text-base font-semibold text-ink">Credits & billing</Text>
+        <Text className="mt-0.5 text-xs text-muted">Balance and history.</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        className="mb-6 flex-row items-center px-4 py-4"
+        style={rowStyle}
+        onPress={handleDeleteAccount}
+        disabled={deleteAccount.isPending}
+      >
+        {deleteAccount.isPending ? (
+          <ActivityIndicator color="#E53935" style={{ marginRight: 10 }} />
+        ) : (
+          <Trash2 size={18} color="#E53935" strokeWidth={2.5} style={{ marginRight: 10 }} />
+        )}
+        <Text className="text-base font-semibold" style={{ color: '#E53935' }}>
+          Delete account
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity className="flex-row items-center justify-center px-4 py-4" style={rowStyle} onPress={handleSignOut}>
+        <LogOut size={18} color={colors.muted} strokeWidth={2.5} style={{ marginRight: 10 }} />
+        <Text className="text-base font-semibold text-muted">Log out</Text>
+      </TouchableOpacity>
+    </>
+  );
+}
+
+export default function SettingsScreen() {
+  const router = useRouter();
+  const { colors } = useTheme();
+
+  return (
     <SafeAreaView className="flex-1 bg-board">
       <View
         className="z-30 mx-3 mt-2 flex-row items-center px-4 py-3"
@@ -165,106 +290,9 @@ export default function SettingsScreen() {
 
       <ScrollView className="px-5" contentContainerStyle={{ paddingVertical: 20 }}>
         <ProfileCard />
-
-        <SectionHeading dot="#66BB6A">AI models</SectionHeading>
-        <ModelPicker
-          title="Voice → text"
-          subtitle="Which model listens to your recording and writes the transcript."
-          kind="transcribe"
-          models={models}
-          selectedId={prefs?.transcribeModelId ?? null}
-          saving={setPreference.isPending}
-          onSelect={choose('transcribe')}
-        />
-        <ModelPicker
-          title="Text → sticky notes"
-          subtitle="Which model reads the transcript and decides what the notes say."
-          kind="chat"
-          models={models}
-          selectedId={prefs?.chatModelId ?? null}
-          saving={setPreference.isPending}
-          onSelect={choose('chat')}
-        />
-
-        <SectionHeading dot="#42A5F5">Appearance</SectionHeading>
-        <View className="mb-3">
-          <ThemeToggle />
-        </View>
-
-        <View className="mb-2.5 flex-row items-center justify-between px-4 py-3.5" style={rowStyle}>
-          <View className="flex-1 pr-3">
-            <Text className="text-base font-semibold text-ink">Hand-drawn text</Text>
-            <Text className="mt-0.5 text-xs text-muted">Excalidraw-style font instead of the system default.</Text>
-          </View>
-          <Switch
-            value={handDrawnEnabled}
-            onValueChange={setHandDrawnEnabled}
-            trackColor={{ true: colors.accent, false: shade(colors.surface, -0.15) }}
-            thumbColor={colors.surface}
-          />
-        </View>
-
-        <View className="mb-2.5 flex-row items-center justify-between px-4 py-3.5" style={rowStyle}>
-          <View className="flex-1 pr-3">
-            <Text className="text-base font-semibold text-ink">Canvas background</Text>
-            <Text className="mt-0.5 text-xs text-muted">Grid and colour orbs, or a plain solid board.</Text>
-          </View>
-          <Switch
-            value={canvasBackgroundEnabled}
-            onValueChange={setCanvasBackgroundEnabled}
-            trackColor={{ true: colors.accent, false: shade(colors.surface, -0.15) }}
-            thumbColor={colors.surface}
-          />
-        </View>
-
-        <View className="mb-6 flex-row items-center justify-between px-4 py-3.5" style={rowStyle}>
-          <View className="flex-1 pr-3">
-            <Text className="text-base font-semibold text-ink">Sub-notes on canvas</Text>
-            <Text className="mt-0.5 text-xs text-muted">
-              Show them as connected cards, or just the idea they belong to.
-            </Text>
-          </View>
-          <Switch
-            value={showChildNotes}
-            onValueChange={setShowChildNotes}
-            trackColor={{ true: colors.accent, false: shade(colors.surface, -0.15) }}
-            thumbColor={colors.surface}
-          />
-        </View>
-
-        <SectionHeading dot="#FFCA28">Account</SectionHeading>
-        <TouchableOpacity className="mb-2.5 px-4 py-4" style={rowStyle} onPress={() => router.push('/keys')}>
-          <Text className="text-base font-semibold text-ink">Your API keys</Text>
-          <Text className="mt-0.5 text-xs text-muted">
-            Use your own provider key and these requests stop costing credits.
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity className="mb-2.5 px-4 py-4" style={rowStyle} onPress={() => router.push('/credits')}>
-          <Text className="text-base font-semibold text-ink">Credits & billing</Text>
-          <Text className="mt-0.5 text-xs text-muted">Balance and history.</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          className="mb-6 flex-row items-center px-4 py-4"
-          style={rowStyle}
-          onPress={handleDeleteAccount}
-          disabled={deleteAccount.isPending}
-        >
-          {deleteAccount.isPending ? (
-            <ActivityIndicator color="#E53935" style={{ marginRight: 10 }} />
-          ) : (
-            <Trash2 size={18} color="#E53935" strokeWidth={2.5} style={{ marginRight: 10 }} />
-          )}
-          <Text className="text-base font-semibold" style={{ color: '#E53935' }}>
-            Delete account
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity className="flex-row items-center justify-center px-4 py-4" style={rowStyle} onPress={handleSignOut}>
-          <LogOut size={18} color={colors.muted} strokeWidth={2.5} style={{ marginRight: 10 }} />
-          <Text className="text-base font-semibold text-muted">Log out</Text>
-        </TouchableOpacity>
+        <AiModelsSection />
+        <AppearanceSection />
+        <AccountSection />
       </ScrollView>
     </SafeAreaView>
   );

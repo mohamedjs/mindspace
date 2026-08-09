@@ -53,3 +53,12 @@ export async function deleteSpace(spaceId: string): Promise<void> {
 
   if (error) throw error;
 }
+
+export async function updateSpace(spaceId: string, name: string): Promise<void> {
+  const { error } = await supabase
+    .from('spaces')
+    .update({ name: name.trim() })
+    .eq('id', spaceId);
+
+  if (error) throw error;
+}

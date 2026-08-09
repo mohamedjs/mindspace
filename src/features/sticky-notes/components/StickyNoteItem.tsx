@@ -148,7 +148,7 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
     <GestureDetector gesture={composed}>
       <Animated.View
         className="absolute"
-        style={[{ width: note.width || 190, minHeight: note.height || 145 }, animatedStyle]}
+        style={[{ width: note.width || 240, minHeight: note.height || 200 }, animatedStyle]}
       >
         {/*
           Cast shadow sits on its own layer *behind* the paper rather than on

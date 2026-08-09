@@ -8,7 +8,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CanvasRoot } from '../features/canvas/components/CanvasRoot';
 import { SpacesSheet } from '../features/canvas/components/SpacesSheet';
 import { RecordingsSheet } from '../features/voice/components/RecordingsSheet';
-import { createSpace, deleteSpace, fetchSpaces } from '../features/canvas/api/spaces.api';
+import { createSpace, deleteSpace, fetchSpaces, updateSpace } from '../features/canvas/api/spaces.api';
 import { queryKeys } from '../lib/query-client/keys';
 import {
   useNotes,
@@ -59,26 +59,15 @@ export default function HomeScreen() {
     AsyncStorage.setItem(LAST_SPACE_KEY, id).catch(() => {});
   }, []);
 
-  // Every user needs somewhere to put their first thought — make one rather
-  // than showing an empty screen with no way forward. Prefer the space the
-  // user was last on so switching spaces survives an app restart.
+  // Auto-select the very first space (spaces[0]) whenever spaces load
+  // and no space is currently selected. The backend auto-creates one on signup.
   useEffect(() => {
     if (!user || spacesLoading || spaceId) return;
 
     if (spaces?.length) {
-      AsyncStorage.getItem(LAST_SPACE_KEY).then((lastId) => {
-        const stillExists = lastId && spaces.some((s) => s.id === lastId);
-        setSpaceId(stillExists ? lastId! : spaces[0].id);
-      });
-      return;
+      setSpaceId(spaces[0].id);
     }
-
-    if (spaces) {
-      createSpace('My MindSpace')
-        .then((space) => selectSpace(space.id))
-        .catch(() => {});
-    }
-  }, [user, spaces, spacesLoading, spaceId, selectSpace]);
+  }, [user, spaces, spacesLoading, spaceId]);
 
   const { data: notes } = useNotes(spaceId);
   const { data: balance } = useBalance();
@@ -123,6 +112,13 @@ export default function HomeScreen() {
         setSpaceId(null);
         AsyncStorage.removeItem(LAST_SPACE_KEY).catch(() => {});
       }
+    },
+  });
+
+  const updateSpaceMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => updateSpace(id, name),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.spaces.all });
     },
   });
 
@@ -225,6 +221,7 @@ export default function HomeScreen() {
           setSpacesSheetOpen(false);
         }}
         onCreate={(name, emoji) => createSpaceMutation.mutate({ name, emoji })}
+        onRename={(id, name) => updateSpaceMutation.mutate({ id, name })}
         onDelete={(id) => deleteSpaceMutation.mutate(id)}
         onClose={() => setSpacesSheetOpen(false)}
       />

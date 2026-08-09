@@ -173,18 +173,7 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
             borderBottomRightRadius: CURL, // Carve out the corner!
           }}
         >
-          {/*
-            Real sticky notes are glued along the top, and that band catches
-            light differently from the free-hanging rest of the sheet.
-          */}
-          <View
-            className="absolute inset-x-0 top-0 h-[26px]"
-            style={{
-              backgroundColor: shade(paperBg, 0.16),
-              borderTopLeftRadius: 3,
-              borderTopRightRadius: 3,
-            }}
-          />
+
 
           <View className="mt-0.5 flex-1">
             {Boolean(note.title) && (

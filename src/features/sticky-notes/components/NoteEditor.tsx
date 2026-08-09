@@ -237,17 +237,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack 
             borderBottomColor: shade(paperBg, -0.14),
           }}
         >
-          {/* Top decorative "glue strip" bar */}
-          <View
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: insets.top + 6,
-              backgroundColor: shade(paperBg, 0.16),
-            }}
-          />
+
 
           <View className="flex-row items-center justify-between">
             {/* Back button */}

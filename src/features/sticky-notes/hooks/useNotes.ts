@@ -139,6 +139,33 @@ export function useTidyNotes(spaceId: string | null) {
       qc.setQueryData<StickyNoteData[]>(key, tidyWithClusters(notes));
       return { previous };
     },
+
+    onError: (_err, _vars, context) => {
+      if (context?.previous) qc.setQueryData(key, context.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: key }),
+  });
+}
+
+/** Update multiple notes positions at once when moving a cluster. */
+export function useMoveCluster(spaceId: string | null) {
+  const qc = useQueryClient();
+  const key = queryKeys.notes.bySpace(spaceId ?? '');
+
+  return useMutation({
+    mutationFn: (moves: { id: string; x: number; y: number }[]) => bulkMoveNotes(moves),
+    onMutate: async (moves) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<StickyNoteData[]>(key);
+      const moveMap = new Map(moves.map((m) => [m.id, m]));
+      qc.setQueryData<StickyNoteData[]>(key, (old) =>
+        (old ?? []).map((note) => {
+          const move = moveMap.get(note.id);
+          return move ? { ...note, x: move.x, y: move.y } : note;
+        })
+      );
+      return { previous };
+    },
     onError: (_err, _vars, context) => {
       if (context?.previous) qc.setQueryData(key, context.previous);
     },

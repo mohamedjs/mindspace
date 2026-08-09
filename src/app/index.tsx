@@ -12,11 +12,19 @@ import { createSpace, deleteSpace, fetchSpaces, updateSpace } from '../features/
 import { queryKeys } from '../lib/query-client/keys';
 import {
   useNotes,
+  useCreateNote,
   useUpdateNoteColor,
   useMoveNote,
   useDeleteNote,
   useTidyNotes,
+  useMoveCluster,
 } from '../features/sticky-notes/hooks/useNotes';
+import {
+  useGroups,
+  useCreateGroup,
+  useUpdateGroup,
+  useDeleteGroup,
+} from '../features/canvas/hooks/useGroups';
 import { useBalance } from '../features/credits/hooks/useCredits';
 import { useRecordingStatus } from '../features/voice/hooks/useRecordingStatus';
 import { runThinkingPipeline } from '../features/voice/services/pipeline';
@@ -73,8 +81,14 @@ export default function HomeScreen() {
   const { data: balance } = useBalance();
   const recolor = useUpdateNoteColor(spaceId);
   const moveNote = useMoveNote(spaceId);
+  const moveCluster = useMoveCluster(spaceId);
   const removeNote = useDeleteNote(spaceId);
+  const addNote = useCreateNote(spaceId);
   const tidyNotes = useTidyNotes(spaceId);
+  const { data: groups } = useGroups(spaceId);
+  const addGroup = useCreateGroup(spaceId);
+  const editGroup = useUpdateGroup(spaceId);
+  const removeGroup = useDeleteGroup(spaceId);
   const { status: recordingStatus } = useRecordingStatus(recordingId ?? null);
 
   // Tallied from the full list regardless of the visibility setting below —
@@ -164,11 +178,60 @@ export default function HomeScreen() {
     [moveNote]
   );
 
+  const handleMoveCluster = useCallback(
+    (moves: { id: string; x: number; y: number }[]) => moveCluster.mutate(moves),
+    [moveCluster]
+  );
+
   // Soft delete, so the recordings sheet still shows what the recording produced
   // and the row survives for undo.
   const handleDeleteNote = useCallback(
     (noteId: string) => removeNote.mutate(noteId),
     [removeNote]
+  );
+
+  // Straight into the editor — an empty card sitting on the board with no
+  // keyboard up is a dead end, and the point of tapping "add" is to write.
+  const handleAddNote = useCallback(
+    (x: number, y: number) =>
+      addNote.mutate(
+        { content: 'New note', x, y },
+        {
+          onSuccess: (note) =>
+            router.push({
+              pathname: '/note/[id]',
+              params: { id: note.id, spaceId: spaceId ?? '' },
+            }),
+          onError: (err) =>
+            Toast.show({ type: 'error', text1: 'Could not add a note', text2: err.message }),
+        }
+      ),
+    [addNote, router, spaceId]
+  );
+
+  const handleAddGroup = useCallback(
+    (x: number, y: number) => addGroup.mutate({ x, y }),
+    [addGroup]
+  );
+
+  const handleRenameGroup = useCallback(
+    (groupId: string, title: string) => editGroup.mutate({ groupId, title }),
+    [editGroup]
+  );
+
+  const handleMoveGroup = useCallback(
+    (groupId: string, x: number, y: number) => editGroup.mutate({ groupId, x, y }),
+    [editGroup]
+  );
+
+  const handleResizeGroup = useCallback(
+    (groupId: string, width: number, height: number) => editGroup.mutate({ groupId, width, height }),
+    [editGroup]
+  );
+
+  const handleDeleteGroup = useCallback(
+    (groupId: string) => removeGroup.mutate(groupId),
+    [removeGroup]
   );
 
   if (authLoading) {
@@ -189,10 +252,18 @@ export default function HomeScreen() {
         spaceName={activeSpace?.name ?? 'My MindSpace'}
         creditBalance={available}
         notes={visibleNotes}
+        groups={groups}
         childCounts={childCounts}
+        onAddNote={handleAddNote}
+        onAddGroup={handleAddGroup}
+        onRenameGroup={handleRenameGroup}
+        onMoveGroup={handleMoveGroup}
+        onResizeGroup={handleResizeGroup}
+        onDeleteGroup={handleDeleteGroup}
         onUpdateNoteColor={handleUpdateColor}
         onDeleteNote={handleDeleteNote}
         onMoveNote={handleMoveNote}
+        onMoveCluster={handleMoveCluster}
         onOpenCredits={() => router.push('/credits')}
         onOpenSpaces={() => setSpacesSheetOpen(true)}
         onOpenSettings={() => router.push('/settings')}

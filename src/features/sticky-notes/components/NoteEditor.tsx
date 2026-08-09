@@ -11,12 +11,16 @@ import {
 } from 'react-native';
 import { Text } from '../../../shared/ui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useTheme } from '../../../shared/theme';
 import { clay, shade } from '../../../shared/theme/clay';
 import { readableTextOn, luminance } from '../../../shared/theme/color';
 import { noteColors, type NoteType } from '../../../shared/constants/tokens';
+import { placeChild } from '../../ai/services/layout';
 import {
   useNote,
+  useNotes,
+  useCreateNote,
   useUpdateNoteContent,
   useUpdateNoteColor,
   useUpdateNoteType,
@@ -27,7 +31,9 @@ import { PeelFlap } from './PeelFlap';
 import {
   ArrowLeft,
   Check,
+  ChevronRight,
   Palette,
+  Plus,
   Trash2,
   List,
   Save,
@@ -72,19 +78,28 @@ interface NoteEditorProps {
 
 export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack }) => {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { colors, scheme } = useTheme();
 
   const { data: note, isLoading } = useNote(noteId);
+  // Prefer the space id off the note itself once it loads — the nav param is
+  // fragile (a cold-start deep link can arrive without it).
+  const effectiveSpaceId = note?.spaceId ?? spaceId ?? null;
+
   const updateContent = useUpdateNoteContent();
-  const updateColor = useUpdateNoteColor(spaceId ?? null);
+  const updateColor = useUpdateNoteColor(effectiveSpaceId);
   const updateType = useUpdateNoteType();
-  const deleteNote = useDeleteNote(spaceId ?? null);
+  const deleteNote = useDeleteNote(effectiveSpaceId);
+  const createSubNote = useCreateNote(effectiveSpaceId);
+  const { data: spaceNotes } = useNotes(effectiveSpaceId);
+  const children = spaceNotes?.filter((n) => n.parentId === noteId) ?? [];
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [dirty, setDirty] = useState(false);
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
   const [typePickerVisible, setTypePickerVisible] = useState(false);
+  const [subNoteText, setSubNoteText] = useState('');
 
   const contentRef = useRef<TextInput>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -159,6 +174,30 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack 
       setTypePickerVisible(false);
     },
     [noteId, updateType]
+  );
+
+  const handleAddSubNote = useCallback(() => {
+    const text = subNoteText.trim();
+    if (!text || !note) return;
+    const occupied = (spaceNotes ?? [])
+      .filter((n) => n.id !== noteId)
+      .map((n) => ({ x: n.x, y: n.y, width: n.width ?? 190, height: n.height ?? 145 }));
+    const rect = placeChild(
+      { x: note.x, y: note.y, width: note.width ?? 190, height: note.height ?? 145 },
+      children.length,
+      occupied
+    );
+    createSubNote.mutate(
+      { content: text, x: rect.x, y: rect.y, parentId: noteId },
+      { onSuccess: () => setSubNoteText('') }
+    );
+  }, [subNoteText, note, noteId, createSubNote, children.length, spaceNotes]);
+
+  const openChildNote = useCallback(
+    (childId: string) => {
+      router.push({ pathname: '/note/[id]', params: { id: childId, spaceId: effectiveSpaceId ?? '' } });
+    },
+    [router, effectiveSpaceId]
   );
 
   /** Insert a bullet point prefix at the cursor position. */
@@ -460,6 +499,81 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack 
             scrollEnabled={false}
             textAlignVertical="top"
           />
+
+          {/* ─── Sub-notes ─── */}
+          {effectiveSpaceId && (
+            <View className="mt-8">
+              <Text
+                className="mb-3 text-xs font-bold uppercase tracking-wider"
+                style={{ color: mutedTextColor }}
+              >
+                Sub-notes{children.length ? ` (${children.length})` : ''}
+              </Text>
+
+              {children.map((child) => {
+                const childBg = child.color || noteColors[child.type]?.bg || '#FFF8BC';
+                return (
+                  <TouchableOpacity
+                    key={child.id}
+                    className="mb-2 flex-row items-center px-3 py-3"
+                    style={{
+                      backgroundColor: shade(paperBg, -0.08),
+                      borderRadius: 14,
+                      borderLeftWidth: 4,
+                      borderLeftColor: childBg,
+                    }}
+                    activeOpacity={0.75}
+                    onPress={() => openChildNote(child.id)}
+                  >
+                    <View className="flex-1 pr-2">
+                      {Boolean(child.title) && (
+                        <Text
+                          className="text-sm font-bold"
+                          numberOfLines={1}
+                          style={{ color: textColor }}
+                        >
+                          {child.title}
+                        </Text>
+                      )}
+                      <Text className="text-xs" numberOfLines={2} style={{ color: mutedTextColor }}>
+                        {child.content}
+                      </Text>
+                    </View>
+                    <ChevronRight size={16} color={mutedTextColor} strokeWidth={2.5} />
+                  </TouchableOpacity>
+                );
+              })}
+
+              <View className="mt-1 flex-row items-center">
+                <TextInput
+                  value={subNoteText}
+                  onChangeText={setSubNoteText}
+                  placeholder="Add a sub-note…"
+                  placeholderTextColor={mutedTextColor}
+                  className="mr-2 flex-1 px-3.5 py-3 text-sm"
+                  style={{ backgroundColor: shade(paperBg, -0.08), borderRadius: 14, color: textColor }}
+                  onSubmitEditing={handleAddSubNote}
+                  returnKeyType="done"
+                />
+                <TouchableOpacity
+                  onPress={handleAddSubNote}
+                  disabled={!subNoteText.trim() || createSubNote.isPending}
+                  className="h-11 w-11 items-center justify-center"
+                  style={clay({
+                    color: colors.accent,
+                    radius: 14,
+                    depth: subNoteText.trim() ? 0.7 : 0.3,
+                  })}
+                >
+                  {createSubNote.isPending ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Plus size={18} color="#FFF" strokeWidth={2.5} />
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 

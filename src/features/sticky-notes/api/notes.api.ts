@@ -2,6 +2,8 @@ import { supabase } from '../../../lib/supabase/client';
 import type { StickyNoteData } from '../components/StickyNoteItem';
 import type { NoteType } from '../../../shared/constants/tokens';
 
+const NOTE_COLUMNS = 'id, title, content, type, color, x, y, width, height, parent_id, space_id';
+
 interface NoteRow {
   id: string;
   title: string | null;
@@ -12,6 +14,8 @@ interface NoteRow {
   y: number;
   width: number;
   height: number;
+  parent_id: string | null;
+  space_id: string;
 }
 
 function toNote(row: NoteRow): StickyNoteData {
@@ -25,13 +29,15 @@ function toNote(row: NoteRow): StickyNoteData {
     y: row.y,
     width: row.width,
     height: row.height,
+    parentId: row.parent_id,
+    spaceId: row.space_id,
   };
 }
 
 export async function fetchNotes(spaceId: string): Promise<StickyNoteData[]> {
   const { data, error } = await supabase
     .from('sticky_notes')
-    .select('id, title, content, type, color, x, y, width, height')
+    .select(NOTE_COLUMNS)
     .eq('space_id', spaceId)
     .is('deleted_at', null);
 
@@ -41,7 +47,7 @@ export async function fetchNotes(spaceId: string): Promise<StickyNoteData[]> {
 
 export async function createNote(
   spaceId: string,
-  note: { content: string; type?: NoteType; x: number; y: number }
+  note: { content: string; type?: NoteType; x: number; y: number; parentId?: string | null }
 ): Promise<StickyNoteData> {
   const { data, error } = await supabase
     .from('sticky_notes')
@@ -51,9 +57,10 @@ export async function createNote(
       type: note.type ?? 'idea',
       x: note.x,
       y: note.y,
+      parent_id: note.parentId ?? null,
       source_type: 'manual',
     })
-    .select('id, title, content, type, color, x, y, width, height')
+    .select(NOTE_COLUMNS)
     .single();
 
   if (error) throw error;
@@ -88,7 +95,7 @@ export async function deleteNote(noteId: string): Promise<void> {
 export async function fetchNote(noteId: string): Promise<StickyNoteData | null> {
   const { data, error } = await supabase
     .from('sticky_notes')
-    .select('id, title, content, type, color, x, y, width, height')
+    .select(NOTE_COLUMNS)
     .eq('id', noteId)
     .is('deleted_at', null)
     .single();

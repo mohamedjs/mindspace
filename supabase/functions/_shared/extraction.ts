@@ -25,6 +25,8 @@ const extractedNoteSchema = z.object({
   content: z.string().min(1),
   type: z.enum(NOTE_TYPES).catch('idea'),
   color: z.string().nullable().optional(),
+  /** clientKey of the idea this note elaborates on, or an existing note's id, or null. */
+  parentClientKey: z.string().nullable().optional(),
   spanStart: z.number().int().nonnegative().nullable().optional(),
   spanEnd: z.number().int().nonnegative().nullable().optional(),
 });
@@ -126,10 +128,58 @@ export function parseExtraction(raw: string): Extraction {
   // silently attach to the wrong one.
   const usableKey = (key: string) => seen.get(key) === 1;
 
+  // A parentClientKey that names a clientKey from THIS batch must be
+  // unambiguous, same as a relation endpoint. A key that isn't in `seen` at
+  // all is left untouched — it's presumed to be an existing note's real id,
+  // which the caller (with DB access) resolves; this function only knows
+  // about the batch. Self-reference is always invalid regardless.
+  const notesWithValidParents = notes.map((note) => {
+    const key = note.parentClientKey;
+    if (!key || key === note.clientKey) return { ...note, parentClientKey: null };
+    if (seen.has(key) && !usableKey(key)) return { ...note, parentClientKey: null };
+    return note;
+  });
+
   return {
-    notes,
+    notes: notesWithValidParents,
     relations: parsed.relations.filter(
       (rel) => usableKey(rel.from) && usableKey(rel.to) && rel.from !== rel.to
     ),
   };
+}
+
+export interface ParentResolutionContext {
+  /** clientKey -> array index within this batch, for the parent-before-child rule. */
+  batchIndex: Map<string, number>;
+  /** clientKey -> the real id assigned to that note (generated before insert). */
+  batchIds: Map<string, string>;
+  /** ids of notes that already exist in the space, from an earlier recording. */
+  existingIds: Set<string>;
+}
+
+/**
+ * Resolves a note's parentClientKey to a real sticky_notes.id, or null.
+ *
+ * A same-batch reference only resolves if the parent appears earlier in the
+ * array — Postgres FK checks are deferred to the end of a multi-row INSERT,
+ * so without this ordering check a same-batch cycle or forward reference
+ * would otherwise commit. An existing note always resolves since it's
+ * already committed and can't depend on a note that isn't inserted yet.
+ * Anything else (hallucinated key, unknown id) silently drops to top-level
+ * instead of failing the whole extraction.
+ */
+export function resolveParentId(
+  note: { clientKey: string; parentClientKey?: string | null },
+  index: number,
+  ctx: ParentResolutionContext
+): string | null {
+  const key = note.parentClientKey;
+  if (!key) return null;
+
+  const parentIndex = ctx.batchIndex.get(key);
+  if (parentIndex !== undefined) {
+    return parentIndex < index ? ctx.batchIds.get(key) ?? null : null;
+  }
+
+  return ctx.existingIds.has(key) ? key : null;
 }

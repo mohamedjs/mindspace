@@ -11,6 +11,7 @@ import { StickyNoteItem, StickyNoteData } from '../../sticky-notes/components/St
 import { CreditChip } from '../../credits/components/CreditChip';
 import { useTheme } from '../../../shared/theme';
 import { CanvasBackground } from './CanvasBackground';
+import { NoteConnectors } from './NoteConnectors';
 import { clay, clayAccent, shade } from '../../../shared/theme/clay';
 import { Mic, Settings, LayoutGrid } from 'lucide-react-native';
 
@@ -28,6 +29,8 @@ interface CanvasRootProps {
   onOpenRecordings?: () => void;
   onTidy?: () => void;
   onPressNote?: (noteId: string) => void;
+  /** noteId -> number of sub-notes it has, for the corner badge. */
+  childCounts?: Map<string, number>;
 }
 
 const DEMO_FALLBACK_NOTES: StickyNoteData[] = [
@@ -95,6 +98,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   onOpenRecordings,
   onTidy,
   onPressNote,
+  childCounts,
 }) => {
   const { colors } = useTheme();
   const [localNotes, setLocalNotes] = useState<StickyNoteData[]>(DEMO_FALLBACK_NOTES);
@@ -223,6 +227,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
       <GestureDetector gesture={canvasGesture}>
         <View className="flex-1 overflow-hidden">
           <Animated.View style={[{ width: '100%', height: '100%' }, canvasAnimatedStyle]}>
+            <NoteConnectors notes={displayNotes} />
             {displayNotes.map((note) => (
               <StickyNoteItem
                 key={note.id}
@@ -232,6 +237,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
                 onMove={handleMoveNote}
                 onPressNote={onPressNote}
                 canvasScale={scaleValue}
+                childCount={childCounts?.get(note.id)}
               />
             ))}
           </Animated.View>

@@ -74,7 +74,7 @@ export function useCreateNote(spaceId: string | null) {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: (note: { content: string; x: number; y: number }) =>
+    mutationFn: (note: { content: string; x: number; y: number; parentId?: string | null }) =>
       createNote(spaceId!, note),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: queryKeys.notes.bySpace(spaceId ?? '') }),
@@ -92,16 +92,43 @@ export function useDeleteNote(spaceId: string | null) {
 }
 
 /**
- * Re-flows the board into the 4-column grid. Notes keep their current order,
- * so a tidy is predictable rather than a reshuffle.
+ * Re-flows only the top-level ideas into the 4-column grid, in their current
+ * order — a tidy is predictable rather than a reshuffle. Sub-notes aren't
+ * regridded (they're connected to their parent by a line, not a slot); they
+ * instead shift by the same delta as their ancestor's move, so a cluster
+ * stays visually attached instead of the connector line stretching across
+ * the board. A few propagation passes cover nesting deeper than one level.
  */
+function tidyWithClusters(notes: StickyNoteData[]): StickyNoteData[] {
+  const topLevel = notes.filter((n) => !n.parentId);
+  const tidiedTopLevel = tidyLayout(topLevel);
+
+  const deltaById = new Map<string, { dx: number; dy: number }>();
+  tidiedTopLevel.forEach((n, i) =>
+    deltaById.set(n.id, { dx: n.x - topLevel[i].x, dy: n.y - topLevel[i].y })
+  );
+
+  for (let pass = 0; pass < 3; pass++) {
+    for (const note of notes) {
+      if (note.parentId && !deltaById.has(note.id) && deltaById.has(note.parentId)) {
+        deltaById.set(note.id, deltaById.get(note.parentId)!);
+      }
+    }
+  }
+
+  return notes.map((note) => {
+    const delta = deltaById.get(note.id);
+    return delta ? { ...note, x: note.x + delta.dx, y: note.y + delta.dy } : note;
+  });
+}
+
 export function useTidyNotes(spaceId: string | null) {
   const qc = useQueryClient();
   const key = queryKeys.notes.bySpace(spaceId ?? '');
 
   return useMutation({
     mutationFn: async (notes: StickyNoteData[]) => {
-      const tidied = tidyLayout(notes);
+      const tidied = tidyWithClusters(notes);
       await bulkMoveNotes(tidied.map(({ id, x, y }) => ({ id, x, y })));
       return tidied;
     },
@@ -109,7 +136,7 @@ export function useTidyNotes(spaceId: string | null) {
     onMutate: async (notes) => {
       await qc.cancelQueries({ queryKey: key });
       const previous = qc.getQueryData<StickyNoteData[]>(key);
-      qc.setQueryData<StickyNoteData[]>(key, tidyLayout(notes));
+      qc.setQueryData<StickyNoteData[]>(key, tidyWithClusters(notes));
       return { previous };
     },
     onError: (_err, _vars, context) => {

@@ -107,8 +107,15 @@ export default function SettingsScreen() {
   const { data: prefs } = useModelPreferences();
   const setPreference = useSetModelPreference();
   const deleteAccount = useDeleteAccount();
-  const { colors, handDrawnEnabled, setHandDrawnEnabled, canvasBackgroundEnabled, setCanvasBackgroundEnabled } =
-    useTheme();
+  const {
+    colors,
+    handDrawnEnabled,
+    setHandDrawnEnabled,
+    canvasBackgroundEnabled,
+    setCanvasBackgroundEnabled,
+    showChildNotes,
+    setShowChildNotes,
+  } = useTheme();
   const rowStyle = clay({ color: shade(colors.surface, -0.05), radius: 18, depth: 0.5 });
 
   const choose = (kind: 'chat' | 'transcribe') => (modelRowId: string | null) =>
@@ -197,7 +204,7 @@ export default function SettingsScreen() {
           />
         </View>
 
-        <View className="mb-6 flex-row items-center justify-between px-4 py-3.5" style={rowStyle}>
+        <View className="mb-2.5 flex-row items-center justify-between px-4 py-3.5" style={rowStyle}>
           <View className="flex-1 pr-3">
             <Text className="text-base font-semibold text-ink">Canvas background</Text>
             <Text className="mt-0.5 text-xs text-muted">Grid and colour orbs, or a plain solid board.</Text>
@@ -205,6 +212,21 @@ export default function SettingsScreen() {
           <Switch
             value={canvasBackgroundEnabled}
             onValueChange={setCanvasBackgroundEnabled}
+            trackColor={{ true: colors.accent, false: shade(colors.surface, -0.15) }}
+            thumbColor={colors.surface}
+          />
+        </View>
+
+        <View className="mb-6 flex-row items-center justify-between px-4 py-3.5" style={rowStyle}>
+          <View className="flex-1 pr-3">
+            <Text className="text-base font-semibold text-ink">Sub-notes on canvas</Text>
+            <Text className="mt-0.5 text-xs text-muted">
+              Show them as connected cards, or just the idea they belong to.
+            </Text>
+          </View>
+          <Switch
+            value={showChildNotes}
+            onValueChange={setShowChildNotes}
             trackColor={{ true: colors.accent, false: shade(colors.surface, -0.15) }}
             thumbColor={colors.surface}
           />

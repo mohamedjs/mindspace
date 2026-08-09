@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, TouchableOpacity, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { Text } from '../shared/ui/Text';
@@ -42,7 +42,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const qc = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
-  const { colors } = useTheme();
+  const { colors, showChildNotes } = useTheme();
   const { recordingId } = useLocalSearchParams<{ recordingId?: string }>();
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [spacesSheetOpen, setSpacesSheetOpen] = useState(false);
@@ -87,6 +87,24 @@ export default function HomeScreen() {
   const removeNote = useDeleteNote(spaceId);
   const tidyNotes = useTidyNotes(spaceId);
   const { status: recordingStatus } = useRecordingStatus(recordingId ?? null);
+
+  // Tallied from the full list regardless of the visibility setting below —
+  // the badge should still say "3 sub-notes" even while they're hidden.
+  const childCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    notes?.forEach((n) => {
+      if (n.parentId) counts.set(n.parentId, (counts.get(n.parentId) ?? 0) + 1);
+    });
+    return counts;
+  }, [notes]);
+
+  // The "sub-notes on canvas" setting only affects what's drawn — tidy and
+  // the badge count still need the full list (including hidden children) so
+  // clusters keep moving together and counts stay accurate either way.
+  const visibleNotes = useMemo(
+    () => (showChildNotes ? notes : notes?.filter((n) => !n.parentId)),
+    [notes, showChildNotes]
+  );
 
   const createSpaceMutation = useMutation({
     mutationFn: ({ name, emoji }: { name: string; emoji: string }) => createSpace(name, emoji),
@@ -174,7 +192,8 @@ export default function HomeScreen() {
       <CanvasRoot
         spaceName={activeSpace?.name ?? 'My MindSpace'}
         creditBalance={available}
-        notes={notes}
+        notes={visibleNotes}
+        childCounts={childCounts}
         onUpdateNoteColor={handleUpdateColor}
         onDeleteNote={handleDeleteNote}
         onMoveNote={handleMoveNote}

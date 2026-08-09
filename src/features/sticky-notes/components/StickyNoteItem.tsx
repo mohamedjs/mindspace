@@ -31,6 +31,10 @@ export interface StickyNoteData {
   width?: number;
   height?: number;
   rotation?: number;
+  /** Null for a top-level idea; the parent's id for a sub-note. */
+  parentId?: string | null;
+  /** The space this note lives in — read off the row so callers don't need it passed separately. */
+  spaceId?: string;
 }
 
 interface StickyNoteItemProps {
@@ -42,6 +46,8 @@ interface StickyNoteItemProps {
   onMove?: (id: string, x: number, y: number) => void;
   /** Live canvas zoom, so a drag can be converted from screen px to world units. */
   canvasScale?: SharedValue<number>;
+  /** How many sub-notes this idea has, if any — shown as a small corner badge. */
+  childCount?: number;
 }
 
 export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
@@ -51,6 +57,7 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
   onPressNote,
   onMove,
   canvasScale,
+  childCount,
 }) => {
   const { colors } = useTheme();
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
@@ -212,6 +219,17 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
         <View className="absolute -top-[9px] left-0 right-0 z-20 items-center">
           <PushPin isLifted={isLifted} />
         </View>
+
+        {Boolean(childCount) && (
+          <View
+            className="absolute -right-2 -top-2 z-20 h-6 min-w-6 items-center justify-center rounded-full px-1"
+            style={{ backgroundColor: shade(paperBg, -0.35) }}
+          >
+            <Text className="text-[11px] font-bold" style={{ color: textColor }}>
+              {childCount}
+            </Text>
+          </View>
+        )}
 
 
 

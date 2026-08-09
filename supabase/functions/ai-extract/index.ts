@@ -10,8 +10,8 @@ import {
   EXTRACT_THOUGHTS_VERSION,
   buildExtractUserPrompt,
 } from '../_shared/prompts/extractThoughts.ts';
-import { colorForNote, parseExtraction } from '../_shared/extraction.ts';
-import { layoutNewNotes } from '../_shared/layout.ts';
+import { colorForNote, parseExtraction, resolveParentId } from '../_shared/extraction.ts';
+import { layoutNewNotes, placeChild, type Rect } from '../_shared/layout.ts';
 
 /** Flat estimate before the model multiplier; settled against real token usage. */
 const BASE_EXTRACT_CREDITS = 8;
@@ -51,15 +51,19 @@ Deno.serve(async (req) => {
       reservationId = await reserveCredits(db, estimated, 'usage');
     }
 
-    // Existing notes give the model context (don't duplicate) and the layout
-    // engine the occupied rects.
+    // Existing notes give the model context (don't duplicate, and can nest a
+    // new note under one of them) and the layout engine the occupied rects.
+    // Only top-level notes occupy a grid slot — a child instead orbits its
+    // parent's rect (see radialChildRect below).
     const { data: existingNotes } = await admin
       .from('sticky_notes')
-      .select('title, content, type, x, y, width, height')
+      .select('id, title, content, type, x, y, width, height, parent_id')
       .eq('space_id', spaceId)
       .is('deleted_at', null);
 
     const existing = existingNotes ?? [];
+    const existingTopLevel = existing.filter((n) => !n.parent_id);
+    const existingIds = new Set(existing.map((n) => n.id));
     const provider = baseUrl ? createOpenAICompatibleProvider(baseUrl) : openrouter;
 
     const completion = await provider.chat({
@@ -68,7 +72,7 @@ Deno.serve(async (req) => {
       system: EXTRACT_THOUGHTS_SYSTEM,
       user: buildExtractUserPrompt(
         transcript.text,
-        existing.map((n) => ({ title: n.title, content: n.content, type: n.type }))
+        existing.map((n) => ({ id: n.id, title: n.title, content: n.content, type: n.type }))
       ),
       jsonMode: true,
     });
@@ -110,29 +114,80 @@ Deno.serve(async (req) => {
 
     if (actionErr || !action) throw new HttpError(500, 'action_insert_failed', actionErr?.message);
 
-    const positions = layoutNewNotes(
-      extraction.notes.length,
-      existing.map((n) => ({ x: n.x, y: n.y, width: n.width, height: n.height }))
+    // Ids are generated up front (instead of left to the DB default) so a
+    // child note can point at its same-batch parent's id in a single INSERT —
+    // the parent doesn't exist yet to look its id up otherwise.
+    const ids = extraction.notes.map(() => crypto.randomUUID());
+    const clientKeyToIndex = new Map(extraction.notes.map((n, i) => [n.clientKey, i]));
+    const clientKeyToId = new Map(extraction.notes.map((n, i) => [n.clientKey, ids[i]]));
+
+    const parentIds = extraction.notes.map((note, i) =>
+      resolveParentId(note, i, { batchIndex: clientKeyToIndex, batchIds: clientKeyToId, existingIds })
     );
 
-    const rows = extraction.notes.map((note, i) => ({
-      user_id: user.id,
-      space_id: spaceId,
-      title: note.title ?? null,
-      content: note.content,
-      type: note.type,
-      color: colorForNote(note.type, note.color),
-      x: positions[i].x,
-      y: positions[i].y,
-      width: positions[i].width,
-      height: positions[i].height,
-      source_type: 'ai',
-      recording_id: transcript.recording_id,
-      transcript_id: transcript.id,
-      span_start: note.spanStart ?? null,
-      span_end: note.spanEnd ?? null,
-      ai_action_id: action.id,
-    }));
+    // Only top-level (parentless) notes claim a grid slot. A child instead
+    // orbits its resolved parent — existing or same-batch — so the connector
+    // line drawn between them on canvas is short and reads as a cluster.
+    const topLevelIndices = parentIds
+      .map((parentId, i) => (parentId === null ? i : -1))
+      .filter((i) => i !== -1);
+    const topLevelPositions = layoutNewNotes(
+      topLevelIndices.length,
+      existingTopLevel.map((n) => ({ x: n.x, y: n.y, width: n.width, height: n.height }))
+    );
+
+    const idToIndex = new Map(ids.map((id, i) => [id, i]));
+    const rectByIndex = new Map<number, Rect>();
+    topLevelIndices.forEach((i, slot) => rectByIndex.set(i, topLevelPositions[slot]));
+
+    // Children are resolved to point at a parent emitted earlier (rule 7 +
+    // resolveParentId's ordering check), so a single forward pass always has
+    // the parent's rect ready — including a grandchild orbiting a child that
+    // was itself just placed a few iterations earlier.
+    const siblingCountByParent = new Map<string, number>();
+    for (let i = 0; i < extraction.notes.length; i++) {
+      if (rectByIndex.has(i)) continue;
+      const parentId = parentIds[i]!;
+      const siblingIndex = siblingCountByParent.get(parentId) ?? 0;
+      siblingCountByParent.set(parentId, siblingIndex + 1);
+
+      const parentRect = existingIds.has(parentId)
+        ? existing.find((n) => n.id === parentId)!
+        : rectByIndex.get(idToIndex.get(parentId)!)!;
+
+      // Orbiting alone doesn't know about the rest of the board — check
+      // against everything placed so far (existing notes and every rect
+      // already assigned this batch) so a sibling can't land on an
+      // unrelated note.
+      const occupied = [...existing, ...rectByIndex.values()];
+      rectByIndex.set(i, placeChild(parentRect, siblingIndex, occupied));
+    }
+
+    const rows = extraction.notes.map((note, i) => {
+      const parentId = parentIds[i];
+      const rect = rectByIndex.get(i)!;
+
+      return {
+        id: ids[i],
+        user_id: user.id,
+        space_id: spaceId,
+        title: note.title ?? null,
+        content: note.content,
+        type: note.type,
+        color: colorForNote(note.type, note.color),
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+        parent_id: parentId,
+        source_type: 'ai',
+        recording_id: transcript.recording_id,
+        transcript_id: transcript.id,
+        span_start: note.spanStart ?? null,
+        span_end: note.spanEnd ?? null,
+        ai_action_id: action.id,
+      };
+    });
 
     // An empty extraction is a valid outcome, not a failure — a silent or
     // test recording genuinely contains no thought. Skip the writes and don't
@@ -166,9 +221,8 @@ Deno.serve(async (req) => {
       }))
     );
 
-    // Relations reference note clientKeys; map them onto the real ids.
-    const clientKeyToIndex = new Map(extraction.notes.map((n, i) => [n.clientKey, i]));
-
+    // Relations reference note clientKeys; map them onto the real ids
+    // (clientKeyToIndex/clientKeyToId already built above for parent_id).
     if (extraction.relations.length) {
       await admin.from('relationships').insert(
         extraction.relations.map((rel) => {

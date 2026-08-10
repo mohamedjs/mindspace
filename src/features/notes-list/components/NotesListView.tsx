@@ -1,13 +1,15 @@
-import React, { useMemo } from 'react';
-import { FlatList, TouchableOpacity, View } from 'react-native';
-import { Text } from '../../../shared/ui/Text';
+import React, { useState } from 'react';
+import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../../../shared/theme';
-import { clay, clayAccent, shade } from '../../../shared/theme/clay';
-import { CreditChip } from '../../credits/components/CreditChip';
+import { RecordFab } from '../../../shared/ui/RecordFab';
 import type { StickyNoteData } from '../../sticky-notes/components/StickyNoteItem';
-import { NoteListRow } from './NoteListRow';
-import { Mic, Settings } from 'lucide-react-native';
+import { useNoteTree } from '../hooks/useNoteTree';
+import { useCalendarDays } from '../hooks/useCalendarDays';
+import { dayLabel } from '../services/day';
+import { NotesHeader } from './NotesHeader';
+import { ViewTabs, type NotesTab } from './ViewTabs';
+import { ListPane } from './ListPane';
+import { CalendarPane } from './CalendarPane';
 
 interface NotesListViewProps {
   spaceName: string;
@@ -23,9 +25,14 @@ interface NotesListViewProps {
 
 /**
  * The same notes as the canvas, read top to bottom instead of arranged in
- * space. Sub-notes always nest under their parent here — indentation is the
- * whole point of a list, so the canvas-only "hide sub-notes" setting is
- * deliberately ignored.
+ * space, with a calendar tab for reading them a day at a time.
+ *
+ * This component is only the shell — header, tabs, record button. Each tab is
+ * its own pane and the date maths lives in hooks, so any one piece can be
+ * changed without reading the rest.
+ *
+ * Sub-notes always nest under their parent here; indentation is the whole
+ * point of a list, so the canvas-only "hide sub-notes" setting is ignored.
  */
 export const NotesListView: React.FC<NotesListViewProps> = ({
   spaceName,
@@ -38,94 +45,45 @@ export const NotesListView: React.FC<NotesListViewProps> = ({
   onOpenSettings,
   onOpenRecordings,
 }) => {
-  const { colors } = useTheme();
+  const [tab, setTab] = useState<NotesTab>('list');
+  const tree = useNoteTree(notes);
+  const calendar = useCalendarDays(notes);
 
-  const childrenOf = useMemo(() => {
-    const map = new Map<string, StickyNoteData[]>();
-    notes?.forEach((n) => {
-      if (!n.parentId) return;
-      map.set(n.parentId, [...(map.get(n.parentId) ?? []), n]);
-    });
-    return map;
-  }, [notes]);
-
-  // Newest first: the thing you just said should be at the top, not buried
-  // under months of older thinking.
-  const roots = useMemo(
-    () =>
-      (notes ?? [])
-        .filter((n) => !n.parentId)
-        .sort((a, b) => (a.createdAt ?? '') < (b.createdAt ?? '') ? 1 : -1),
-    [notes]
-  );
+  const isCalendar = tab === 'calendar';
+  const selectedDate = new Date(calendar.selectedDay);
 
   return (
     <View className="flex-1 bg-board">
       <SafeAreaView className="flex-1">
-        <View
-          className="z-30 mx-3 mt-2 flex-row items-center justify-between px-4 py-3"
-          style={clay({ color: colors.surface, radius: 24 })}
-        >
-          <TouchableOpacity
-            className="flex-1"
-            onPress={onOpenSpaces}
-            disabled={!onOpenSpaces}
-            activeOpacity={0.7}
-          >
-            <Text className="text-[19px] font-bold text-ink">
-              {spaceName} {onOpenSpaces ? '▾' : ''}
-            </Text>
-            <Text className="mt-0.5 text-[11px] font-medium text-muted">Tap a note to open it</Text>
-          </TouchableOpacity>
-          <CreditChip balance={creditBalance} onPress={onOpenCredits} />
-          {onOpenRecordings && (
-            <TouchableOpacity
-              className="ml-2 h-9 w-9 items-center justify-center"
-              style={clay({ color: shade(colors.surface, -0.06), radius: 18, depth: 0.6 })}
-              onPress={onOpenRecordings}
-            >
-              <Mic size={18} color={colors.ink} strokeWidth={2.5} />
-            </TouchableOpacity>
-          )}
-          {onOpenSettings && (
-            <TouchableOpacity
-              className="ml-2 h-9 w-9 items-center justify-center"
-              style={clay({ color: shade(colors.surface, -0.06), radius: 18, depth: 0.6 })}
-              onPress={onOpenSettings}
-            >
-              <Settings size={18} color={colors.ink} strokeWidth={2.5} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <FlatList
-          data={roots}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 12, paddingBottom: 140 }}
-          renderItem={({ item }) => (
-            <NoteListRow note={item} childrenOf={childrenOf} onPress={onPressNote} />
-          )}
-          ListEmptyComponent={
-            <Text className="px-4 py-16 text-center text-sm text-muted">
-              No notes yet. Tap the mic and start thinking out loud.
-            </Text>
+        <NotesHeader
+          eyebrow={
+            isCalendar
+              ? selectedDate.toLocaleDateString(undefined, {
+                  month: 'long',
+                  ...(selectedDate.getFullYear() !== new Date().getFullYear()
+                    ? { year: 'numeric' }
+                    : {}),
+                })
+              : undefined
           }
+          title={isCalendar ? dayLabel(calendar.selectedDay) : spaceName}
+          subtitle={isCalendar ? undefined : 'Tap a note to open it'}
+          creditBalance={creditBalance}
+          onOpenCredits={onOpenCredits}
+          onOpenSpaces={onOpenSpaces}
+          onOpenSettings={onOpenSettings}
+          onOpenRecordings={onOpenRecordings}
         />
 
-        <View className="absolute inset-x-0 bottom-[30px] z-40 items-center">
-          <TouchableOpacity
-            className="h-[74px] w-[74px] items-center justify-center"
-            style={[clayAccent(colors, 37), { shadowColor: colors.accent, shadowOpacity: 0.45 }]}
-            activeOpacity={0.85}
-            onPress={onStartRecord}
-          >
-            <View
-              className="absolute h-[92px] w-[92px] rounded-full"
-              style={{ backgroundColor: `${colors.accent}2E` }}
-            />
-            <Mic size={32} color="#FFF" strokeWidth={2.5} />
-          </TouchableOpacity>
-        </View>
+        <ViewTabs value={tab} onChange={setTab} />
+
+        {isCalendar ? (
+          <CalendarPane calendar={calendar} tree={tree} onPressNote={onPressNote} />
+        ) : (
+          <ListPane tree={tree} onPressNote={onPressNote} />
+        )}
+
+        <RecordFab onPress={onStartRecord} />
       </SafeAreaView>
     </View>
   );

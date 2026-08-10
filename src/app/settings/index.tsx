@@ -160,8 +160,8 @@ function AppearanceSection() {
       <View className="mb-2.5 px-4 py-3.5" style={rowStyle}>
         <Text className="text-base font-semibold text-ink">Your notes as</Text>
         <Text className="mb-3 mt-0.5 text-xs text-muted">
-          A board you arrange, a list you scroll, or a day at a time. All three record, and all
-          three keep sub-notes with their parent.
+          A board you arrange, or a list you scroll — with its own calendar tab. Both record and
+          both keep sub-notes with their parent.
         </Text>
         <View
           className="flex-row p-1.5"
@@ -171,7 +171,6 @@ function AppearanceSection() {
             [
               { value: 'canvas', label: 'Canvas' },
               { value: 'list', label: 'List' },
-              { value: 'calendar', label: 'Calendar' },
             ] as const
           ).map((option) => {
             const isActive = notesView === option.value;

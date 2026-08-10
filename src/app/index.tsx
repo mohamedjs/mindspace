@@ -7,7 +7,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CanvasRoot } from '../features/canvas/components/CanvasRoot';
 import { NotesListView } from '../features/notes-list/components/NotesListView';
-import { CalendarView } from '../features/notes-list/components/CalendarView';
 import { syncNoteReminders } from '../features/notes-list/services/reminders';
 import { SpacesSheet } from '../features/canvas/components/SpacesSheet';
 import { RecordingsSheet } from '../features/voice/components/RecordingsSheet';
@@ -270,18 +269,6 @@ export default function HomeScreen() {
     <View className="flex-1 bg-canvas">
       {notesView === 'list' ? (
         <NotesListView
-          spaceName={activeSpace?.name ?? 'My MindSpace'}
-          creditBalance={available}
-          notes={notes}
-          onPressNote={openNote}
-          onStartRecord={startRecord}
-          onOpenCredits={() => router.push('/credits')}
-          onOpenSpaces={() => setSpacesSheetOpen(true)}
-          onOpenSettings={() => router.push('/settings')}
-          onOpenRecordings={() => setRecordingsSheetOpen(true)}
-        />
-      ) : notesView === 'calendar' ? (
-        <CalendarView
           spaceName={activeSpace?.name ?? 'My MindSpace'}
           creditBalance={available}
           notes={notes}

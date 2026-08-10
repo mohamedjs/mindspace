@@ -20,4 +20,9 @@ export const queryKeys = {
   models: {
     all: ['models'] as const,
   },
+  billing: {
+    plans: ['billing', 'plans'] as const,
+    subscription: ['billing', 'subscription'] as const,
+    providers: ['billing', 'providers'] as const,
+  },
 };

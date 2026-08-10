@@ -10,8 +10,12 @@ const CANVAS_BG_KEY = 'mindspace:canvasbg';
 const SHOW_CHILD_NOTES_KEY = 'mindspace:showchildnotes';
 const NOTES_VIEW_KEY = 'mindspace:notesview';
 
-/** Board of sticky notes, a scrolling list, or a day-by-day calendar. */
-export type NotesView = 'canvas' | 'list' | 'calendar';
+/**
+ * Board of sticky notes, or a scrolling list. The list has its own List /
+ * Calendar tabs inside it — the calendar is a way of reading the list, not a
+ * third top-level mode.
+ */
+export type NotesView = 'canvas' | 'list';
 
 /**
  * JS mirror of the CSS variables in global.css. Needed because a fair number of
@@ -114,7 +118,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (saved != null) setShowChildNotesState(saved === '1');
     });
     AsyncStorage.getItem(NOTES_VIEW_KEY).then((saved) => {
-      if (saved === 'canvas' || saved === 'list' || saved === 'calendar') setNotesViewState(saved);
+      if (saved === 'canvas' || saved === 'list') setNotesViewState(saved);
     });
   }, [setColorScheme]);
 

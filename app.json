@@ -37,7 +37,8 @@
       "expo-secure-store",
       "expo-image",
       "expo-status-bar",
-      "expo-font"
+      "expo-font",
+      "expo-notifications"
     ],
     "scheme": "mindspace",
     "experiments": {

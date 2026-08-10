@@ -2,7 +2,8 @@ import { supabase } from '../../../lib/supabase/client';
 import type { StickyNoteData } from '../components/StickyNoteItem';
 import type { NoteType } from '../../../shared/constants/tokens';
 
-const NOTE_COLUMNS = 'id, title, content, type, color, x, y, width, height, parent_id, space_id';
+const NOTE_COLUMNS =
+  'id, title, content, type, color, x, y, width, height, parent_id, space_id, due_at, created_at';
 
 interface NoteRow {
   id: string;
@@ -16,6 +17,8 @@ interface NoteRow {
   height: number;
   parent_id: string | null;
   space_id: string;
+  due_at: string | null;
+  created_at: string;
 }
 
 function toNote(row: NoteRow): StickyNoteData {
@@ -31,6 +34,8 @@ function toNote(row: NoteRow): StickyNoteData {
     height: row.height,
     parentId: row.parent_id,
     spaceId: row.space_id,
+    dueAt: row.due_at,
+    createdAt: row.created_at,
   };
 }
 

@@ -145,6 +145,8 @@ function AppearanceSection() {
     setCanvasBackgroundEnabled,
     showChildNotes,
     setShowChildNotes,
+    notesView,
+    setNotesView,
   } = useTheme();
   const rowStyle = clay({ color: shade(colors.surface, -0.05), radius: 18, depth: 0.5 });
 
@@ -153,6 +155,44 @@ function AppearanceSection() {
       <SectionHeading dot="#42A5F5">Appearance</SectionHeading>
       <View className="mb-3">
         <ThemeToggle />
+      </View>
+
+      <View className="mb-2.5 px-4 py-3.5" style={rowStyle}>
+        <Text className="text-base font-semibold text-ink">Your notes as</Text>
+        <Text className="mb-3 mt-0.5 text-xs text-muted">
+          A board you arrange, a list you scroll, or a day at a time. All three record, and all
+          three keep sub-notes with their parent.
+        </Text>
+        <View
+          className="flex-row p-1.5"
+          style={clay({ color: shade(colors.surface, -0.12), radius: 16, pressed: true })}
+        >
+          {(
+            [
+              { value: 'canvas', label: 'Canvas' },
+              { value: 'list', label: 'List' },
+              { value: 'calendar', label: 'Calendar' },
+            ] as const
+          ).map((option) => {
+            const isActive = notesView === option.value;
+            return (
+              <TouchableOpacity
+                key={option.value}
+                className="flex-1 items-center py-2"
+                style={isActive ? clay({ color: colors.accent, radius: 12, depth: 0.7 }) : undefined}
+                onPress={() => setNotesView(option.value)}
+                activeOpacity={0.8}
+              >
+                <Text
+                  className="text-sm font-semibold"
+                  style={{ color: isActive ? colors.onAccent : colors.muted }}
+                >
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
       <View className="mb-2.5 flex-row items-center justify-between px-4 py-3.5" style={rowStyle}>

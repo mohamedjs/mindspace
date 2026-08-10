@@ -248,6 +248,21 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     });
   }, [dirty, updateContent, noteId, title, content, effectiveSpaceId, router]);
 
+  /**
+   * Speak the note itself. Unlike the composer mic (which adds sub-notes),
+   * this writes into THIS note's own title and body. Saving first matters:
+   * the server appends to whatever the note already holds, so an unsaved
+   * paragraph would otherwise be overwritten by the stale stored copy.
+   */
+  const startVoiceIntoNote = useCallback(() => {
+    if (dirty) updateContent.mutate({ noteId, title: title || null, content });
+    if (!effectiveSpaceId) return;
+    router.push({
+      pathname: '/record',
+      params: { spaceId: effectiveSpaceId, fillNoteId: noteId },
+    });
+  }, [dirty, updateContent, noteId, title, content, effectiveSpaceId, router]);
+
   /** Insert a bullet point prefix at the cursor position. */
   const insertBullet = useCallback(() => {
     const lines = content.split('\n');
@@ -372,6 +387,20 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                 hitSlop={4}
               >
                 <Palette size={18} color={textColor} strokeWidth={2.5} />
+              </TouchableOpacity>
+
+              {/* Speak this note. Filled in the accent colour so it reads as
+                  a primary action, distinct from the outlined sub-note mic
+                  further down the page. */}
+              <TouchableOpacity
+                onPress={startVoiceIntoNote}
+                disabled={isThinking}
+                className="mr-2 h-10 w-10 items-center justify-center"
+                style={clay({ color: colors.accent, radius: 14, depth: isThinking ? 0.2 : 0.6 })}
+                hitSlop={4}
+                accessibilityLabel="Speak into this note"
+              >
+                <Mic size={18} color={colors.onAccent} strokeWidth={2.5} />
               </TouchableOpacity>
 
               {/* Delete */}
@@ -601,7 +630,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                   <Text className="flex-1 text-xs" style={{ color: mutedTextColor }}>
                     {recordingStatus === 'transcribing'
                       ? 'Listening to what you said…'
-                      : 'Turning your voice into sub-notes…'}
+                      : 'Writing up what you said…'}
                   </Text>
                 </View>
               )}

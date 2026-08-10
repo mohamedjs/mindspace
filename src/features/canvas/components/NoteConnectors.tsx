@@ -52,7 +52,7 @@ export const NoteConnectors: React.FC<NoteConnectorsProps> = ({ notes, activeDra
       style={{ left: minX, top: minY, width, height }} 
       pointerEvents="none"
     >
-      <Svg width={width} height={height} overflow="visible">
+      <Svg width={width} height={height}>
         {edges.map((edge) => (
           <AnimatedEdge 
             key={edge.id}

@@ -35,6 +35,10 @@ export interface StickyNoteData {
   parentId?: string | null;
   /** The space this note lives in — read off the row so callers don't need it passed separately. */
   spaceId?: string;
+  /** ISO instant the note is for, when the speaker named a time. Drives the calendar and reminders. */
+  dueAt?: string | null;
+  /** When the note was written. What the calendar falls back to for undated notes. */
+  createdAt?: string;
 }
 
 interface StickyNoteItemProps {

@@ -9,9 +9,35 @@ import {
   EXTRACT_THOUGHTS_SYSTEM,
   EXTRACT_THOUGHTS_VERSION,
   buildExtractUserPrompt,
+  type PromptClock,
 } from '../_shared/prompts/extractThoughts.ts';
 import { colorForNote, parseExtraction, resolveParentId } from '../_shared/extraction.ts';
 import { layoutNewNotes, placeChild, type Rect } from '../_shared/layout.ts';
+
+/**
+ * Today, as the speaker experiences it. Edge functions run in UTC, so a
+ * recording made at 1am Cairo would otherwise resolve "tomorrow" off
+ * yesterday's date.
+ */
+function buildClock(timezone: string): PromptClock {
+  const now = new Date();
+  const safeZone = (fn: (tz: string) => string) => {
+    try {
+      return fn(timezone);
+    } catch {
+      // An invalid IANA name from the profile shouldn't fail the extraction.
+      return fn('UTC');
+    }
+  };
+
+  return {
+    today: safeZone((tz) => new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now)),
+    weekday: safeZone((tz) =>
+      new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long' }).format(now)
+    ),
+    timezone,
+  };
+}
 
 /** Flat estimate before the model multiplier; settled against real token usage. */
 const BASE_EXTRACT_CREDITS = 8;
@@ -74,6 +100,16 @@ Deno.serve(async (req) => {
 
     const provider = baseUrl ? createOpenAICompatibleProvider(baseUrl) : openrouter;
 
+    // "tomorrow at 3" is unresolvable without the speaker's own date. Fall
+    // back to the profiles default rather than letting the model guess.
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('timezone')
+      .eq('id', user.id)
+      .single();
+
+    const clock = buildClock(profile?.timezone ?? 'Africa/Cairo');
+
     const completion = await provider.chat({
       apiKey,
       model: model.model_id,
@@ -88,7 +124,8 @@ Deno.serve(async (req) => {
               content: focusNote.content,
               type: focusNote.type,
             }
-          : null
+          : null,
+        clock
       ),
       jsonMode: true,
     });
@@ -204,6 +241,7 @@ Deno.serve(async (req) => {
         width: rect.width,
         height: rect.height,
         parent_id: parentId,
+        due_at: note.dueAt ?? null,
         source_type: 'ai',
         recording_id: transcript.recording_id,
         transcript_id: transcript.id,

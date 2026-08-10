@@ -27,6 +27,17 @@ export const extractedNoteSchema = z.object({
   type: z.enum(NOTE_TYPES).catch('idea'),
   /** clientKey of the idea this note elaborates on, or an existing note's id, or null. */
   parentClientKey: z.string().nullable().optional(),
+  /**
+   * ISO 8601 instant the note is for. `.catch(null)` because a model that
+   * fumbles one date should cost that note its reminder, not the whole
+   * extraction — every other field is still good.
+   */
+  dueAt: z
+    .string()
+    .datetime({ offset: true })
+    .nullable()
+    .optional()
+    .catch(null),
   /** Character offsets into the transcript this note came from. */
   spanStart: z.number().int().nonnegative().nullable().optional(),
   spanEnd: z.number().int().nonnegative().nullable().optional(),

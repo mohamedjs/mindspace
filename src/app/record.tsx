@@ -12,11 +12,15 @@ import { useAuth } from '../providers/AuthProvider';
 export default function RecordRoute() {
   const router = useRouter();
   const qc = useQueryClient();
-  const { spaceId, parentNoteId } = useLocalSearchParams<{
+  const { spaceId, parentNoteId, fillNoteId } = useLocalSearchParams<{
     spaceId: string;
+    /** Speak about a note: the result lands as sub-notes under it. */
     parentNoteId?: string;
+    /** Speak into a note: the result becomes that note's own text. */
+    fillNoteId?: string;
   }>();
   const { user } = useAuth();
+  const targetNoteId = parentNoteId ?? fillNoteId;
 
   const handleRecorded = useCallback(
     async (recordingId: string, localUri: string) => {
@@ -27,10 +31,10 @@ export default function RecordRoute() {
       // on) drives the recorded -> transcribing -> transcribed UI meanwhile.
       // Recording from inside a note goes back to that note, where its new
       // sub-notes will appear, rather than out to the canvas.
-      if (parentNoteId) {
+      if (targetNoteId) {
         router.replace({
           pathname: '/note/[id]',
-          params: { id: parentNoteId, spaceId, recordingId },
+          params: { id: targetNoteId, spaceId, recordingId },
         });
       } else {
         router.replace({ pathname: '/', params: { spaceId, recordingId } });
@@ -38,7 +42,7 @@ export default function RecordRoute() {
 
       try {
         await uploadRecording({ localUri, userId: user.id, spaceId, recordingId });
-        await runThinkingPipeline(recordingId, spaceId, parentNoteId);
+        await runThinkingPipeline(recordingId, spaceId, parentNoteId, fillNoteId);
         // Extraction inserted notes directly in the DB — pull them in.
         qc.invalidateQueries({ queryKey: queryKeys.notes.bySpace(spaceId) });
         qc.invalidateQueries({ queryKey: queryKeys.credits.balance });
@@ -52,7 +56,7 @@ export default function RecordRoute() {
         });
       }
     },
-    [user, spaceId, parentNoteId, router, qc]
+    [user, spaceId, parentNoteId, fillNoteId, targetNoteId, router, qc]
   );
 
   if (!spaceId) {

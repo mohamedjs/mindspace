@@ -151,6 +151,38 @@ describe('parseExtraction parentClientKey validation', () => {
   });
 });
 
+describe('parseExtraction dueAt', () => {
+  it('keeps a valid ISO instant with an offset', () => {
+    const result = parseExtraction(
+      JSON.stringify({ notes: [note('note_0', { dueAt: '2026-08-11T15:00:00+03:00' })] })
+    );
+    expect(result.notes[0].dueAt).toBe('2026-08-11T15:00:00+03:00');
+  });
+
+  it('drops a malformed date to null instead of failing the extraction', () => {
+    // A fumbled date should cost that note its reminder, not lose every note.
+    const result = parseExtraction(
+      JSON.stringify({
+        notes: [note('note_0', { dueAt: 'tomorrow at 3' }), note('note_1')],
+      })
+    );
+    expect(result.notes[0].dueAt).toBeNull();
+    expect(result.notes).toHaveLength(2);
+  });
+
+  it('rejects a bare date with no timezone — an instant needs an offset', () => {
+    const result = parseExtraction(
+      JSON.stringify({ notes: [note('note_0', { dueAt: '2026-08-11' })] })
+    );
+    expect(result.notes[0].dueAt).toBeNull();
+  });
+
+  it('leaves dueAt absent when the model omits it', () => {
+    const result = parseExtraction(JSON.stringify({ notes: [note('note_0')] }));
+    expect(result.notes[0].dueAt ?? null).toBeNull();
+  });
+});
+
 describe('resolveParentId', () => {
   const ctx = (overrides: Partial<Parameters<typeof resolveParentId>[2]> = {}) => ({
     batchIndex: new Map([

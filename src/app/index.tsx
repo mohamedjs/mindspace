@@ -6,6 +6,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CanvasRoot } from '../features/canvas/components/CanvasRoot';
+import { NotesListView } from '../features/notes-list/components/NotesListView';
+import { CalendarView } from '../features/notes-list/components/CalendarView';
+import { syncNoteReminders } from '../features/notes-list/services/reminders';
 import { SpacesSheet } from '../features/canvas/components/SpacesSheet';
 import { RecordingsSheet } from '../features/voice/components/RecordingsSheet';
 import { createSpace, deleteSpace, fetchSpaces, updateSpace } from '../features/canvas/api/spaces.api';
@@ -50,7 +53,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const qc = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
-  const { colors, showChildNotes } = useTheme();
+  const { colors, showChildNotes, notesView } = useTheme();
   const { recordingId } = useLocalSearchParams<{ recordingId?: string }>();
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [spacesSheetOpen, setSpacesSheetOpen] = useState(false);
@@ -99,6 +102,14 @@ export default function HomeScreen() {
       if (n.parentId) counts.set(n.parentId, (counts.get(n.parentId) ?? 0) + 1);
     });
     return counts;
+  }, [notes]);
+
+  // Keep the OS reminder queue in step with whatever the notes now say. Safe
+  // to run on every refetch: syncNoteReminders keys each reminder off its note
+  // id and cancels before rescheduling, so nothing stacks up.
+  useEffect(() => {
+    if (!notes?.length) return;
+    syncNoteReminders(notes).catch(() => {});
   }, [notes]);
 
   // The "sub-notes on canvas" setting only affects what's drawn — tidy and
@@ -244,38 +255,69 @@ export default function HomeScreen() {
 
   const activeSpace = spaces?.find((s) => s.id === spaceId);
   const available = balance ? balance.creditsBalance - balance.creditsReserved : 0;
-  const showStatusBanner = recordingStatus && recordingStatus !== 'completed' && recordingStatus !== 'transcribed' && recordingStatus !== 'failed';
+  // 'transcribed' is mid-pipeline (extraction still to run) so it stays on the
+  // banner; the terminal states are what clear it.
+  const showStatusBanner =
+    recordingStatus && recordingStatus !== 'completed' && recordingStatus !== 'failed';
+
+  const openNote = (noteId: string) =>
+    router.push({ pathname: '/note/[id]', params: { id: noteId, spaceId: spaceId ?? '' } });
+  const startRecord = () => {
+    if (spaceId) router.push({ pathname: '/record', params: { spaceId } });
+  };
 
   return (
     <View className="flex-1 bg-canvas">
-      <CanvasRoot
-        spaceName={activeSpace?.name ?? 'My MindSpace'}
-        creditBalance={available}
-        notes={visibleNotes}
-        groups={groups}
-        childCounts={childCounts}
-        onAddNote={handleAddNote}
-        onAddGroup={handleAddGroup}
-        onRenameGroup={handleRenameGroup}
-        onMoveGroup={handleMoveGroup}
-        onResizeGroup={handleResizeGroup}
-        onDeleteGroup={handleDeleteGroup}
-        onUpdateNoteColor={handleUpdateColor}
-        onDeleteNote={handleDeleteNote}
-        onMoveNote={handleMoveNote}
-        onMoveCluster={handleMoveCluster}
-        onOpenCredits={() => router.push('/credits')}
-        onOpenSpaces={() => setSpacesSheetOpen(true)}
-        onOpenSettings={() => router.push('/settings')}
-        onOpenRecordings={() => setRecordingsSheetOpen(true)}
-        onTidy={notes?.length ? () => tidyNotes.mutate(notes) : undefined}
-        onPressNote={(noteId) => {
-          router.push({ pathname: '/note/[id]', params: { id: noteId, spaceId: spaceId ?? '' } });
-        }}
-        onStartRecord={() => {
-          if (spaceId) router.push({ pathname: '/record', params: { spaceId } });
-        }}
-      />
+      {notesView === 'list' ? (
+        <NotesListView
+          spaceName={activeSpace?.name ?? 'My MindSpace'}
+          creditBalance={available}
+          notes={notes}
+          onPressNote={openNote}
+          onStartRecord={startRecord}
+          onOpenCredits={() => router.push('/credits')}
+          onOpenSpaces={() => setSpacesSheetOpen(true)}
+          onOpenSettings={() => router.push('/settings')}
+          onOpenRecordings={() => setRecordingsSheetOpen(true)}
+        />
+      ) : notesView === 'calendar' ? (
+        <CalendarView
+          spaceName={activeSpace?.name ?? 'My MindSpace'}
+          creditBalance={available}
+          notes={notes}
+          onPressNote={openNote}
+          onStartRecord={startRecord}
+          onOpenCredits={() => router.push('/credits')}
+          onOpenSpaces={() => setSpacesSheetOpen(true)}
+          onOpenSettings={() => router.push('/settings')}
+          onOpenRecordings={() => setRecordingsSheetOpen(true)}
+        />
+      ) : (
+        <CanvasRoot
+          spaceName={activeSpace?.name ?? 'My MindSpace'}
+          creditBalance={available}
+          notes={visibleNotes}
+          groups={groups}
+          childCounts={childCounts}
+          onAddNote={handleAddNote}
+          onAddGroup={handleAddGroup}
+          onRenameGroup={handleRenameGroup}
+          onMoveGroup={handleMoveGroup}
+          onResizeGroup={handleResizeGroup}
+          onDeleteGroup={handleDeleteGroup}
+          onUpdateNoteColor={handleUpdateColor}
+          onDeleteNote={handleDeleteNote}
+          onMoveNote={handleMoveNote}
+          onMoveCluster={handleMoveCluster}
+          onOpenCredits={() => router.push('/credits')}
+          onOpenSpaces={() => setSpacesSheetOpen(true)}
+          onOpenSettings={() => router.push('/settings')}
+          onOpenRecordings={() => setRecordingsSheetOpen(true)}
+          onTidy={notes?.length ? () => tidyNotes.mutate(notes) : undefined}
+          onPressNote={openNote}
+          onStartRecord={startRecord}
+        />
+      )}
       <RecordingsSheet
         visible={recordingsSheetOpen}
         spaceId={spaceId}
@@ -308,9 +350,9 @@ export default function HomeScreen() {
           className="absolute inset-x-0 top-16 mx-6 flex-row items-center rounded-full px-4 py-2.5"
           style={{ backgroundColor: colors.overlay, borderWidth: 1, borderColor: colors.line }}
         >
-          {(recordingStatus !== 'failed' || retryPipeline.isPending) && (
-            <ActivityIndicator size="small" color={colors.accent} style={{ marginRight: 8 }} />
-          )}
+          {/* The banner only shows mid-pipeline states, so it is always
+              working on something — a spinner is unconditional here. */}
+          <ActivityIndicator size="small" color={colors.accent} style={{ marginRight: 8 }} />
           <Text className="flex-1 text-sm text-ink">
             {STATUS_LABEL[recordingStatus] ?? recordingStatus}
           </Text>

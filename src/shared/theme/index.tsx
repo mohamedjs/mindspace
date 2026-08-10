@@ -8,6 +8,10 @@ const STORAGE_KEY = 'mindspace:theme';
 const HAND_DRAWN_KEY = 'mindspace:handdrawn';
 const CANVAS_BG_KEY = 'mindspace:canvasbg';
 const SHOW_CHILD_NOTES_KEY = 'mindspace:showchildnotes';
+const NOTES_VIEW_KEY = 'mindspace:notesview';
+
+/** Board of sticky notes, a scrolling list, or a day-by-day calendar. */
+export type NotesView = 'canvas' | 'list' | 'calendar';
 
 /**
  * JS mirror of the CSS variables in global.css. Needed because a fair number of
@@ -76,6 +80,9 @@ interface ThemeValue {
   /** Sub-notes as connected cards on the canvas, or just their parent idea. */
   showChildNotes: boolean;
   setShowChildNotes: (next: boolean) => void;
+  /** Canvas board vs. a plain scrolling notes list. */
+  notesView: NotesView;
+  setNotesView: (next: NotesView) => void;
 }
 
 const ThemeContext = createContext<ThemeValue | null>(null);
@@ -86,6 +93,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [handDrawnEnabled, setHandDrawnEnabledState] = useState(true);
   const [canvasBackgroundEnabled, setCanvasBackgroundEnabledState] = useState(true);
   const [showChildNotes, setShowChildNotesState] = useState(true);
+  const [notesView, setNotesViewState] = useState<NotesView>('canvas');
 
   // Restore saved choices once on mount. Until they load we stay on the
   // defaults, which match the app's original always-on behaviour.
@@ -104,6 +112,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
     AsyncStorage.getItem(SHOW_CHILD_NOTES_KEY).then((saved) => {
       if (saved != null) setShowChildNotesState(saved === '1');
+    });
+    AsyncStorage.getItem(NOTES_VIEW_KEY).then((saved) => {
+      if (saved === 'canvas' || saved === 'list' || saved === 'calendar') setNotesViewState(saved);
     });
   }, [setColorScheme]);
 
@@ -128,6 +139,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     AsyncStorage.setItem(SHOW_CHILD_NOTES_KEY, next ? '1' : '0').catch(() => {});
   };
 
+  const setNotesView = (next: NotesView) => {
+    setNotesViewState(next);
+    AsyncStorage.setItem(NOTES_VIEW_KEY, next).catch(() => {});
+  };
+
   const scheme = colorScheme === 'light' ? 'light' : 'dark';
 
   return (
@@ -143,6 +159,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCanvasBackgroundEnabled,
         showChildNotes,
         setShowChildNotes,
+        notesView,
+        setNotesView,
       }}
     >
       {children}

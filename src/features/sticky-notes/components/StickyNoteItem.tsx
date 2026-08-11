@@ -16,30 +16,13 @@ import { noteColors, NoteType } from '../../../shared/constants/tokens';
 import { shade } from '../../../shared/theme/clay';
 import { readableTextOn } from '../../../shared/theme/color';
 import { useTheme } from '../../../shared/theme';
+import type { Note } from '../../../core/domain';
 
 /** Size of the peeled bottom-right corner, in px. */
 const CURL = 38;
 
-export interface StickyNoteData {
-  id: string;
-  title?: string | null;
-  content: string;
-  type: NoteType;
-  color?: string | null;
-  x: number;
-  y: number;
-  width?: number;
-  height?: number;
-  rotation?: number;
-  /** Null for a top-level idea; the parent's id for a sub-note. */
-  parentId?: string | null;
-  /** The space this note lives in — read off the row so callers don't need it passed separately. */
-  spaceId?: string;
-  /** ISO instant the note is for, when the speaker named a time. Drives the calendar and reminders. */
-  dueAt?: string | null;
-  /** When the note was written. What the calendar falls back to for undated notes. */
-  createdAt?: string;
-}
+/** The domain entity. Kept as a named re-export so existing call sites read naturally. */
+export type StickyNoteData = Note;
 
 interface StickyNoteItemProps {
   note: StickyNoteData;

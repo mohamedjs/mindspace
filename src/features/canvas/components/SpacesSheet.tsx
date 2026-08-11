@@ -68,7 +68,7 @@ export const SpacesSheet: React.FC<SpacesSheetProps> = ({
   };
 
   const greeting = getGreeting();
-  const displayName = user?.user_metadata?.full_name?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'there';
+  const displayName = user?.fullName?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'there';
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>

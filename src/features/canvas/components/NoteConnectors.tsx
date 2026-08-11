@@ -2,7 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import Animated, { useAnimatedProps, type SharedValue } from 'react-native-reanimated';
-import type { StickyNoteData } from '../../sticky-notes/components/StickyNoteItem';
+import type { Note as StickyNoteData } from '../../../core/domain';
 import { useTheme } from '../../../shared/theme';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);

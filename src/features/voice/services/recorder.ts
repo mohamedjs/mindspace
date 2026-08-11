@@ -1,5 +1,5 @@
 import { RecordingOptions, RecordingPresets } from 'expo-audio';
-import { supabase } from '../../../lib/supabase/client';
+import { supabaseContainer } from '../../../infrastructure/container';
 
 /** Free tier hard-stops at 180s (spec §3). */
 /**
@@ -37,38 +37,11 @@ export interface CreateRecordingRowArgs {
 export async function createRecordingRow({
   spaceId,
   durationMs,
-  sizeBytes,
 }: CreateRecordingRowArgs): Promise<string> {
-  const { data, error } = await supabase
-    .from('recordings')
-    .insert({
-      space_id: spaceId,
-      duration_ms: durationMs,
-      size_bytes: sizeBytes,
-      local_only: true,
-      status: 'recorded',
-    })
-    .select('id')
-    .single();
-
-  if (error) throw error;
-  return data.id as string;
+  return supabaseContainer.recordings.create({ spaceId, durationMs });
 }
 
-export async function markRecordingUploaded(recordingId: string, storagePath: string) {
-  const { error } = await supabase
-    .from('recordings')
-    .update({ storage_path: storagePath, local_only: false })
-    .eq('id', recordingId);
-
-  if (error) throw error;
-}
 
 export async function markRecordingFailed(recordingId: string, message: string) {
-  const { error } = await supabase
-    .from('recordings')
-    .update({ status: 'failed', error: message })
-    .eq('id', recordingId);
-
-  if (error) throw error;
+  return supabaseContainer.recordings.markFailed(recordingId, message);
 }

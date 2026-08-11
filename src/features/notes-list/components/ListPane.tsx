@@ -1,7 +1,7 @@
 import React from 'react';
 import { FlatList } from 'react-native';
 import { Text } from '../../../shared/ui/Text';
-import type { StickyNoteData } from '../../sticky-notes/components/StickyNoteItem';
+import type { Note as StickyNoteData } from '../../../core/domain';
 import type { NoteTree } from '../hooks/useNoteTree';
 import { NoteListRow } from './NoteListRow';
 

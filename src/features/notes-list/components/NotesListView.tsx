@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RecordFab } from '../../../shared/ui/RecordFab';
-import type { StickyNoteData } from '../../sticky-notes/components/StickyNoteItem';
+import type { Note as StickyNoteData } from '../../../core/domain';
 import { useNoteTree } from '../hooks/useNoteTree';
 import { useCalendarDays } from '../hooks/useCalendarDays';
 import { dayLabel } from '../services/day';

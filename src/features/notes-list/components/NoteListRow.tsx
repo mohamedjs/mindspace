@@ -5,7 +5,7 @@ import { useTheme } from '../../../shared/theme';
 import { clay, shade } from '../../../shared/theme/clay';
 import { readableTextOn } from '../../../shared/theme/color';
 import { noteColors } from '../../../shared/constants/tokens';
-import type { StickyNoteData } from '../../sticky-notes/components/StickyNoteItem';
+import type { Note as StickyNoteData } from '../../../core/domain';
 import { dayLabel, startOfDay, timeLabel } from '../services/day';
 import { ChevronRight } from 'lucide-react-native';
 

@@ -12,7 +12,7 @@ import {
   updateNoteType,
 } from '../api/notes.api';
 import { tidyLayout } from '../../ai/services/layout';
-import type { StickyNoteData } from '../components/StickyNoteItem';
+import type { Note as StickyNoteData } from '../../../core/domain';
 import type { NoteType } from '../../../shared/constants/tokens';
 
 export function useNotes(spaceId: string | null) {

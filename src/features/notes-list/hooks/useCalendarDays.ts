@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { StickyNoteData } from '../../sticky-notes/components/StickyNoteItem';
+import type { Note as StickyNoteData } from '../../../core/domain';
 import { DAY_MS, noteDay, startOfDay, weekOf } from '../services/day';
 
 /**

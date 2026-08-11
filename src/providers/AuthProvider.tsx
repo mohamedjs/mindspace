@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
-import type { Session, User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase/client';
+import type { AuthSession } from '../core/ports';
+import { supabaseContainer } from '../infrastructure/container';
+
+const auth = supabaseContainer.auth;
 
 interface AuthContextValue {
-  user: User | null;
-  session: Session | null;
+  user: AuthSession['user'] | null;
+  session: AuthSession | null;
   isLoading: boolean;
   signUp: (email: string, password: string, fullName?: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
@@ -24,7 +26,7 @@ const AuthContext = createContext<AuthContextValue>({
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const appStateRef = useRef(AppState.currentState);
 
@@ -33,10 +35,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Restore whatever session is already in storage. No implicit sign-in —
     // an unauthenticated user gets the sign-in screen, not a throwaway account.
-    supabase.auth
+    auth
       .getSession()
-      .then(({ data }) => {
-        if (mounted) setSession(data.session);
+      .then((restored) => {
+        if (mounted) setSession(restored);
       })
       .catch((err) => {
         if (mounted) console.warn('[AuthProvider] session restore failed', err);
@@ -45,22 +47,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (mounted) setIsLoading(false);
       });
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      if (mounted) setSession(newSession);
+    const unsubscribe = auth.onSessionChange((next) => {
+      if (mounted) setSession(next);
     });
 
+    // Token refresh only matters while the app is in front of the user.
     const appStateSub = AppState.addEventListener('change', (nextState) => {
       if (appStateRef.current.match(/inactive|background/) && nextState === 'active') {
-        supabase.auth.startAutoRefresh();
+        auth.startAutoRefresh();
       } else if (nextState.match(/inactive|background/)) {
-        supabase.auth.stopAutoRefresh();
+        auth.stopAutoRefresh();
       }
       appStateRef.current = nextState;
     });
 
     return () => {
       mounted = false;
-      authListener.subscription.unsubscribe();
+      unsubscribe();
       appStateSub.remove();
     };
   }, []);
@@ -69,33 +72,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user: session?.user ?? null,
     session,
     isLoading,
-
-    signUp: async (email, password, fullName) => {
-      const { error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: fullName ? { data: { full_name: fullName.trim() } } : undefined,
-      });
-      if (error) throw error;
-    },
-
-    signIn: async (email, password) => {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-      if (error) throw error;
-    },
-
-    signOut: async () => {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-    },
-
-    resetPassword: async (email) => {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
-      if (error) throw error;
-    },
+    signUp: (email, password, fullName) => auth.signUp(email, password, fullName),
+    signIn: (email, password) => auth.signIn(email, password),
+    signOut: () => auth.signOut(),
+    resetPassword: (email) => auth.resetPassword(email),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -8,7 +8,8 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { StickyNoteItem, StickyNoteData } from '../../sticky-notes/components/StickyNoteItem';
+import { StickyNoteItem } from '../../sticky-notes/components/StickyNoteItem';
+import type { Note as StickyNoteData } from '../../../core/domain';
 import { CreditChip } from '../../credits/components/CreditChip';
 import { useTheme } from '../../../shared/theme';
 import { CanvasBackground } from './CanvasBackground';

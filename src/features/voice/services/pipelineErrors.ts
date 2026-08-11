@@ -1,3 +1,6 @@
+import { PipelineError } from '../../../core/errors';
+
+export { PipelineError };
 /**
  * Everything that can go wrong between tapping record and seeing notes, said
  * in words a person can act on.
@@ -8,19 +11,6 @@
  * only ever show one generic "something went wrong".
  */
 
-export class PipelineError extends Error {
-  constructor(
-    /** Machine-readable code from the edge function, e.g. 'insufficient_credits'. */
-    readonly code: string,
-    message: string,
-    readonly status?: number,
-    /** Extra fields the function returned — required/available credits, etc. */
-    readonly detail?: Record<string, unknown>
-  ) {
-    super(message);
-    this.name = 'PipelineError';
-  }
-}
 
 export type FailureAction = 'retry' | 'buy_credits' | 'add_key' | 'settings' | 'none';
 

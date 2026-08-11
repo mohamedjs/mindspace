@@ -1,5 +1,5 @@
 import { DAY_MS, dayLabel, noteDay, startOfDay, weekOf } from './day';
-import type { StickyNoteData } from '../../sticky-notes/components/StickyNoteItem';
+import type { Note as StickyNoteData } from '../../../core/domain';
 
 const note = (fields: Partial<StickyNoteData>): StickyNoteData => ({
   id: 'n',

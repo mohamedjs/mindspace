@@ -1,4 +1,4 @@
-import type { StickyNoteData } from '../../sticky-notes/components/StickyNoteItem';
+import type { Note as StickyNoteData } from '../../../core/domain';
 
 export const DAY_MS = 86_400_000;
 

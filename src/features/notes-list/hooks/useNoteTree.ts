@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { StickyNoteData } from '../../sticky-notes/components/StickyNoteItem';
+import type { Note as StickyNoteData } from '../../../core/domain';
 
 export interface NoteTree {
   /** parentId -> its sub-notes, for rendering nesting. */

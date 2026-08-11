@@ -59,27 +59,34 @@ export async function resolveModel(
     if (preferred) return preferred as AiModel;
   }
 
-  // No usable preference. If they're on BYOK, stay on their own provider
-  // rather than dropping onto the platform default and billing them.
-  const { data: userKeys } = await db
-    .from('user_ai_keys')
-    .select('provider')
-    .eq('user_id', userId)
-    .eq('is_active', true);
+  // No usable preference. For chat, stay on a provider the user actually holds
+  // a key for rather than dropping onto the platform default and billing them.
+  //
+  // Transcription deliberately does NOT do this: speech-to-text always runs on
+  // the platform's OpenRouter key and is paid for in credits, even on the BYOK
+  // plan. Following the user's key here would silently route audio to a
+  // provider they only meant to use for text.
+  if (kind === 'chat') {
+    const { data: userKeys } = await db
+      .from('user_ai_keys')
+      .select('provider')
+      .eq('user_id', userId)
+      .eq('is_active', true);
 
-  const providers = (userKeys ?? []).map((k) => k.provider);
-  if (providers.length) {
-    const { data: onOwnKey } = await db
-      .from('ai_models')
-      .select('*')
-      .eq('kind', kind)
-      .eq('enabled', true)
-      .in('provider', providers)
-      .order('sort_order')
-      .limit(1)
-      .maybeSingle();
+    const providers = (userKeys ?? []).map((k) => k.provider);
+    if (providers.length) {
+      const { data: onOwnKey } = await db
+        .from('ai_models')
+        .select('*')
+        .eq('kind', kind)
+        .eq('enabled', true)
+        .in('provider', providers)
+        .order('sort_order')
+        .limit(1)
+        .maybeSingle();
 
-    if (onOwnKey) return onOwnKey as AiModel;
+      if (onOwnKey) return onOwnKey as AiModel;
+    }
   }
 
   const { data: fallback, error } = await db

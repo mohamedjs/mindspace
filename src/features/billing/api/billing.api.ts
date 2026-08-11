@@ -31,6 +31,19 @@ export type {
  */
 const CREDITS_PER_RECORDED_MINUTE = 9;
 
+/**
+ * On the BYOK plan credits only buy transcription — the writing runs on the
+ * user's key — so the rate is the raw 6 credits a minute, with no extraction
+ * cost amortised in.
+ */
+const CREDITS_PER_TRANSCRIBED_MINUTE = 6;
+
+export function creditsToTranscriptionLabel(credits: number): string {
+  const minutes = Math.floor(credits / CREDITS_PER_TRANSCRIBED_MINUTE);
+  if (minutes < 90) return `about ${minutes} min`;
+  return `about ${(minutes / 60).toFixed(1).replace(/\.0$/, '')} hours`;
+}
+
 export function creditsToRecordingLabel(credits: number): string {
   const minutes = Math.floor(credits / CREDITS_PER_RECORDED_MINUTE);
   if (minutes < 90) return `about ${minutes} min of talking`;

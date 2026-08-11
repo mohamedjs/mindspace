@@ -12,6 +12,7 @@ import {
 } from '../../features/ai/hooks/useModels';
 import { useDeleteAccount, useProfile, useUpdateDisplayName } from '../../features/account/hooks/useAccount';
 import { useActiveSubscription, usePlans } from '../../features/billing/hooks/useBilling';
+import { useUserKeys } from '../../features/byok/hooks/useUserKeys';
 import { ThemeToggle } from '../../shared/theme/ThemeToggle';
 import { useTheme } from '../../shared/theme';
 import { clay, shade } from '../../shared/theme/clay';
@@ -101,9 +102,16 @@ function ProfileCard() {
   );
 }
 
+const PROVIDER_LABEL: Record<string, string> = {
+  openai: 'GPT',
+  anthropic: 'Claude',
+  google: 'Gemini',
+};
+
 function AiModelsSection() {
   const { data: models } = useModels();
   const { data: prefs } = useModelPreferences();
+  const { data: keys } = useUserKeys();
   const setPreference = useSetModelPreference();
 
   const choose = (kind: 'chat' | 'transcribe') => (modelRowId: string | null) =>
@@ -112,26 +120,46 @@ function AiModelsSection() {
       { onError: (err) => Toast.show({ type: 'error', text1: 'Could not save', text2: err.message }) }
     );
 
+  /**
+   * Saving an OpenAI key should leave you choosing between GPT models, not
+   * scrolling past Claude and Gemini rows you cannot run. Narrowing to the
+   * providers you actually hold a key for also keeps this list honest with the
+   * server: resolveModel picks a model your key can serve, so a picker showing
+   * more than that would promise something the pipeline won't deliver.
+   */
+  const keyProviders = (keys ?? []).filter((k) => k.isActive).map((k) => k.provider);
+  const chatModels = keyProviders.length
+    ? models?.filter((m) => keyProviders.includes(m.provider))
+    : models?.filter((m) => m.provider === 'openrouter');
+
+  const ownProviders = keyProviders.map((p) => PROVIDER_LABEL[p] ?? p).join(' · ');
+
   return (
     <>
       <SectionHeading dot="#66BB6A">AI models</SectionHeading>
+
+      <ModelPicker
+        title="Text → sticky notes"
+        subtitle={
+          keyProviders.length
+            ? `Running on your own ${ownProviders} key — billed by them, not in credits.`
+            : 'Which model reads the transcript and decides what the notes say.'
+        }
+        kind="chat"
+        models={chatModels}
+        selectedId={prefs?.chatModelId ?? null}
+        saving={setPreference.isPending}
+        onSelect={choose('chat')}
+      />
+
       <ModelPicker
         title="Voice → text"
-        subtitle="Which model listens to your recording and writes the transcript."
+        subtitle="Always runs on MindSpace credits, even with your own key saved."
         kind="transcribe"
         models={models}
         selectedId={prefs?.transcribeModelId ?? null}
         saving={setPreference.isPending}
         onSelect={choose('transcribe')}
-      />
-      <ModelPicker
-        title="Text → sticky notes"
-        subtitle="Which model reads the transcript and decides what the notes say."
-        kind="chat"
-        models={models}
-        selectedId={prefs?.chatModelId ?? null}
-        saving={setPreference.isPending}
-        onSelect={choose('chat')}
       />
     </>
   );

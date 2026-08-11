@@ -4,7 +4,11 @@ import { Check, Sparkles } from 'lucide-react-native';
 import { Text } from '../../../shared/ui/Text';
 import { useTheme } from '../../../shared/theme';
 import { clay, shade } from '../../../shared/theme/clay';
-import { creditsToRecordingLabel, type SubscriptionPlan } from '../api/billing.api';
+import {
+  creditsToRecordingLabel,
+  creditsToTranscriptionLabel,
+  type SubscriptionPlan,
+} from '../api/billing.api';
 
 interface PlanCardProps {
   plan: SubscriptionPlan;
@@ -66,11 +70,12 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrent, disabled, o
       {plan.isByok ? (
         <View className="mt-3">
           <Text className="text-sm font-bold" style={{ color: colors.accent }}>
-            No credits — you pay your AI provider
+            Sticky notes on your own GPT / Claude / Gemini key
           </Text>
           <Text className="mt-0.5 text-[11px] text-muted">
-            Your key, your account, your limits. Recordings up to{' '}
-            {plan.maxRecordingMinutes} min.
+            {plan.totalCredits.toLocaleString()} credits for voice → text (
+            {creditsToTranscriptionLabel(plan.totalCredits)}) · recordings up to{' '}
+            {plan.maxRecordingMinutes} min
           </Text>
         </View>
       ) : (

@@ -96,15 +96,21 @@ Deno.serve(async (req) => {
     }
 
     // 3. Grant. Revoked from client roles, so only reachable from here.
-    const { error: grantErr } = await admin.rpc('grant_credits', {
-      p_user: user.id,
-      p_amount: plan.total_credits,
-      p_reason: 'purchase',
-      p_package: null,
-      p_payment_ref: verification.externalRef,
-    });
+    //    A BYOK plan buys no credits — it buys the right to run on your own
+    //    key. Granting zero would still append a ledger row, which renders in
+    //    the history as a red "Credits purchased  0". The payment row above is
+    //    already the record of the purchase.
+    if (plan.total_credits > 0) {
+      const { error: grantErr } = await admin.rpc('grant_credits', {
+        p_user: user.id,
+        p_amount: plan.total_credits,
+        p_reason: 'purchase',
+        p_package: null,
+        p_payment_ref: verification.externalRef,
+      });
 
-    if (grantErr) throw new HttpError(500, 'grant_failed', grantErr.message);
+      if (grantErr) throw new HttpError(500, 'grant_failed', grantErr.message);
+    }
 
     const start = new Date();
     await admin

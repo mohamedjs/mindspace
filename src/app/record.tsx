@@ -6,6 +6,7 @@ import { RecordScreen } from '../features/voice/components/RecordScreen';
 import { uploadRecording } from '../features/voice/services/upload';
 import { markRecordingFailed } from '../features/voice/services/recorder';
 import { runThinkingPipeline } from '../features/voice/services/pipeline';
+import { PipelineError, describeFailure } from '../features/voice/services/pipelineErrors';
 import { queryKeys } from '../lib/query-client/keys';
 import { useAuth } from '../providers/AuthProvider';
 
@@ -47,13 +48,14 @@ export default function RecordRoute() {
         qc.invalidateQueries({ queryKey: queryKeys.notes.bySpace(spaceId) });
         qc.invalidateQueries({ queryKey: queryKeys.credits.balance });
       } catch (err) {
+        // Store "code: message" so whichever screen reads recordings.error
+        // back can still tell out-of-credits from a provider timeout.
+        const code = err instanceof PipelineError ? err.code : 'unknown';
         const message = err instanceof Error ? err.message : String(err);
-        await markRecordingFailed(recordingId, message).catch(() => {});
-        Toast.show({
-          type: 'error',
-          text1: 'Could not turn that into notes',
-          text2: 'Your audio is saved on this device. We will retry later.',
-        });
+        await markRecordingFailed(recordingId, `${code}: ${message}`).catch(() => {});
+
+        const copy = describeFailure(err);
+        Toast.show({ type: 'error', text1: copy.title, text2: copy.message });
       }
     },
     [user, spaceId, parentNoteId, fillNoteId, targetNoteId, router, qc]

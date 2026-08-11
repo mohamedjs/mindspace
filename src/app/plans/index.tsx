@@ -31,12 +31,9 @@ export default function PlansScreen() {
 
   const pickingPlan = plans?.find((p) => p.id === pickingPlanId) ?? null;
 
-  const handlePick = (channel: PaymentChannel) => {
-    if (!pickingPlanId) return;
-    setBusyChannel(channel);
-
+  const activate = (planId: string, channel?: PaymentChannel) =>
     subscribe.mutate(
-      { planId: pickingPlanId, channel },
+      { planId, channel },
       {
         onSuccess: (result) => {
           setPickingPlanId(null);
@@ -45,14 +42,26 @@ export default function PlansScreen() {
             text1: result.alreadyActive ? 'Already active' : 'You are subscribed',
             text2: result.creditsGranted
               ? `${result.creditsGranted.toLocaleString()} credits added.`
-              : 'Nothing was charged twice.',
+              : 'Add your API key in Settings to start using it.',
           });
         },
         onError: (err) =>
-          Toast.show({ type: 'error', text1: 'Payment did not go through', text2: err.message }),
+          Toast.show({ type: 'error', text1: 'Could not activate', text2: err.message }),
         onSettled: () => setBusyChannel(null),
       }
     );
+
+  /** A free plan has nothing to pay, so skip the payment sheet entirely. */
+  const handleChoosePlan = (planId: string) => {
+    const plan = plans?.find((p) => p.id === planId);
+    if (plan?.priceEgp === 0) activate(planId);
+    else setPickingPlanId(planId);
+  };
+
+  const handlePick = (channel: PaymentChannel) => {
+    if (!pickingPlanId) return;
+    setBusyChannel(channel);
+    activate(pickingPlanId, channel);
   };
 
   return (
@@ -81,7 +90,7 @@ export default function PlansScreen() {
             plan={plan}
             isCurrent={subscription?.planId === plan.id}
             disabled={subscribe.isPending}
-            onPress={setPickingPlanId}
+            onPress={handleChoosePlan}
           />
         ))}
 

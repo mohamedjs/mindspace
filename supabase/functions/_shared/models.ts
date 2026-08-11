@@ -22,7 +22,15 @@ const PREFERENCE_COLUMN: Record<ModelKind, string> = {
 
 /**
  * Resolves which model to use: the user's saved preference if it's still
- * enabled and of the right kind, otherwise the default for that kind.
+ * enabled and of the right kind, otherwise a model on a provider they hold a
+ * key for, otherwise the default for that kind.
+ *
+ * That middle step exists to close a silent billing bug. resolveApiKey looks
+ * up a key by the *resolved model's* provider — so a user who saved an
+ * Anthropic key but whose stored preference still points at an OpenRouter row
+ * would run on OpenRouter, find no user key there, fall back to the platform
+ * key, and be charged credits, while the UI showed Anthropic. Preferring a
+ * provider they actually hold a key for keeps the two in agreement.
  */
 export async function resolveModel(
   db: SupabaseClient,
@@ -49,6 +57,29 @@ export async function resolveModel(
       .maybeSingle();
 
     if (preferred) return preferred as AiModel;
+  }
+
+  // No usable preference. If they're on BYOK, stay on their own provider
+  // rather than dropping onto the platform default and billing them.
+  const { data: userKeys } = await db
+    .from('user_ai_keys')
+    .select('provider')
+    .eq('user_id', userId)
+    .eq('is_active', true);
+
+  const providers = (userKeys ?? []).map((k) => k.provider);
+  if (providers.length) {
+    const { data: onOwnKey } = await db
+      .from('ai_models')
+      .select('*')
+      .eq('kind', kind)
+      .eq('enabled', true)
+      .in('provider', providers)
+      .order('sort_order')
+      .limit(1)
+      .maybeSingle();
+
+    if (onOwnKey) return onOwnKey as AiModel;
   }
 
   const { data: fallback, error } = await db

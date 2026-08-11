@@ -4,7 +4,7 @@ import { Check, Sparkles } from 'lucide-react-native';
 import { Text } from '../../../shared/ui/Text';
 import { useTheme } from '../../../shared/theme';
 import { clay, shade } from '../../../shared/theme/clay';
-import type { SubscriptionPlan } from '../api/billing.api';
+import { creditsToRecordingLabel, type SubscriptionPlan } from '../api/billing.api';
 
 interface PlanCardProps {
   plan: SubscriptionPlan;
@@ -63,17 +63,35 @@ export const PlanCard: React.FC<PlanCardProps> = ({ plan, isCurrent, disabled, o
         <Text className="mt-0.5 text-xs text-muted">{plan.tagline}</Text>
       )}
 
-      <View className="mt-3 flex-row items-baseline">
-        <Text className="text-sm font-bold" style={{ color: colors.accent }}>
-          {plan.totalCredits.toLocaleString()} credits
-        </Text>
-        <Text className="ml-1.5 text-[11px] text-muted">a month</Text>
-        {plan.bonusPct > 0 && (
-          <Text className="ml-2 text-[11px] font-semibold text-warning">
-            +{plan.bonusPct}% bonus
+      {plan.isByok ? (
+        <View className="mt-3">
+          <Text className="text-sm font-bold" style={{ color: colors.accent }}>
+            No credits — you pay your AI provider
           </Text>
-        )}
-      </View>
+          <Text className="mt-0.5 text-[11px] text-muted">
+            Your key, your account, your limits. Recordings up to{' '}
+            {plan.maxRecordingMinutes} min.
+          </Text>
+        </View>
+      ) : (
+        <View className="mt-3">
+          <View className="flex-row items-baseline">
+            <Text className="text-sm font-bold" style={{ color: colors.accent }}>
+              {plan.totalCredits.toLocaleString()} credits
+            </Text>
+            <Text className="ml-1.5 text-[11px] text-muted">a month</Text>
+            {plan.bonusPct > 0 && (
+              <Text className="ml-2 text-[11px] font-semibold text-warning">
+                +{plan.bonusPct}% bonus
+              </Text>
+            )}
+          </View>
+          <Text className="mt-0.5 text-[11px] text-muted">
+            {creditsToRecordingLabel(plan.totalCredits)} · up to{' '}
+            {plan.maxRecordingMinutes} min per recording
+          </Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 };

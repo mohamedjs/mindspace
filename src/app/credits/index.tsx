@@ -110,13 +110,8 @@ export default function CreditsScreen() {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity className="mt-3 self-start" onPress={() => router.push('/keys')}>
-              <View style={clay({ color: shade(colors.surface, -0.05), radius: 12, pressed: true })} className="px-4 py-2">
-                <Text className="text-sm font-bold text-accent">
-                  Use your own API key instead →
-                </Text>
-              </View>
-            </TouchableOpacity>
+            {/* Bringing your own key is now the "Your AI" plan, so the only
+                route to the key screen is through /plans. */}
             {Boolean(balance?.creditsReserved) && (
               <Text className="mt-3 text-xs font-semibold text-warning">
                 {balance?.creditsReserved} credits reserved for in-flight work

@@ -30,6 +30,8 @@ import {
 import { useBalance } from '../features/credits/hooks/useCredits';
 import { useRecordingStatus } from '../features/voice/hooks/useRecordingStatus';
 import { runThinkingPipeline } from '../features/voice/services/pipeline';
+import { describeFailure, describeStoredFailure } from '../features/voice/services/pipelineErrors';
+import { OutOfCreditsSheet } from '../features/credits/components/OutOfCreditsSheet';
 import { useAuth } from '../providers/AuthProvider';
 import { useTheme } from '../shared/theme';
 
@@ -91,7 +93,8 @@ export default function HomeScreen() {
   const addGroup = useCreateGroup(spaceId);
   const editGroup = useUpdateGroup(spaceId);
   const removeGroup = useDeleteGroup(spaceId);
-  const { status: recordingStatus } = useRecordingStatus(recordingId ?? null);
+  const { status: recordingStatus, error: recordingError } = useRecordingStatus(recordingId ?? null);
+  const [outOfCreditsOpen, setOutOfCreditsOpen] = useState(false);
 
   // Tallied from the full list regardless of the visibility setting below —
   // the badge should still say "3 sub-notes" even while they're hidden.
@@ -154,29 +157,37 @@ export default function HomeScreen() {
       qc.invalidateQueries({ queryKey: queryKeys.notes.bySpace(spaceId!) });
       qc.invalidateQueries({ queryKey: queryKeys.credits.balance });
     },
-    onError: (err) => Toast.show({ type: 'error', text1: 'Still not working', text2: err.message }),
+    onError: (err) => {
+      const copy = describeFailure(err);
+      Toast.show({ type: 'error', text1: copy.title, text2: copy.message });
+    },
   });
 
   useEffect(() => {
     // We only take action when the pipeline reaches a terminal state
-    if (recordingStatus !== 'completed' && recordingStatus !== 'transcribed' && recordingStatus !== 'failed') return;
-    
+    if (recordingStatus !== 'completed' && recordingStatus !== 'failed') return;
+
     if (recordingStatus === 'completed') {
       Toast.show({ type: 'success', text1: 'Success', text2: 'MindSpace finished turning your thoughts into sticky notes!' });
-    } else if (recordingStatus === 'failed') {
-      Toast.show({
-        type: 'error',
-        text1: 'Something went wrong',
-        text2: 'Audio is safe on your device.',
-        props: {
-          onRetry: () => retryPipeline.mutate()
-        }
-      });
+    } else {
+      // recordings.error carries the real code, so the user gets "out of
+      // credits" with a top-up path rather than one generic apology.
+      const copy = describeStoredFailure(recordingError);
+      if (copy.action === 'buy_credits') {
+        setOutOfCreditsOpen(true);
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: copy.title,
+          text2: copy.message,
+          props: copy.action === 'retry' ? { onRetry: () => retryPipeline.mutate() } : undefined,
+        });
+      }
     }
-    
+
     qc.invalidateQueries({ queryKey: queryKeys.notes.bySpace(spaceId ?? '') });
     router.setParams({ recordingId: undefined });
-  }, [recordingStatus, router, qc, spaceId, retryPipeline]);
+  }, [recordingStatus, recordingError, router, qc, spaceId, retryPipeline]);
 
   const handleUpdateColor = useCallback(
     (noteId: string, color: string) => recolor.mutate({ noteId, color }),
@@ -305,6 +316,13 @@ export default function HomeScreen() {
           onStartRecord={startRecord}
         />
       )}
+      <OutOfCreditsSheet
+        visible={outOfCreditsOpen}
+        requiredCredits={Math.max(0, 14 - available)}
+        availableCredits={available}
+        actionLabel="turn that recording into notes"
+        onClose={() => setOutOfCreditsOpen(false)}
+      />
       <RecordingsSheet
         visible={recordingsSheetOpen}
         spaceId={spaceId}

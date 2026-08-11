@@ -45,9 +45,16 @@ export function useSubscribe() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ planId, channel }: { planId: string; channel: PaymentChannel }) => {
+    mutationFn: async ({ planId, channel }: { planId: string; channel?: PaymentChannel }) => {
       const started = await startSubscription(planId, channel);
-      const receipt = await paymentHandlerFor(channel)(started.intent);
+
+      // A free plan ("Your AI") is activated by subscribe-start itself —
+      // there is no payment sheet to open and nothing to confirm.
+      if (started.free || !channel) {
+        return { subscriptionId: started.subscriptionId, status: 'active', creditsGranted: 0 };
+      }
+
+      const receipt = await paymentHandlerFor(channel)(started.intent!);
       return confirmSubscription(started.subscriptionId, receipt);
     },
     onSuccess: () => {

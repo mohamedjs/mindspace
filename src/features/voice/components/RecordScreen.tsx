@@ -13,12 +13,13 @@ import { useSharedValue } from 'react-native-reanimated';
 import { MicButton, MicButtonState } from './MicButton';
 import { Waveform } from './Waveform';
 import {
-  FREE_MAX_RECORDING_SEC,
+  FREE_MAX_RECORDING_MIN,
   METERING_INTERVAL_MS,
   MINDSPACE_RECORDING_OPTIONS,
   createRecordingRow,
 } from '../services/recorder';
 import { useRecordingStore } from '../store/recordingStore';
+import { useActiveSubscription, usePlans } from '../../billing/hooks/useBilling';
 import { useTheme } from '../../../shared/theme';
 import { clay } from '../../../shared/theme/clay';
 
@@ -42,6 +43,15 @@ export const RecordScreen: React.FC<RecordScreenProps> = ({
   onCancel,
 }) => {
   const { colors } = useTheme();
+
+  // Fail closed: while the subscription is loading, or when there isn't one,
+  // the free cap applies. Anything else would let an unsubscribed user record
+  // for an hour before finding out it wasn't allowed.
+  const { data: subscription } = useActiveSubscription();
+  const { data: plans } = usePlans();
+  const activePlan = plans?.find((p) => p.id === subscription?.planId);
+  const maxRecordingSec = (activePlan?.maxRecordingMinutes ?? FREE_MAX_RECORDING_MIN) * 60;
+
   const recorder = useAudioRecorder(MINDSPACE_RECORDING_OPTIONS);
   const recorderState = useAudioRecorderState(recorder, METERING_INTERVAL_MS);
   const [uiState, setUiState] = useState<MicButtonState>('idle');
@@ -95,18 +105,20 @@ export const RecordScreen: React.FC<RecordScreenProps> = ({
     }
   }, [recorder, elapsedMs, spaceId, onRecorded, setIsRecording, resetRecording, level]);
 
-  // Free tier hard stop at 180s.
+  // Hard stop at the plan's cap. Whatever was captured is kept.
   useEffect(() => {
     if (uiState !== 'recording') return;
-    if (elapsedMs < FREE_MAX_RECORDING_SEC * 1000) return;
+    if (elapsedMs < maxRecordingSec * 1000) return;
 
     Toast.show({
       type: 'info',
       text1: 'Recording limit reached',
-      text2: `Free recordings stop at ${FREE_MAX_RECORDING_SEC / 60} minutes. We saved what you captured.`,
+      text2: activePlan
+        ? `${activePlan.name} recordings stop at ${maxRecordingSec / 60} minutes. We saved what you captured.`
+        : `Free recordings stop at ${maxRecordingSec / 60} minutes. Subscribe for longer ones — we saved what you captured.`,
     });
     handleStop();
-  }, [elapsedMs, uiState, handleStop]);
+  }, [elapsedMs, uiState, handleStop, maxRecordingSec, activePlan]);
 
   const handleStart = useCallback(async () => {
     try {
@@ -140,7 +152,7 @@ export const RecordScreen: React.FC<RecordScreenProps> = ({
     }
   }, [recorder, setIsRecording]);
 
-  const remainingSec = Math.max(0, FREE_MAX_RECORDING_SEC - Math.floor(elapsedMs / 1000));
+  const remainingSec = Math.max(0, maxRecordingSec - Math.floor(elapsedMs / 1000));
 
   return (
     <SafeAreaView className="flex-1 bg-board">

@@ -10,7 +10,8 @@ import {
 import Toast from 'react-native-toast-message';
 import { Text } from '../../shared/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
+import { useActiveSubscription, usePlans } from '../../features/billing/hooks/useBilling';
 import { useDeleteUserKey, useSaveUserKey, useUserKeys } from '../../features/byok/hooks/useUserKeys';
 import type { UserKey } from '../../features/byok/api/keys.api';
 import { useTheme } from '../../shared/theme';
@@ -64,6 +65,17 @@ export default function KeysScreen() {
   const { data: keys, isLoading } = useUserKeys();
   const saveKey = useSaveUserKey();
   const deleteKey = useDeleteUserKey();
+
+  // Bringing your own key is the "Your AI" plan. Anyone else who reaches this
+  // route — an old deep link, a back-stack entry — gets sent to the plans page
+  // rather than a screen whose keys would never be used.
+  const { data: subscription, isLoading: subLoading } = useActiveSubscription();
+  const { data: plans } = usePlans();
+  const isByok = Boolean(plans?.find((p) => p.id === subscription?.planId)?.isByok);
+
+  if (!subLoading && plans && !isByok) {
+    return <Redirect href="/plans" />;
+  }
 
   const { colors } = useTheme();
   const [provider, setProvider] = useState<(typeof PROVIDERS)[number]>('openrouter');

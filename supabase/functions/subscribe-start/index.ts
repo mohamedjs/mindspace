@@ -23,18 +23,51 @@ Deno.serve(async (req) => {
     }
 
     const { planId, channel } = await req.json();
-    if (!planId || !channel) throw new HttpError(400, 'missing_params');
-
-    const provider = paymentProviderFor(channel);
+    if (!planId) throw new HttpError(400, 'missing_params');
 
     const { data: plan, error: planErr } = await admin
       .from('subscription_plans')
-      .select('id, name, price_egp, total_credits, enabled')
+      .select('id, name, price_egp, total_credits, enabled, is_byok')
       .eq('id', planId)
       .single();
 
     if (planErr || !plan) throw new HttpError(404, 'plan_not_found');
     if (!plan.enabled) throw new HttpError(400, 'plan_disabled');
+
+    // A free plan ("Your AI") has nothing to charge, so it never reaches a
+    // payment provider. It also must not write a payments row: channel and
+    // external_ref are NOT NULL there, and there is no payment to record.
+    if (plan.price_egp === 0) {
+      const start = new Date();
+      const end = new Date(start);
+      end.setFullYear(end.getFullYear() + 100); // effectively no expiry
+
+      const { data: freeSub, error: freeErr } = await admin
+        .from('subscriptions')
+        .insert({
+          user_id: user.id,
+          plan_id: plan.id,
+          status: 'active',
+          channel: 'test_pay', // column is NOT NULL; nothing reads it for free plans
+          current_period_start: start.toISOString(),
+          current_period_end: end.toISOString(),
+        })
+        .select('id')
+        .single();
+
+      if (freeErr || !freeSub) {
+        throw new HttpError(500, 'subscription_create_failed', freeErr?.message);
+      }
+
+      return json({
+        subscriptionId: freeSub.id,
+        free: true,
+        plan: { id: plan.id, name: plan.name, priceEgp: 0, credits: 0 },
+      });
+    }
+
+    if (!channel) throw new HttpError(400, 'missing_params');
+    const provider = paymentProviderFor(channel);
 
     // The row exists before the payment sheet opens so a completed payment
     // always has somewhere to land, even if the app dies mid-flow.

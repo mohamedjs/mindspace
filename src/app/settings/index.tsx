@@ -11,6 +11,7 @@ import {
   useSetModelPreference,
 } from '../../features/ai/hooks/useModels';
 import { useDeleteAccount, useProfile, useUpdateDisplayName } from '../../features/account/hooks/useAccount';
+import { useActiveSubscription, usePlans } from '../../features/billing/hooks/useBilling';
 import { ThemeToggle } from '../../shared/theme/ThemeToggle';
 import { useTheme } from '../../shared/theme';
 import { clay, shade } from '../../shared/theme/clay';
@@ -243,6 +244,9 @@ function AccountSection() {
   const { signOut } = useAuth();
   const deleteAccount = useDeleteAccount();
   const { colors } = useTheme();
+  const { data: subscription } = useActiveSubscription();
+  const { data: plans } = usePlans();
+  const isByok = Boolean(plans?.find((p) => p.id === subscription?.planId)?.isByok);
   const rowStyle = clay({ color: shade(colors.surface, -0.05), radius: 18, depth: 0.5 });
 
   const handleSignOut = () => {
@@ -275,12 +279,24 @@ function AccountSection() {
   return (
     <>
       <SectionHeading dot="#FFCA28">Account</SectionHeading>
-      <TouchableOpacity className="mb-2.5 px-4 py-4" style={rowStyle} onPress={() => router.push('/keys')}>
-        <Text className="text-base font-semibold text-ink">Your API keys</Text>
+
+      <TouchableOpacity className="mb-2.5 px-4 py-4" style={rowStyle} onPress={() => router.push('/plans')}>
+        <Text className="text-base font-semibold text-ink">Plans</Text>
         <Text className="mt-0.5 text-xs text-muted">
-          Use your own provider key and these requests stop costing credits.
+          Monthly credits, longer recordings — or bring your own AI key.
         </Text>
       </TouchableOpacity>
+
+      {/* The key screen is only reachable on the "Your AI" plan — see /keys,
+          which redirects anyone else to the plans page. */}
+      {isByok && (
+        <TouchableOpacity className="mb-2.5 px-4 py-4" style={rowStyle} onPress={() => router.push('/keys')}>
+          <Text className="text-base font-semibold text-ink">Your API keys</Text>
+          <Text className="mt-0.5 text-xs text-muted">
+            Requests run on your own provider account, not on credits.
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity className="mb-2.5 px-4 py-4" style={rowStyle} onPress={() => router.push('/credits')}>
         <Text className="text-base font-semibold text-ink">Credits & billing</Text>

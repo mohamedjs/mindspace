@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, TouchableOpacity, View } from 'react-native';
 import { Text } from '../../../shared/ui/Text';
 import { useTheme } from '../../../shared/theme';
 import { clay, shade } from '../../../shared/theme/clay';
 import type { AiModel, ModelKind } from '../api/models.api';
-import { Check } from 'lucide-react-native';
+import { Check, ChevronDown } from 'lucide-react-native';
 
 interface ModelPickerProps {
   title: string;
@@ -33,7 +33,9 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
   onSelect,
 }) => {
   const { colors, scheme } = useTheme();
+  const [expanded, setExpanded] = useState(false);
   const options = (models ?? []).filter((m) => m.kind === kind);
+  const selected = options.find((m) => (selectedId ? m.id === selectedId : m.isDefault));
 
   return (
     <View className="mb-6">
@@ -45,7 +47,26 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
 
       {!models && <ActivityIndicator color={colors.accent} style={{ marginVertical: 12 }} />}
 
-      {options.map((model) => {
+      {models && (
+        <TouchableOpacity
+          className="mb-2.5 flex-row items-center justify-between px-4 py-3.5"
+          style={clay({ color: shade(colors.surface, -0.05), radius: 18, depth: 0.5, pressed: expanded })}
+          activeOpacity={0.8}
+          onPress={() => setExpanded((v) => !v)}
+        >
+          <Text className="flex-1 text-base font-semibold text-ink">
+            {selected?.displayName ?? 'Choose a model'}
+          </Text>
+          <ChevronDown
+            size={18}
+            color={colors.muted}
+            strokeWidth={3}
+            style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}
+          />
+        </TouchableOpacity>
+      )}
+
+      {expanded && options.map((model) => {
         // No stored preference means "whatever is flagged default" — show that
         // row as selected rather than leaving the list with nothing highlighted.
         const isSelected = selectedId ? selectedId === model.id : model.isDefault;
@@ -61,7 +82,10 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             })}
             activeOpacity={0.8}
             disabled={saving}
-            onPress={() => onSelect(model.isDefault ? null : model.id)}
+            onPress={() => {
+              onSelect(model.isDefault ? null : model.id);
+              setExpanded(false);
+            }}
           >
             <View className="flex-1">
               <Text className="text-base font-semibold text-ink">{model.displayName}</Text>

@@ -10,14 +10,26 @@ import {
 import Toast from 'react-native-toast-message';
 import { Text } from '../../shared/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
+import { useActiveSubscription, usePlans } from '../../features/billing/hooks/useBilling';
 import { useDeleteUserKey, useSaveUserKey, useUserKeys } from '../../features/byok/hooks/useUserKeys';
 import type { UserKey } from '../../features/byok/api/keys.api';
 import { useTheme } from '../../shared/theme';
 import { clay, clayAccent, shade } from '../../shared/theme/clay';
 import { ChevronLeft } from 'lucide-react-native';
 
-const PROVIDERS = ['openrouter', 'openai', 'google', 'anthropic', 'nvidia', 'custom'] as const;
+/**
+ * The only providers a user key can back.
+ *
+ * Speech-to-text is not in this list on purpose: every recording is
+ * transcribed on our OpenRouter key and paid for in credits, so a user key is
+ * only ever used to turn text into sticky notes.
+ */
+const PROVIDERS = [
+  { id: 'openai', label: 'OpenAI · GPT' },
+  { id: 'anthropic', label: 'Anthropic · Claude' },
+  { id: 'google', label: 'Google · Gemini' },
+] as const;
 
 function KeyRow({ item, onDelete }: { item: UserKey; onDelete: (id: string) => void }) {
   const { colors } = useTheme();
@@ -65,8 +77,19 @@ export default function KeysScreen() {
   const saveKey = useSaveUserKey();
   const deleteKey = useDeleteUserKey();
 
+  // Bringing your own key is the "Your AI" plan. Anyone else who reaches this
+  // route — an old deep link, a back-stack entry — gets sent to the plans page
+  // rather than a screen whose keys would never be used.
+  const { data: subscription, isLoading: subLoading } = useActiveSubscription();
+  const { data: plans } = usePlans();
+  const isByok = Boolean(plans?.find((p) => p.id === subscription?.planId)?.isByok);
+
+  if (!subLoading && plans && !isByok) {
+    return <Redirect href="/plans" />;
+  }
+
   const { colors } = useTheme();
-  const [provider, setProvider] = useState<(typeof PROVIDERS)[number]>('openrouter');
+  const [provider, setProvider] = useState<(typeof PROVIDERS)[number]['id']>('openai');
   const [apiKey, setApiKey] = useState('');
 
   const handleSave = async () => {
@@ -97,19 +120,30 @@ export default function KeysScreen() {
 
       <ScrollView className="flex-1 px-5 pt-6">
         <Text className="text-[13px] font-medium leading-5 text-muted">
-          Bring your own key and MindSpace stops charging you credits for that provider —
-          your key never leaves the server once saved, and never appears here again.
+          Your key turns transcripts into sticky notes, billed by your provider — not in
+          credits. Once saved it never leaves the server and never appears here again.
         </Text>
+
+        <View
+          className="mt-4 px-4 py-3"
+          style={clay({ color: shade(colors.surface, -0.05), radius: 16, depth: 0.4 })}
+        >
+          <Text className="text-[12px] font-bold text-ink">Voice still runs on credits</Text>
+          <Text className="mt-1 text-[12px] leading-4 text-muted">
+            Turning your voice into text always uses our OpenRouter key, so your plan includes
+            credits for it. Your own key is only ever used for the writing.
+          </Text>
+        </View>
 
         <Text className="mb-3 mt-8 text-xs font-bold uppercase tracking-wider text-muted">
           Provider
         </Text>
         <View className="flex-row flex-wrap gap-2.5">
           {PROVIDERS.map((p) => {
-            const isSelected = provider === p;
+            const isSelected = provider === p.id;
             return (
               <TouchableOpacity
-                key={p}
+                key={p.id}
                 className="px-4 py-2"
                 style={clay({
                   color: isSelected ? `${colors.accent}20` : shade(colors.surface, -0.02),
@@ -117,14 +151,14 @@ export default function KeysScreen() {
                   pressed: isSelected,
                   depth: isSelected ? 0.5 : 0.2,
                 })}
-                onPress={() => setProvider(p)}
+                onPress={() => setProvider(p.id)}
                 activeOpacity={0.7}
               >
                 <Text
                   className="text-[13px] font-bold"
                   style={{ color: isSelected ? colors.accent : colors.muted }}
                 >
-                  {p}
+                  {p.label}
                 </Text>
               </TouchableOpacity>
             );

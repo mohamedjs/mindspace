@@ -16,41 +16,42 @@ import { noteColors, NoteType } from '../../../shared/constants/tokens';
 import { shade } from '../../../shared/theme/clay';
 import { readableTextOn } from '../../../shared/theme/color';
 import { useTheme } from '../../../shared/theme';
+import type { Note } from '../../../core/domain';
 
 /** Size of the peeled bottom-right corner, in px. */
-const CURL = 24;
+const CURL = 38;
 
-export interface StickyNoteData {
-  id: string;
-  title?: string | null;
-  content: string;
-  type: NoteType;
-  color?: string | null;
-  x: number;
-  y: number;
-  width?: number;
-  height?: number;
-  rotation?: number;
-}
+/** The domain entity. Kept as a named re-export so existing call sites read naturally. */
+export type StickyNoteData = Note;
 
 interface StickyNoteItemProps {
   note: StickyNoteData;
   onUpdateColor?: (id: string, color: string) => void;
-  onDelete?: (id: string) => void;
-  onPressNote?: (id: string) => void;
-  /** Fires once, when a drag ends, with the note's new world position. */
   onMove?: (id: string, x: number, y: number) => void;
+  onMoveClusterEnd?: (id: string, finalX: number, finalY: number) => void;
+  onDelete?: (id: string) => void;
+  onDragStart?: (id: string) => void;
+  onPressNote?: (id: string) => void;
   /** Live canvas zoom, so a drag can be converted from screen px to world units. */
   canvasScale?: SharedValue<number>;
+  /** How many sub-notes this idea has, if any — shown as a small corner badge. */
+  childCount?: number;
+  activeDragState?: SharedValue<{ id: string | null; dx: number; dy: number }>;
+  activeDragNotes?: SharedValue<string[]>;
 }
 
 export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
   note,
   onUpdateColor,
-  onDelete,
-  onPressNote,
   onMove,
+  onMoveClusterEnd,
+  onDelete,
+  onDragStart,
+  onPressNote,
   canvasScale,
+  childCount,
+  activeDragState,
+  activeDragNotes,
 }) => {
   const { colors } = useTheme();
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
@@ -92,7 +93,9 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
   const dragGesture = Gesture.Pan()
     .activateAfterLongPress(120)
     .onStart(() => {
+      if (onDragStart) runOnJS(onDragStart)(note.id);
       scale.value = withSpring(1.06);
+      if (activeDragState) activeDragState.value = { id: note.id, dx: 0, dy: 0 };
       runOnJS(setLifted)(true);
     })
     .onUpdate((e) => {
@@ -101,13 +104,22 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
       // the note visibly lags the finger when zoomed out and overshoots when
       // zoomed in.
       const zoom = canvasScale?.value ?? 1;
-      translateX.value = note.x + e.translationX / zoom;
-      translateY.value = note.y + e.translationY / zoom;
+      const dx = e.translationX / zoom;
+      const dy = e.translationY / zoom;
+      translateX.value = note.x + dx;
+      translateY.value = note.y + dy;
+      if (activeDragState) activeDragState.value = { id: note.id, dx, dy };
     })
     .onEnd(() => {
       scale.value = withSpring(1);
+      if (activeDragState) activeDragState.value = { id: null, dx: 0, dy: 0 };
       runOnJS(setLifted)(false);
-      runOnJS(commitPosition)(translateX.value, translateY.value);
+      
+      if (onMoveClusterEnd) {
+        runOnJS(onMoveClusterEnd)(note.id, translateX.value, translateY.value);
+      } else {
+        runOnJS(commitPosition)(translateX.value, translateY.value);
+      }
     });
 
   const handleTap = () => {
@@ -128,20 +140,33 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
 
   const composed = Gesture.Race(dragGesture, Gesture.Exclusive(longPressGesture, tapGesture));
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { rotate: `${tilt}deg` },
-      { scale: scale.value },
-    ],
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    let extraX = 0;
+    let extraY = 0;
+    
+    // If a cluster is dragging, check if we are part of it
+    if (activeDragState && activeDragNotes && activeDragState.value.id && activeDragState.value.id !== note.id) {
+      if (activeDragNotes.value.includes(note.id)) {
+        extraX = activeDragState.value.dx;
+        extraY = activeDragState.value.dy;
+      }
+    }
+
+    return {
+      transform: [
+        { translateX: translateX.value + extraX },
+        { translateY: translateY.value + extraY },
+        { rotate: `${tilt}deg` },
+        { scale: scale.value },
+      ],
+    };
+  });
 
   return (
     <GestureDetector gesture={composed}>
       <Animated.View
         className="absolute"
-        style={[{ width: note.width || 190, minHeight: note.height || 145 }, animatedStyle]}
+        style={[{ width: note.width || 240, minHeight: note.height || 200 }, animatedStyle]}
       >
         {/*
           Cast shadow sits on its own layer *behind* the paper rather than on
@@ -159,6 +184,7 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
             shadowOpacity: 1,
             shadowRadius: isLifted ? 20 : 9,
             elevation: isLifted ? 16 : 6,
+            borderBottomRightRadius: CURL,
           }}
         />
 
@@ -205,12 +231,23 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
           </View>
         </View>
 
-        <PeelFlap size={CURL} color={shade(paperBg, -0.24)} />
+        <PeelFlap size={CURL + 4} color={shade(paperBg, -0.15)} />
 
         {/* Metallic push pin (مسمار) at top-center */}
         <View className="absolute -top-[9px] left-0 right-0 z-20 items-center">
           <PushPin isLifted={isLifted} />
         </View>
+
+        {Boolean(childCount) && (
+          <View
+            className="absolute -right-2 -top-2 z-20 h-6 min-w-6 items-center justify-center rounded-full px-1"
+            style={{ backgroundColor: shade(paperBg, -0.35) }}
+          >
+            <Text className="text-[11px] font-bold" style={{ color: textColor }}>
+              {childCount}
+            </Text>
+          </View>
+        )}
 
 
 

@@ -102,13 +102,16 @@ export default function CreditsScreen() {
             <Text className="mt-1 text-sm font-medium text-muted">
               {creditsToEgp(available)} EGP · about {estimateMinutes(available)} min of voice
             </Text>
-            <TouchableOpacity className="mt-4 self-start" onPress={() => router.push('/keys')}>
-              <View style={clay({ color: shade(colors.surface, -0.05), radius: 12, pressed: true })} className="px-4 py-2">
-                <Text className="text-sm font-bold text-accent">
-                  Use your own API key instead →
+            <TouchableOpacity className="mt-4 self-start" onPress={() => router.push('/plans')}>
+              <View style={clay({ color: colors.accent, radius: 12, depth: 0.7 })} className="px-4 py-2.5">
+                <Text className="text-sm font-bold" style={{ color: colors.onAccent }}>
+                  Get monthly credits →
                 </Text>
               </View>
             </TouchableOpacity>
+
+            {/* Bringing your own key is now the "Your AI" plan, so the only
+                route to the key screen is through /plans. */}
             {Boolean(balance?.creditsReserved) && (
               <Text className="mt-3 text-xs font-semibold text-warning">
                 {balance?.creditsReserved} credits reserved for in-flight work

@@ -19,6 +19,10 @@ const PROVIDER_BASE_URL: Record<string, string> = {
   openai: 'https://api.openai.com/v1',
   google: 'https://generativelanguage.googleapis.com/v1beta/openai',
   nvidia: 'https://integrate.api.nvidia.com/v1',
+  // Anthropic's OpenAI-SDK compatibility layer: same /chat/completions shape,
+  // Authorization: Bearer. Chat only — the compatibility layer documents that
+  // audio input "is ignored and stripped", so it can never serve transcribe.
+  anthropic: 'https://api.anthropic.com/v1',
 };
 
 /** Platform secret per provider, e.g. openai -> PLATFORM_OPENAI_KEY. */

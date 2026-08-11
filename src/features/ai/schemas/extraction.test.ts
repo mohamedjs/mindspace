@@ -1,4 +1,4 @@
-import { colorForNote, extractJsonBlock, parseExtraction } from './extraction';
+import { colorForNote, extractJsonBlock, parseExtraction, resolveParentId } from './extraction';
 
 describe('extractJsonBlock', () => {
   it('returns bare JSON unchanged', () => {
@@ -110,6 +110,120 @@ describe('parseExtraction', () => {
       relations: [{ from: 'note_0', to: 'note_11', type: 'related' }],
     };
     expect(parseExtraction(JSON.stringify(many)).relations).toEqual([]);
+  });
+});
+
+describe('parseExtraction parentClientKey validation', () => {
+  it('passes through a valid reference to a sibling clientKey', () => {
+    const result = parseExtraction(
+      JSON.stringify({
+        notes: [note('note_0'), note('note_1', { parentClientKey: 'note_0' })],
+      })
+    );
+    expect(result.notes[1].parentClientKey).toBe('note_0');
+  });
+
+  it('nulls a self-referencing parentClientKey', () => {
+    const result = parseExtraction(
+      JSON.stringify({ notes: [note('note_0', { parentClientKey: 'note_0' })] })
+    );
+    expect(result.notes[0].parentClientKey).toBeNull();
+  });
+
+  it('nulls a parentClientKey pointing at a duplicated (ambiguous) batch key', () => {
+    const result = parseExtraction(
+      JSON.stringify({
+        notes: [
+          note('dup', { content: 'a' }),
+          note('dup', { content: 'b' }),
+          note('note_2', { parentClientKey: 'dup' }),
+        ],
+      })
+    );
+    expect(result.notes[2].parentClientKey).toBeNull();
+  });
+
+  it('leaves an unrecognised key untouched — presumed an existing note id', () => {
+    const result = parseExtraction(
+      JSON.stringify({ notes: [note('note_0', { parentClientKey: 'existing-uuid-123' })] })
+    );
+    expect(result.notes[0].parentClientKey).toBe('existing-uuid-123');
+  });
+});
+
+describe('parseExtraction dueAt', () => {
+  it('keeps a valid ISO instant with an offset', () => {
+    const result = parseExtraction(
+      JSON.stringify({ notes: [note('note_0', { dueAt: '2026-08-11T15:00:00+03:00' })] })
+    );
+    expect(result.notes[0].dueAt).toBe('2026-08-11T15:00:00+03:00');
+  });
+
+  it('drops a malformed date to null instead of failing the extraction', () => {
+    // A fumbled date should cost that note its reminder, not lose every note.
+    const result = parseExtraction(
+      JSON.stringify({
+        notes: [note('note_0', { dueAt: 'tomorrow at 3' }), note('note_1')],
+      })
+    );
+    expect(result.notes[0].dueAt).toBeNull();
+    expect(result.notes).toHaveLength(2);
+  });
+
+  it('rejects a bare date with no timezone — an instant needs an offset', () => {
+    const result = parseExtraction(
+      JSON.stringify({ notes: [note('note_0', { dueAt: '2026-08-11' })] })
+    );
+    expect(result.notes[0].dueAt).toBeNull();
+  });
+
+  it('leaves dueAt absent when the model omits it', () => {
+    const result = parseExtraction(JSON.stringify({ notes: [note('note_0')] }));
+    expect(result.notes[0].dueAt ?? null).toBeNull();
+  });
+});
+
+describe('resolveParentId', () => {
+  const ctx = (overrides: Partial<Parameters<typeof resolveParentId>[2]> = {}) => ({
+    batchIndex: new Map([
+      ['note_0', 0],
+      ['note_1', 1],
+    ]),
+    batchIds: new Map([
+      ['note_0', 'id-0'],
+      ['note_1', 'id-1'],
+    ]),
+    existingIds: new Set<string>(),
+    ...overrides,
+  });
+
+  it('resolves a same-batch parent emitted earlier', () => {
+    expect(resolveParentId({ clientKey: 'note_1', parentClientKey: 'note_0' }, 1, ctx())).toBe(
+      'id-0'
+    );
+  });
+
+  it('refuses a forward reference — parent emitted later in the batch', () => {
+    expect(resolveParentId({ clientKey: 'note_0', parentClientKey: 'note_1' }, 0, ctx())).toBeNull();
+  });
+
+  it('resolves a reference to an existing note regardless of order', () => {
+    const result = resolveParentId(
+      { clientKey: 'note_0', parentClientKey: 'existing-uuid' },
+      0,
+      ctx({ existingIds: new Set(['existing-uuid']) })
+    );
+    expect(result).toBe('existing-uuid');
+  });
+
+  it('drops an unresolvable reference to top-level instead of throwing', () => {
+    expect(
+      resolveParentId({ clientKey: 'note_0', parentClientKey: 'nonsense' }, 0, ctx())
+    ).toBeNull();
+  });
+
+  it('returns null when there is no parent at all', () => {
+    expect(resolveParentId({ clientKey: 'note_0', parentClientKey: null }, 0, ctx())).toBeNull();
   });
 });
 

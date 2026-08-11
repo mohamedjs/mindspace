@@ -9,14 +9,20 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { Text } from '../../../shared/ui/Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../../shared/theme';
 import { clay, shade } from '../../../shared/theme/clay';
 import { readableTextOn, luminance } from '../../../shared/theme/color';
 import { noteColors, type NoteType } from '../../../shared/constants/tokens';
+import { placeChild } from '../../ai/services/layout';
 import {
   useNote,
+  useNotes,
+  useCreateNote,
   useUpdateNoteContent,
   useUpdateNoteColor,
   useUpdateNoteType,
@@ -24,10 +30,14 @@ import {
 } from '../hooks/useNotes';
 import { ColorPicker } from './ColorPicker';
 import { PeelFlap } from './PeelFlap';
+import { useRecordingStatus } from '../../voice/hooks/useRecordingStatus';
 import {
   ArrowLeft,
   Check,
+  ChevronRight,
+  Mic,
   Palette,
+  Plus,
   Trash2,
   List,
   Save,
@@ -67,27 +77,66 @@ const TYPE_ICON: Record<NoteType, React.ElementType> = {
 interface NoteEditorProps {
   noteId: string;
   spaceId?: string;
+  /** Set on return from /record — a recording being turned into sub-notes. */
+  recordingId?: string;
   onBack: () => void;
 }
 
-export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack }) => {
+export const NoteEditor: React.FC<NoteEditorProps> = ({
+  noteId,
+  spaceId,
+  recordingId,
+  onBack,
+}) => {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { colors, scheme } = useTheme();
 
   const { data: note, isLoading } = useNote(noteId);
+  // Prefer the space id off the note itself once it loads — the nav param is
+  // fragile (a cold-start deep link can arrive without it).
+  const effectiveSpaceId = note?.spaceId ?? spaceId ?? null;
+
   const updateContent = useUpdateNoteContent();
-  const updateColor = useUpdateNoteColor(spaceId ?? null);
+  const updateColor = useUpdateNoteColor(effectiveSpaceId);
   const updateType = useUpdateNoteType();
-  const deleteNote = useDeleteNote(spaceId ?? null);
+  const deleteNote = useDeleteNote(effectiveSpaceId);
+  const createSubNote = useCreateNote(effectiveSpaceId);
+  const { data: spaceNotes } = useNotes(effectiveSpaceId);
+  const children = spaceNotes?.filter((n) => n.parentId === noteId) ?? [];
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [dirty, setDirty] = useState(false);
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
   const [typePickerVisible, setTypePickerVisible] = useState(false);
+  const [subNoteText, setSubNoteText] = useState('');
 
   const contentRef = useRef<TextInput>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Live progress for a recording made from inside this note. The pipeline
+  // writes the sub-notes straight to the DB, so completion is the cue to
+  // refetch rather than something this screen does itself.
+  const qc = useQueryClient();
+  const { status: recordingStatus } = useRecordingStatus(recordingId ?? null);
+  const isThinking =
+    Boolean(recordingStatus) &&
+    recordingStatus !== 'completed' &&
+    recordingStatus !== 'failed';
+
+  useEffect(() => {
+    if (recordingStatus !== 'completed' && recordingStatus !== 'failed') return;
+    qc.invalidateQueries({ queryKey: ['notes'] });
+    if (recordingStatus === 'failed') {
+      Toast.show({
+        type: 'error',
+        text1: 'Could not turn that into sub-notes',
+        text2: 'Your audio is safe. Try recording again.',
+      });
+    }
+    router.setParams({ recordingId: undefined });
+  }, [recordingStatus, qc, router]);
 
   // Seed state from fetched data
   useEffect(() => {
@@ -160,6 +209,59 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack 
     },
     [noteId, updateType]
   );
+
+  const handleAddSubNote = useCallback(() => {
+    const text = subNoteText.trim();
+    if (!text || !note) return;
+    const occupied = (spaceNotes ?? [])
+      .filter((n) => n.id !== noteId)
+      .map((n) => ({ x: n.x, y: n.y, width: n.width ?? 190, height: n.height ?? 145 }));
+    const rect = placeChild(
+      { x: note.x, y: note.y, width: note.width ?? 190, height: note.height ?? 145 },
+      children.length,
+      occupied
+    );
+    createSubNote.mutate(
+      { content: text, x: rect.x, y: rect.y, parentId: noteId },
+      { onSuccess: () => setSubNoteText('') }
+    );
+  }, [subNoteText, note, noteId, createSubNote, children.length, spaceNotes]);
+
+  const openChildNote = useCallback(
+    (childId: string) => {
+      router.push({ pathname: '/note/[id]', params: { id: childId, spaceId: effectiveSpaceId ?? '' } });
+    },
+    [router, effectiveSpaceId]
+  );
+
+  /**
+   * Think this note through out loud. Reuses the normal record screen — the
+   * parentNoteId param is what makes the extraction attach its notes here as
+   * sub-notes instead of dropping fresh ideas on the canvas.
+   */
+  const startVoiceSubNotes = useCallback(() => {
+    if (dirty) updateContent.mutate({ noteId, title: title || null, content });
+    if (!effectiveSpaceId) return;
+    router.push({
+      pathname: '/record',
+      params: { spaceId: effectiveSpaceId, parentNoteId: noteId },
+    });
+  }, [dirty, updateContent, noteId, title, content, effectiveSpaceId, router]);
+
+  /**
+   * Speak the note itself. Unlike the composer mic (which adds sub-notes),
+   * this writes into THIS note's own title and body. Saving first matters:
+   * the server appends to whatever the note already holds, so an unsaved
+   * paragraph would otherwise be overwritten by the stale stored copy.
+   */
+  const startVoiceIntoNote = useCallback(() => {
+    if (dirty) updateContent.mutate({ noteId, title: title || null, content });
+    if (!effectiveSpaceId) return;
+    router.push({
+      pathname: '/record',
+      params: { spaceId: effectiveSpaceId, fillNoteId: noteId },
+    });
+  }, [dirty, updateContent, noteId, title, content, effectiveSpaceId, router]);
 
   /** Insert a bullet point prefix at the cursor position. */
   const insertBullet = useCallback(() => {
@@ -285,6 +387,20 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack 
                 hitSlop={4}
               >
                 <Palette size={18} color={textColor} strokeWidth={2.5} />
+              </TouchableOpacity>
+
+              {/* Speak this note. Filled in the accent colour so it reads as
+                  a primary action, distinct from the outlined sub-note mic
+                  further down the page. */}
+              <TouchableOpacity
+                onPress={startVoiceIntoNote}
+                disabled={isThinking}
+                className="mr-2 h-10 w-10 items-center justify-center"
+                style={clay({ color: colors.accent, radius: 14, depth: isThinking ? 0.2 : 0.6 })}
+                hitSlop={4}
+                accessibilityLabel="Speak into this note"
+              >
+                <Mic size={18} color={colors.onAccent} strokeWidth={2.5} />
               </TouchableOpacity>
 
               {/* Delete */}
@@ -460,6 +576,106 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ noteId, spaceId, onBack 
             scrollEnabled={false}
             textAlignVertical="top"
           />
+
+          {/* ─── Sub-notes ─── */}
+          {effectiveSpaceId && (
+            <View className="mt-8">
+              <Text
+                className="mb-3 text-xs font-bold uppercase tracking-wider"
+                style={{ color: mutedTextColor }}
+              >
+                Sub-notes{children.length ? ` (${children.length})` : ''}
+              </Text>
+
+              {children.map((child) => {
+                const childBg = child.color || noteColors[child.type]?.bg || '#FFF8BC';
+                return (
+                  <TouchableOpacity
+                    key={child.id}
+                    className="mb-2 flex-row items-center px-3 py-3"
+                    style={{
+                      backgroundColor: shade(paperBg, -0.08),
+                      borderRadius: 14,
+                      borderLeftWidth: 4,
+                      borderLeftColor: childBg,
+                    }}
+                    activeOpacity={0.75}
+                    onPress={() => openChildNote(child.id)}
+                  >
+                    <View className="flex-1 pr-2">
+                      {Boolean(child.title) && (
+                        <Text
+                          className="text-sm font-bold"
+                          numberOfLines={1}
+                          style={{ color: textColor }}
+                        >
+                          {child.title}
+                        </Text>
+                      )}
+                      <Text className="text-xs" numberOfLines={2} style={{ color: mutedTextColor }}>
+                        {child.content}
+                      </Text>
+                    </View>
+                    <ChevronRight size={16} color={mutedTextColor} strokeWidth={2.5} />
+                  </TouchableOpacity>
+                );
+              })}
+
+              {isThinking && (
+                <View
+                  className="mb-2 flex-row items-center px-3 py-3"
+                  style={{ backgroundColor: shade(paperBg, -0.08), borderRadius: 14 }}
+                >
+                  <ActivityIndicator size="small" color={colors.accent} style={{ marginRight: 10 }} />
+                  <Text className="flex-1 text-xs" style={{ color: mutedTextColor }}>
+                    {recordingStatus === 'transcribing'
+                      ? 'Listening to what you said…'
+                      : 'Writing up what you said…'}
+                  </Text>
+                </View>
+              )}
+
+              <View className="mt-1 flex-row items-center">
+                <TextInput
+                  value={subNoteText}
+                  onChangeText={setSubNoteText}
+                  placeholder="Add a sub-note…"
+                  placeholderTextColor={mutedTextColor}
+                  className="mr-2 flex-1 px-3.5 py-3 text-sm"
+                  style={{ backgroundColor: shade(paperBg, -0.08), borderRadius: 14, color: textColor }}
+                  onSubmitEditing={handleAddSubNote}
+                  returnKeyType="done"
+                />
+                <TouchableOpacity
+                  onPress={handleAddSubNote}
+                  disabled={!subNoteText.trim() || createSubNote.isPending}
+                  className="mr-2 h-11 w-11 items-center justify-center"
+                  style={clay({
+                    color: colors.accent,
+                    radius: 14,
+                    depth: subNoteText.trim() ? 0.7 : 0.3,
+                  })}
+                >
+                  {createSubNote.isPending ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Plus size={18} color="#FFF" strokeWidth={2.5} />
+                  )}
+                </TouchableOpacity>
+                {/* Speak the idea through instead of typing — the AI writes
+                    the sub-notes it hears into this note. */}
+                <TouchableOpacity
+                  onPress={startVoiceSubNotes}
+                  disabled={isThinking}
+                  className="h-11 w-11 items-center justify-center"
+                  style={clay({ color: shade(paperBg, -0.16), radius: 14, depth: isThinking ? 0.2 : 0.7 })}
+                  accessibilityLabel="Record sub-notes with your voice"
+                >
+                  <Mic size={18} color={textColor} strokeWidth={2.5} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 

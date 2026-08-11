@@ -13,8 +13,9 @@ import { Text } from '../../../shared/ui/Text';
 import type { Space } from '../api/spaces.api';
 import { useTheme } from '../../../shared/theme';
 import { clay, claySurface, shade } from '../../../shared/theme/clay';
-import { Trash2, Sun, Moon, Sunrise, Lightbulb, Target, Book, Rocket, Palette, Brain, Briefcase, Sprout, Folder, Plus } from 'lucide-react-native';
+import { Trash2, Lightbulb, Target, Book, Rocket, Palette, Brain, Briefcase, Sprout, Folder, Plus, Pencil, Check } from 'lucide-react-native';
 import { useAuth } from '../../../providers/AuthProvider';
+import { getGreeting } from '../../../shared/utils/greeting';
 
 const ICON_CHOICES = [
   { id: 'lightbulb', icon: Lightbulb },
@@ -38,6 +39,7 @@ interface SpacesSheetProps {
   creating: boolean;
   onSelect: (spaceId: string) => void;
   onCreate: (name: string, emoji: string) => void;
+  onRename: (spaceId: string, newName: string) => void;
   onDelete: (spaceId: string) => void;
   onClose: () => void;
 }
@@ -49,6 +51,7 @@ export const SpacesSheet: React.FC<SpacesSheetProps> = ({
   creating,
   onSelect,
   onCreate,
+  onRename,
   onDelete,
   onClose,
 }) => {
@@ -64,22 +67,19 @@ export const SpacesSheet: React.FC<SpacesSheetProps> = ({
     setName('');
   };
 
-  const hour = new Date().getHours();
-  const timeIcon = hour < 12 ? <Sunrise size={20} color={colors.warning} /> : hour < 18 ? <Sun size={20} color={colors.warning} /> : <Moon size={20} color={colors.accent} />;
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-  const displayName = user?.user_metadata?.full_name?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'there';
+  const greeting = getGreeting();
+  const displayName = user?.fullName?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'there';
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-        style={{ flex: 1 }}
-      >
         <Pressable className="flex-1 justify-end" style={{ backgroundColor: colors.scrim }} onPress={onClose}>
-          <Pressable
-            className="max-h-[85%] px-5 pb-10 pt-4"
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+            className="max-h-[85%] w-full px-5 pb-10 pt-4"
             style={[claySurface(colors, 32), { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }]}
-            onPress={(e) => e.stopPropagation()}
+            onStartShouldSetResponder={() => true}
+            onTouchEnd={(e) => e.stopPropagation()}
           >
             <View
             className="mb-6 h-1.5 w-12 self-center rounded-full"
@@ -90,7 +90,6 @@ export const SpacesSheet: React.FC<SpacesSheetProps> = ({
             <Text className="text-2xl font-bold text-ink mr-2">
               {greeting}, {displayName}
             </Text>
-            {timeIcon}
           </View>
           <Text className="mb-8 text-sm font-medium text-muted">
             What's on your mind today?
@@ -104,43 +103,16 @@ export const SpacesSheet: React.FC<SpacesSheetProps> = ({
             {!spaces && (
               <ActivityIndicator color={colors.accent} style={{ marginVertical: 16 }} />
             )}
-            {spaces?.map((space) => {
-              const isActive = space.id === activeSpaceId;
-              return (
-                <View
-                  key={space.id}
-                  className="mb-2.5 flex-row items-center px-4 py-3"
-                  style={clay({
-                    color: isActive ? shade(colors.accent, scheme === 'dark' ? -0.75 : 0.72) : shade(colors.surface, -0.05),
-                    radius: 18,
-                    depth: isActive ? 0.9 : 0.5,
-                  })}
-                >
-                  <TouchableOpacity
-                    className="flex-1 flex-row items-center"
-                    onPress={() => onSelect(space.id)}
-                  >
-                    <View className="mr-3">
-                      {(() => {
-                        const IconComp = getSpaceIcon(space.emoji);
-                        return <IconComp size={22} color={colors.ink} />;
-                      })()}
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-base font-semibold text-ink">{space.name}</Text>
-                      <Text className="mt-0.5 text-xs text-muted">
-                        {space.noteCount} {space.noteCount === 1 ? 'note' : 'notes'}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                  {spaces.length > 1 && (
-                    <TouchableOpacity hitSlop={8} onPress={() => onDelete(space.id)}>
-                      <Trash2 size={20} color={colors.muted} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              );
-            })}
+            {spaces?.map((space) => (
+              <SpaceItem 
+                key={space.id} 
+                space={space} 
+                isActive={space.id === activeSpaceId} 
+                onSelect={onSelect} 
+                onDelete={spaces.length > 1 ? onDelete : undefined} 
+                onRename={onRename} 
+              />
+            ))}
           </View>
 
           <View className="mt-4 flex-row flex-wrap">
@@ -191,9 +163,87 @@ export const SpacesSheet: React.FC<SpacesSheetProps> = ({
               )}
             </TouchableOpacity>
           </View>
+          </KeyboardAvoidingView>
         </Pressable>
-      </Pressable>
-      </KeyboardAvoidingView>
     </Modal>
   );
 };
+
+function SpaceItem({ 
+  space, isActive, onSelect, onDelete, onRename 
+}: { 
+  space: Space; isActive: boolean; onSelect: (id: string) => void; onDelete?: (id: string) => void; onRename: (id: string, name: string) => void; 
+}) {
+  const { colors, scheme } = useTheme();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(space.name);
+
+  const handleSave = () => {
+    const trimmed = name.trim();
+    if (trimmed && trimmed !== space.name) {
+      onRename(space.id, trimmed);
+    } else {
+      setName(space.name);
+    }
+    setEditing(false);
+  };
+
+  return (
+    <View
+      className="mb-2.5 flex-row items-center px-4 py-3"
+      style={clay({
+        color: isActive ? shade(colors.accent, scheme === 'dark' ? -0.75 : 0.72) : shade(colors.surface, -0.05),
+        radius: 18,
+        depth: isActive ? 0.9 : 0.5,
+      })}
+    >
+      <TouchableOpacity
+        className="flex-row items-center"
+        onPress={() => onSelect(space.id)}
+        disabled={editing}
+      >
+        <View className="mr-3">
+          {(() => {
+            const IconComp = getSpaceIcon(space.emoji);
+            return <IconComp size={22} color={colors.ink} />;
+          })()}
+        </View>
+      </TouchableOpacity>
+      
+      <View className="flex-1 flex-row items-center pr-2">
+        {editing ? (
+          <View className="flex-1 flex-row items-center">
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              autoFocus
+              className="flex-1 text-base font-semibold text-ink py-0 m-0"
+              onSubmitEditing={handleSave}
+              onBlur={handleSave}
+              returnKeyType="done"
+            />
+            <TouchableOpacity onPress={handleSave} hitSlop={8} className="ml-2">
+              <Check size={18} color={colors.accent} strokeWidth={3} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View className="flex-1">
+            <TouchableOpacity className="flex-row items-center" onPress={() => setEditing(true)} hitSlop={4}>
+              <Text className="text-base font-semibold text-ink" numberOfLines={1}>{space.name}</Text>
+              <Pencil size={12} color={colors.muted} strokeWidth={2.5} style={{ marginLeft: 6 }} />
+            </TouchableOpacity>
+            <Text className="mt-0.5 text-xs text-muted">
+              {space.noteCount} {space.noteCount === 1 ? 'note' : 'notes'}
+            </Text>
+          </View>
+        )}
+      </View>
+      
+      {onDelete && !editing && (
+        <TouchableOpacity hitSlop={8} onPress={() => onDelete(space.id)}>
+          <Trash2 size={20} color={colors.muted} />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}

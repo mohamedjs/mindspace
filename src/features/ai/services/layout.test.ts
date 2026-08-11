@@ -1,4 +1,4 @@
-import { COLUMNS, layoutNewNotes, slotRect, tidyLayout, type Rect } from './layout';
+import { COLUMNS, layoutNewNotes, placeChild, radialChildRect, slotRect, tidyLayout, type Rect } from './layout';
 
 const overlaps = (a: Rect, b: Rect) =>
   a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
@@ -45,6 +45,59 @@ describe('layoutNewNotes', () => {
 
   it('places the first note at the origin on an empty board', () => {
     expect(layoutNewNotes(1, [])[0]).toMatchObject({ x: 0, y: 0 });
+  });
+});
+
+describe('radialChildRect', () => {
+  const parent: Rect = { x: 100, y: 100, width: 190, height: 145 };
+
+  it('places the first child above the parent, offset from its centre', () => {
+    const child = radialChildRect(parent, 0);
+    const parentCx = parent.x + parent.width / 2;
+    expect(child.x + child.width / 2).toBeCloseTo(parentCx, 0);
+    expect(child.y + child.height / 2).toBeLessThan(parent.y + parent.height / 2);
+  });
+
+  it('spreads siblings around the parent without stacking them on each other', () => {
+    const siblings = [0, 1, 2, 3].map((i) => radialChildRect(parent, i));
+    for (let i = 0; i < siblings.length; i++) {
+      for (let j = i + 1; j < siblings.length; j++) {
+        expect(overlaps(siblings[i], siblings[j])).toBe(false);
+      }
+    }
+  });
+
+  it('never overlaps the parent itself', () => {
+    const child = radialChildRect(parent, 0);
+    expect(overlaps(child, parent)).toBe(false);
+  });
+});
+
+describe('placeChild', () => {
+  const parent: Rect = { x: 100, y: 100, width: 190, height: 145 };
+
+  it('matches the ideal radial slot when nothing is in the way', () => {
+    expect(placeChild(parent, 0, [])).toEqual(radialChildRect(parent, 0));
+  });
+
+  it('avoids an unrelated note sitting where the ideal slot would land', () => {
+    // Reproduces the real bug: a child orbiting a note in the left grid
+    // column landed on top of the very next top-level slot, since orbiting
+    // alone never checked the rest of the board.
+    const neighbourSlot = slotRect(1);
+    const child = placeChild(parent, 1, [neighbourSlot]);
+    expect(overlaps(child, neighbourSlot)).toBe(false);
+    expect(overlaps(child, parent)).toBe(false);
+  });
+
+  it('never overlaps the parent or anything already occupied', () => {
+    const occupied = [slotRect(0), slotRect(1), slotRect(2)];
+    for (let i = 0; i < 5; i++) {
+      const child = placeChild(parent, i, occupied);
+      expect(overlaps(child, parent)).toBe(false);
+      occupied.forEach((o) => expect(overlaps(child, o)).toBe(false));
+      occupied.push(child);
+    }
   });
 });
 

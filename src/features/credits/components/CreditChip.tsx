@@ -14,7 +14,6 @@ const OK = '#4CAF50';
 
 export const CreditChip: React.FC<CreditChipProps> = ({ balance = 100, onPress }) => {
   const { colors, scheme } = useTheme();
-  const egp = Math.floor(balance / 10);
   const isLow = balance < 50;
   const isZero = balance <= 0;
 
@@ -36,7 +35,7 @@ export const CreditChip: React.FC<CreditChipProps> = ({ balance = 100, onPress }
     >
       <View className="mr-1.5 h-2 w-2 rounded-full" style={{ backgroundColor: accentColor }} />
       <Text className="text-[13px] font-semibold" style={{ color: textColor }}>
-        {balance} · {egp} EGP
+        {balance}
       </Text>
     </TouchableOpacity>
   );

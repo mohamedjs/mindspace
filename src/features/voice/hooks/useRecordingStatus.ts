@@ -1,18 +1,13 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../../../lib/supabase/client';
+import type { RecordingStatus } from '../../../core/domain';
+import { supabaseContainer } from '../../../infrastructure/container';
 
-export type RecordingStatus =
-  | 'recorded'
-  | 'uploading'
-  | 'transcribing'
-  | 'transcribed'
-  | 'extracting'
-  | 'completed'
-  | 'failed';
+export type { RecordingStatus };
 
 /**
- * Subscribes to postgres_changes on a single recordings row so the UI can move
- * recorded -> transcribing -> transcribed without polling.
+ * Live status for one recording, so the UI can move recorded -> transcribing
+ * -> completed without polling. The subscription mechanics belong to the
+ * realtime adapter; this hook only knows "watch this, tell me when it moves".
  */
 export function useRecordingStatus(recordingId: string | null) {
   const [status, setStatus] = useState<RecordingStatus | null>(null);
@@ -28,39 +23,21 @@ export function useRecordingStatus(recordingId: string | null) {
     let cancelled = false;
 
     // Seed with the current value so we don't wait for the first change event.
-    supabase
-      .from('recordings')
-      .select('status, error')
-      .eq('id', recordingId)
-      .single()
-      .then(({ data }) => {
-        if (!cancelled && data) {
-          setStatus(data.status as RecordingStatus);
-          setError(data.error ?? null);
-        }
-      });
+    supabaseContainer.recordings.getStatus(recordingId).then((current) => {
+      if (!cancelled && current) {
+        setStatus(current.status);
+        setError(current.error);
+      }
+    });
 
-    const channel = supabase
-      .channel(`recording:${recordingId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'recordings',
-          filter: `id=eq.${recordingId}`,
-        },
-        (payload) => {
-          const next = payload.new as { status: RecordingStatus; error: string | null };
-          setStatus(next.status);
-          setError(next.error ?? null);
-        }
-      )
-      .subscribe();
+    const unsubscribe = supabaseContainer.realtime.watchRecording(recordingId, (next) => {
+      setStatus(next.status);
+      setError(next.error);
+    });
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, [recordingId]);
 

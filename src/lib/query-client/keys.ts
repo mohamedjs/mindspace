@@ -7,6 +7,9 @@ export const queryKeys = {
     bySpace: (spaceId: string) => ['notes', spaceId] as const,
     detail: (id: string) => ['notes', 'detail', id] as const,
   },
+  groups: {
+    bySpace: (spaceId: string) => ['groups', spaceId] as const,
+  },
   credits: {
     balance: ['credits', 'balance'] as const,
     ledger: ['credits', 'ledger'] as const,
@@ -16,5 +19,10 @@ export const queryKeys = {
   },
   models: {
     all: ['models'] as const,
+  },
+  billing: {
+    plans: ['billing', 'plans'] as const,
+    subscription: ['billing', 'subscription'] as const,
+    providers: ['billing', 'providers'] as const,
   },
 };

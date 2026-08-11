@@ -1,26 +1,34 @@
-import React, { useState } from 'react';
-import { TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import { TouchableOpacity, View, type LayoutChangeEvent } from 'react-native';
 import { Text } from '../../../shared/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
-import { StickyNoteItem, StickyNoteData } from '../../sticky-notes/components/StickyNoteItem';
+import { StickyNoteItem } from '../../sticky-notes/components/StickyNoteItem';
+import type { Note as StickyNoteData } from '../../../core/domain';
 import { CreditChip } from '../../credits/components/CreditChip';
 import { useTheme } from '../../../shared/theme';
 import { CanvasBackground } from './CanvasBackground';
+import { NoteConnectors } from './NoteConnectors';
+import { NoteGroupFrame } from './NoteGroupFrame';
+import { CanvasToolbar } from './CanvasToolbar';
+import type { NoteGroup } from '../api/groups.api';
 import { clay, clayAccent, shade } from '../../../shared/theme/clay';
-import { Mic, Settings, LayoutGrid } from 'lucide-react-native';
+import { Mic, Settings } from 'lucide-react-native';
 
 interface CanvasRootProps {
   spaceName?: string;
   creditBalance?: number;
   notes?: StickyNoteData[];
+  groups?: NoteGroup[];
   onUpdateNoteColor?: (noteId: string, color: string) => void;
   onDeleteNote?: (noteId: string) => void;
   onMoveNote?: (noteId: string, x: number, y: number) => void;
+  onMoveCluster?: (moves: { id: string; x: number; y: number }[]) => void;
   onStartRecord?: () => void;
   onOpenCredits?: () => void;
   onOpenSpaces?: () => void;
@@ -28,6 +36,15 @@ interface CanvasRootProps {
   onOpenRecordings?: () => void;
   onTidy?: () => void;
   onPressNote?: (noteId: string) => void;
+  /** Called with the world-space centre of the current viewport. */
+  onAddNote?: (x: number, y: number) => void;
+  onAddGroup?: (x: number, y: number) => void;
+  onRenameGroup?: (groupId: string, title: string) => void;
+  onMoveGroup?: (groupId: string, x: number, y: number) => void;
+  onResizeGroup?: (groupId: string, width: number, height: number) => void;
+  onDeleteGroup?: (groupId: string) => void;
+  /** noteId -> number of sub-notes it has, for the corner badge. */
+  childCounts?: Map<string, number>;
 }
 
 const DEMO_FALLBACK_NOTES: StickyNoteData[] = [
@@ -78,7 +95,10 @@ const DEMO_FALLBACK_NOTES: StickyNoteData[] = [
   },
 ];
 
-const MIN_SCALE = 0.4;
+// Low enough to fit a board of a few dozen notes on screen at once. Text is
+// unreadable down there, but the layout still is — that's what zooming out is
+// for on a canvas this size.
+const MIN_SCALE = 0.12;
 const MAX_SCALE = 2.5;
 
 export const CanvasRoot: React.FC<CanvasRootProps> = ({
@@ -88,6 +108,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   onUpdateNoteColor,
   onDeleteNote,
   onMoveNote,
+  onMoveCluster,
   onStartRecord,
   onOpenCredits,
   onOpenSpaces,
@@ -95,8 +116,16 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   onOpenRecordings,
   onTidy,
   onPressNote,
+  groups,
+  onAddNote,
+  onAddGroup,
+  onRenameGroup,
+  onMoveGroup,
+  onResizeGroup,
+  onDeleteGroup,
+  childCounts,
 }) => {
-  const { colors } = useTheme();
+  const { colors, showChildNotes, setShowChildNotes } = useTheme();
   const [localNotes, setLocalNotes] = useState<StickyNoteData[]>(DEMO_FALLBACK_NOTES);
   // propNotes is undefined only when no data source is wired up at all (e.g. a
   // standalone preview) — once a real (possibly empty) array arrives, render it
@@ -119,6 +148,125 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
       setLocalNotes((prev) => prev.map((item) => (item.id === id ? { ...item, x, y } : item)));
     }
   };
+
+  const descendantsMap = useSharedValue<Record<string, string[]>>({});
+  const activeDragState = useSharedValue({ id: null as string | null, dx: 0, dy: 0 });
+  const activeDragNotes = useSharedValue<string[]>([]);
+
+  React.useEffect(() => {
+    const map: Record<string, string[]> = {};
+    const childrenMap: Record<string, string[]> = {};
+    for (const note of displayNotes) {
+      if (note.parentId) {
+        if (!childrenMap[note.parentId]) childrenMap[note.parentId] = [];
+        childrenMap[note.parentId].push(note.id);
+      }
+    }
+    const getDescendants = (id: string): string[] => {
+      if (map[id]) return map[id];
+      const children = childrenMap[id] || [];
+      let all = [...children];
+      for (const child of children) {
+        all = all.concat(getDescendants(child));
+      }
+      map[id] = all;
+      return all;
+    };
+    for (const note of displayNotes) {
+      getDescendants(note.id);
+    }
+    descendantsMap.value = map;
+  }, [displayNotes, descendantsMap]);
+
+  const handleNoteDragStart = React.useCallback((id: string) => {
+    activeDragNotes.value = descendantsMap.value[id] || [];
+  }, [descendantsMap, activeDragNotes]);
+
+  const activeGroupDragNotes = React.useRef<string[]>([]);
+
+  const handleGroupDragStart = React.useCallback((groupId: string) => {
+    const group = groups?.find((g) => g.id === groupId);
+    if (!group) return;
+
+    const inside = displayNotes
+      .filter(
+        (n) =>
+          n.x >= group.x &&
+          n.y >= group.y &&
+          n.x + (n.width ?? 190) <= group.x + group.width &&
+          n.y + (n.height ?? 145) <= group.y + group.height
+      )
+      .map((n) => n.id);
+
+    activeGroupDragNotes.current = inside;
+    activeDragNotes.value = inside;
+  }, [groups, displayNotes, activeDragNotes]);
+
+  const handleMoveGroupEnd = React.useCallback(
+    (groupId: string, finalX: number, finalY: number) => {
+      const group = groups?.find((g) => g.id === groupId);
+      if (group) {
+        const dx = finalX - group.x;
+        const dy = finalY - group.y;
+
+        const moves = activeGroupDragNotes.current
+          .map((noteId) => {
+            const note = displayNotes.find((n) => n.id === noteId);
+            return note ? { id: note.id, x: note.x + dx, y: note.y + dy } : null;
+          })
+          .filter(Boolean) as { id: string; x: number; y: number }[];
+
+        if (moves.length > 0) {
+          if (onMoveCluster && !isDemo) {
+            onMoveCluster(moves);
+          } else {
+            setLocalNotes((prev) =>
+              prev.map((item) => {
+                const move = moves.find((m) => m.id === item.id);
+                return move ? { ...item, x: move.x, y: move.y } : item;
+              })
+            );
+          }
+        }
+      }
+
+      if (onMoveGroup) onMoveGroup(groupId, finalX, finalY);
+      activeGroupDragNotes.current = [];
+    },
+    [groups, displayNotes, onMoveGroup, onMoveCluster, isDemo]
+  );
+
+  const handleMoveClusterEnd = React.useCallback(
+    (id: string, finalX: number, finalY: number) => {
+      const parent = displayNotes.find((n) => n.id === id);
+      if (!parent) return;
+
+      const dx = finalX - parent.x;
+      const dy = finalY - parent.y;
+
+      const descendants = descendantsMap.value[id] || [];
+      const moves = [{ id, x: finalX, y: finalY }];
+
+      for (const childId of descendants) {
+        const child = displayNotes.find((n) => n.id === childId);
+        if (child) {
+          moves.push({ id: child.id, x: child.x + dx, y: child.y + dy });
+        }
+      }
+
+      if (onMoveCluster && !isDemo) {
+        onMoveCluster(moves);
+      } else {
+        setLocalNotes((prev) =>
+          prev.map((item) => {
+            const move = moves.find((m) => m.id === item.id);
+            return move ? { ...item, x: move.x, y: move.y } : item;
+          })
+        );
+      }
+    },
+    [displayNotes, descendantsMap, onMoveCluster, isDemo]
+  );
 
   // Infinite pan/zoom canvas: translation + scale on the UI thread, exactly
   // the transform coords.ts's worldToScreen/screenToWorld already assume —
@@ -164,6 +312,61 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     ],
   }));
 
+  // The board's own size, needed to turn "centre of the screen" into world
+  // coordinates and to work out a fit-everything zoom.
+  const boardSize = useRef({ width: 0, height: 0 });
+  const onBoardLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    boardSize.current = { width, height };
+  };
+
+  /**
+   * Screen centre -> world. The container is translated then scaled about its
+   * own top-left origin, so undoing it is (screen - translate) / scale.
+   */
+  const viewportCentre = useCallback(() => {
+    const { width, height } = boardSize.current;
+    return {
+      x: (width / 2 - translateX.value) / scaleValue.value,
+      y: (height / 2 - translateY.value) / scaleValue.value,
+    };
+  }, [translateX, translateY, scaleValue]);
+
+  const handleFitToView = useCallback(() => {
+    const boxes = [
+      ...displayNotes.map((n) => ({
+        x: n.x,
+        y: n.y,
+        width: n.width ?? 190,
+        height: n.height ?? 145,
+      })),
+      ...(groups ?? []),
+    ];
+    const { width: boardW, height: boardH } = boardSize.current;
+    if (!boxes.length || !boardW || !boardH) return;
+
+    const minX = Math.min(...boxes.map((b) => b.x));
+    const minY = Math.min(...boxes.map((b) => b.y));
+    const maxX = Math.max(...boxes.map((b) => b.x + b.width));
+    const maxY = Math.max(...boxes.map((b) => b.y + b.height));
+
+    const PAD = 48;
+    const scale = Math.min(
+      MAX_SCALE,
+      Math.max(MIN_SCALE, Math.min(boardW / (maxX - minX + PAD * 2), boardH / (maxY - minY + PAD * 2)))
+    );
+
+    // Centre the content box in the viewport at the new scale.
+    const next = {
+      x: boardW / 2 - ((minX + maxX) / 2) * scale,
+      y: boardH / 2 - ((minY + maxY) / 2) * scale,
+    };
+
+    scaleValue.value = withTiming(scale, { duration: 240 });
+    translateX.value = withTiming(next.x, { duration: 240 });
+    translateY.value = withTiming(next.y, { duration: 240 });
+  }, [displayNotes, groups, scaleValue, translateX, translateY]);
+
   return (
     <View className="flex-1 bg-board">
       <CanvasBackground />
@@ -189,25 +392,8 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
           </View>
         </TouchableOpacity>
         <CreditChip balance={creditBalance} onPress={onOpenCredits} />
-        {onTidy && (
-          <TouchableOpacity
-            className="ml-2 h-9 w-9 items-center justify-center"
-            style={clay({ color: shade(colors.surface, -0.06), radius: 18, depth: 0.6 })}
-            onPress={onTidy}
-            accessibilityLabel="Tidy notes into a grid"
-          >
-            <LayoutGrid size={17} color={colors.muted} strokeWidth={2.4} />
-          </TouchableOpacity>
-        )}
-        {onOpenRecordings && (
-          <TouchableOpacity
-            className="ml-2 h-9 w-9 items-center justify-center"
-            style={clay({ color: shade(colors.surface, -0.06), radius: 18, depth: 0.6 })}
-            onPress={onOpenRecordings}
-          >
-            <Mic size={18} color={colors.ink} strokeWidth={2.5} />
-          </TouchableOpacity>
-        )}
+        {/* Tidy and recordings live in the canvas toolbar — they act on the
+            board, so they belong beside it rather than in the chrome. */}
         {onOpenSettings && (
           <TouchableOpacity
             className="ml-2 h-9 w-9 items-center justify-center"
@@ -221,22 +407,69 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
 
       {/* Infinite pan/zoom board */}
       <GestureDetector gesture={canvasGesture}>
-        <View className="flex-1 overflow-hidden">
+        <View className="flex-1 overflow-hidden" onLayout={onBoardLayout}>
           <Animated.View style={[{ width: '100%', height: '100%' }, canvasAnimatedStyle]}>
+            {/* Frames first: they are the backdrop the notes sit on. */}
+            {groups?.map((group) => (
+              <NoteGroupFrame
+                key={group.id}
+                group={group}
+                onRename={onRenameGroup}
+                onMoveStart={handleGroupDragStart}
+                onMoveEnd={handleMoveGroupEnd}
+                onResize={onResizeGroup}
+                onDelete={onDeleteGroup}
+                canvasScale={scaleValue}
+              />
+            ))}
+            <NoteConnectors 
+              notes={displayNotes} 
+              activeDragState={activeDragState} 
+              activeDragNotes={activeDragNotes} 
+            />
             {displayNotes.map((note) => (
               <StickyNoteItem
                 key={note.id}
                 note={note}
                 onUpdateColor={handleUpdateColor}
                 onDelete={onDeleteNote}
+                onDragStart={handleNoteDragStart}
                 onMove={handleMoveNote}
+                onMoveClusterEnd={handleMoveClusterEnd}
                 onPressNote={onPressNote}
                 canvasScale={scaleValue}
+                childCount={childCounts?.get(note.id)}
+                activeDragState={activeDragState}
+                activeDragNotes={activeDragNotes}
               />
             ))}
           </Animated.View>
         </View>
       </GestureDetector>
+
+      <CanvasToolbar
+        onAddNote={
+          onAddNote
+            ? () => {
+                const { x, y } = viewportCentre();
+                onAddNote(x - 95, y - 72);
+              }
+            : undefined
+        }
+        onAddGroup={
+          onAddGroup
+            ? () => {
+                const { x, y } = viewportCentre();
+                onAddGroup(x - 230, y - 180);
+              }
+            : undefined
+        }
+        onTidy={onTidy}
+        onFitToView={displayNotes.length ? handleFitToView : undefined}
+        onOpenRecordings={onOpenRecordings}
+        showChildNotes={showChildNotes}
+        onToggleChildNotes={() => setShowChildNotes(!showChildNotes)}
+      />
 
       {/* Floating record button */}
       <View className="absolute inset-x-0 bottom-[30px] z-40 items-center">

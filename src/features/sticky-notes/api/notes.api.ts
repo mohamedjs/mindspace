@@ -1,131 +1,28 @@
-import { supabase } from '../../../lib/supabase/client';
-import type { StickyNoteData } from '../components/StickyNoteItem';
-import type { NoteType } from '../../../shared/constants/tokens';
-
-interface NoteRow {
-  id: string;
-  title: string | null;
-  content: string;
-  type: NoteType;
-  color: string | null;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-function toNote(row: NoteRow): StickyNoteData {
-  return {
-    id: row.id,
-    title: row.title,
-    content: row.content,
-    type: row.type,
-    color: row.color,
-    x: row.x,
-    y: row.y,
-    width: row.width,
-    height: row.height,
-  };
-}
-
-export async function fetchNotes(spaceId: string): Promise<StickyNoteData[]> {
-  const { data, error } = await supabase
-    .from('sticky_notes')
-    .select('id, title, content, type, color, x, y, width, height')
-    .eq('space_id', spaceId)
-    .is('deleted_at', null);
-
-  if (error) throw error;
-  return (data ?? []).map((row) => toNote(row as NoteRow));
-}
-
-export async function createNote(
-  spaceId: string,
-  note: { content: string; type?: NoteType; x: number; y: number }
-): Promise<StickyNoteData> {
-  const { data, error } = await supabase
-    .from('sticky_notes')
-    .insert({
-      space_id: spaceId,
-      content: note.content,
-      type: note.type ?? 'idea',
-      x: note.x,
-      y: note.y,
-      source_type: 'manual',
-    })
-    .select('id, title, content, type, color, x, y, width, height')
-    .single();
-
-  if (error) throw error;
-  return toNote(data as NoteRow);
-}
-
-export async function updateNoteColor(noteId: string, color: string): Promise<void> {
-  const { error } = await supabase.from('sticky_notes').update({ color }).eq('id', noteId);
-  if (error) throw error;
-}
+import type { Note as StickyNoteData, NoteType } from '../../../core/domain';
+import type { CreateNoteInput, NoteMove } from '../../../core/ports';
+import { supabaseContainer } from '../../../infrastructure/container';
 
 /**
- * Position updates only. The DB trigger deliberately skips timeline events for
- * x/y-only changes, so dragging doesn't flood the activity feed.
+ * Thin delegation to the notes repository.
+ *
+ * Kept as a module so the existing hooks keep their import surface, but it now
+ * holds no SQL, no column names, and no knowledge of Postgres — all of that
+ * lives behind NoteRepository. New code should prefer `useRepositories().notes`
+ * so the dependency is injectable; these functions exist for the call sites
+ * that already import them.
  */
-export async function updateNotePosition(noteId: string, x: number, y: number): Promise<void> {
-  const { error } = await supabase.from('sticky_notes').update({ x, y }).eq('id', noteId);
-  if (error) throw error;
-}
+const notes = supabaseContainer.notes;
 
-/** Soft delete — the row stays for undo and provenance. */
-export async function deleteNote(noteId: string): Promise<void> {
-  const { error } = await supabase
-    .from('sticky_notes')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', noteId);
-
-  if (error) throw error;
-}
-
-/** Fetch a single note by id. */
-export async function fetchNote(noteId: string): Promise<StickyNoteData | null> {
-  const { data, error } = await supabase
-    .from('sticky_notes')
-    .select('id, title, content, type, color, x, y, width, height')
-    .eq('id', noteId)
-    .is('deleted_at', null)
-    .single();
-
-  if (error) return null;
-  return toNote(data as NoteRow);
-}
-
-/** Update a note's title and content. */
-export async function updateNoteContent(
+export const fetchNotes = (spaceId: string): Promise<StickyNoteData[]> => notes.listBySpace(spaceId);
+export const fetchNote = (noteId: string) => notes.findById(noteId);
+export const createNote = (spaceId: string, note: CreateNoteInput) => notes.create(spaceId, note);
+export const updateNoteColor = (noteId: string, color: string) => notes.updateColor(noteId, color);
+export const updateNoteType = (noteId: string, type: NoteType) => notes.updateType(noteId, type);
+export const updateNotePosition = (noteId: string, x: number, y: number) =>
+  notes.updatePosition(noteId, x, y);
+export const updateNoteContent = (
   noteId: string,
   fields: { title?: string | null; content: string }
-): Promise<void> {
-  const { error } = await supabase
-    .from('sticky_notes')
-    .update({ title: fields.title ?? null, content: fields.content })
-    .eq('id', noteId);
-  if (error) throw error;
-}
-
-/** Update a note's type tag. */
-export async function updateNoteType(noteId: string, type: NoteType): Promise<void> {
-  const { error } = await supabase
-    .from('sticky_notes')
-    .update({ type })
-    .eq('id', noteId);
-  if (error) throw error;
-}
-
-/**
- * Repositions many notes in one round trip. Uses the bulk_move_notes RPC so a
- * tidy of 30 notes is a single statement instead of 30 racing updates.
- */
-export async function bulkMoveNotes(
-  moves: { id: string; x: number; y: number }[]
-): Promise<void> {
-  if (!moves.length) return;
-  const { error } = await supabase.rpc('bulk_move_notes', { p_moves: moves });
-  if (error) throw error;
-}
+) => notes.updateContent(noteId, fields);
+export const deleteNote = (noteId: string) => notes.remove(noteId);
+export const bulkMoveNotes = (moves: NoteMove[]) => notes.moveMany(moves);

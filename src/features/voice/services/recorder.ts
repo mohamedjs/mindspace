@@ -1,8 +1,14 @@
 import { RecordingOptions, RecordingPresets } from 'expo-audio';
-import { supabase } from '../../../lib/supabase/client';
+import { supabaseContainer } from '../../../infrastructure/container';
 
 /** Free tier hard-stops at 180s (spec §3). */
-export const FREE_MAX_RECORDING_SEC = 180;
+/**
+ * How long one recording may run on the free tier. Paid plans raise this via
+ * subscription_plans.max_recording_minutes; this is the floor everything
+ * falls back to while the plan is unknown.
+ */
+export const FREE_MAX_RECORDING_MIN = 5;
+export const FREE_MAX_RECORDING_SEC = FREE_MAX_RECORDING_MIN * 60;
 
 /** m4a / AAC 44.1kHz mono 64kbps — small enough to upload on Egyptian mobile data. */
 export const MINDSPACE_RECORDING_OPTIONS: RecordingOptions = {
@@ -31,38 +37,11 @@ export interface CreateRecordingRowArgs {
 export async function createRecordingRow({
   spaceId,
   durationMs,
-  sizeBytes,
 }: CreateRecordingRowArgs): Promise<string> {
-  const { data, error } = await supabase
-    .from('recordings')
-    .insert({
-      space_id: spaceId,
-      duration_ms: durationMs,
-      size_bytes: sizeBytes,
-      local_only: true,
-      status: 'recorded',
-    })
-    .select('id')
-    .single();
-
-  if (error) throw error;
-  return data.id as string;
+  return supabaseContainer.recordings.create({ spaceId, durationMs });
 }
 
-export async function markRecordingUploaded(recordingId: string, storagePath: string) {
-  const { error } = await supabase
-    .from('recordings')
-    .update({ storage_path: storagePath, local_only: false })
-    .eq('id', recordingId);
-
-  if (error) throw error;
-}
 
 export async function markRecordingFailed(recordingId: string, message: string) {
-  const { error } = await supabase
-    .from('recordings')
-    .update({ status: 'failed', error: message })
-    .eq('id', recordingId);
-
-  if (error) throw error;
+  return supabaseContainer.recordings.markFailed(recordingId, message);
 }

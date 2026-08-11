@@ -12,6 +12,7 @@ import { ArchitectsDaughter_400Regular } from '@expo-google-fonts/architects-dau
 import { BalooBhaijaan2_400Regular, BalooBhaijaan2_500Medium, BalooBhaijaan2_600SemiBold, BalooBhaijaan2_700Bold } from '@expo-google-fonts/baloo-bhaijaan-2';
 import { asyncStoragePersister, queryClient } from '../lib/query-client';
 import { AuthProvider, useAuth } from '../providers/AuthProvider';
+import { RepositoryProvider } from '../providers/RepositoryProvider';
 import { ThemeProvider, useTheme } from '../shared/theme';
 
 function AuthGate() {
@@ -68,13 +69,15 @@ export default function RootLayout() {
           client={queryClient}
           persistOptions={{ persister: asyncStoragePersister }}
         >
-          <ThemeProvider>
+          <RepositoryProvider>
+            <ThemeProvider>
             <AuthProvider>
               <ThemedStatusBar />
               <AuthGate />
               <ThemedToast />
             </AuthProvider>
-          </ThemeProvider>
+            </ThemeProvider>
+          </RepositoryProvider>
         </PersistQueryClientProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>

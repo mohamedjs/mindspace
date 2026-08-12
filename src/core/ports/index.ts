@@ -57,6 +57,8 @@ export interface NoteRepository {
   moveMany(moves: NoteMove[]): Promise<void>;
   /** Soft delete: the row survives for undo and provenance. */
   remove(noteId: string): Promise<void>;
+  /** Re-parent a note, or detach it with null. */
+  updateParent(noteId: string, parentId: string | null): Promise<void>;
 }
 
 // ─── Spaces & groups ──────────────────────────────────────────────────────

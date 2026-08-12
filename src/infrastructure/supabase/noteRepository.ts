@@ -88,4 +88,12 @@ export const supabaseNoteRepository: NoteRepository = {
       .eq('id', noteId);
     if (error) throw error;
   },
+
+  async updateParent(noteId: string, parentId: string | null): Promise<void> {
+    const { error } = await supabase
+      .from('sticky_notes')
+      .update({ parent_id: parentId })
+      .eq('id', noteId);
+    if (error) throw error;
+  },
 };

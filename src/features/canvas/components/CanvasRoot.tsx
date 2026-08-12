@@ -16,6 +16,7 @@ import { CanvasBackground } from './CanvasBackground';
 import { NoteConnectors } from './NoteConnectors';
 import { NoteGroupFrame } from './NoteGroupFrame';
 import { CanvasToolbar } from './CanvasToolbar';
+import { screenToWorld, zoomAbout } from '../utils/coords';
 import type { NoteGroup } from '../api/groups.api';
 import { clay, clayAccent, shade } from '../../../shared/theme/clay';
 import { Mic, Settings } from 'lucide-react-native';
@@ -276,6 +277,13 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   const scaleValue = useSharedValue(1);
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
+  // Pinch keeps its own start values: pan is capped at one pointer, so the two
+  // never write translate in the same frame, but sharing the fields would still
+  // leave whichever gesture starts second holding the other's origin.
+  const pinchStartX = useSharedValue(0);
+  const pinchStartY = useSharedValue(0);
+  const pinchFocalX = useSharedValue(0);
+  const pinchFocalY = useSharedValue(0);
   const startScale = useSharedValue(1);
 
   const panGesture = Gesture.Pan()
@@ -291,12 +299,22 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     });
 
   const pinchGesture = Gesture.Pinch()
-    .onStart(() => {
+    .onStart((e) => {
       startScale.value = scaleValue.value;
+      pinchStartX.value = translateX.value;
+      pinchStartY.value = translateY.value;
+      pinchFocalX.value = e.focalX;
+      pinchFocalY.value = e.focalY;
     })
     .onUpdate((e) => {
-      const next = startScale.value * e.scale;
-      scaleValue.value = Math.min(MAX_SCALE, Math.max(MIN_SCALE, next));
+      const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, startScale.value * e.scale));
+      // Zoom about the point between the fingers rather than the middle of the
+      // screen, so the thing you are pinching stays under them. With a
+      // top-left origin that means re-deriving the translation each frame:
+      // screen = translate + world * scale, held fixed at the focal point.
+      translateX.value = zoomAbout(pinchFocalX.value, pinchStartX.value, startScale.value, next);
+      translateY.value = zoomAbout(pinchFocalY.value, pinchStartY.value, startScale.value, next);
+      scaleValue.value = next;
     });
 
   // Pan and pinch run together; a note's own long-press-gated drag gesture
@@ -320,16 +338,15 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     boardSize.current = { width, height };
   };
 
-  /**
-   * Screen centre -> world. The container is translated then scaled about its
-   * own top-left origin, so undoing it is (screen - translate) / scale.
-   */
+  /** Screen centre -> world, undoing the container's transform. */
   const viewportCentre = useCallback(() => {
     const { width, height } = boardSize.current;
-    return {
-      x: (width / 2 - translateX.value) / scaleValue.value,
-      y: (height / 2 - translateY.value) / scaleValue.value,
-    };
+    return screenToWorld(
+      width / 2,
+      height / 2,
+      { x: translateX.value, y: translateY.value },
+      scaleValue.value
+    );
   }, [translateX, translateY, scaleValue]);
 
   const handleFitToView = useCallback(() => {
@@ -369,7 +386,6 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
 
   return (
     <View className="flex-1 bg-board">
-      <CanvasBackground />
       <SafeAreaView className="flex-1">
       {/* Header */}
       <View
@@ -408,7 +424,16 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
       {/* Infinite pan/zoom board */}
       <GestureDetector gesture={canvasGesture}>
         <View className="flex-1 overflow-hidden" onLayout={onBoardLayout}>
-          <Animated.View style={[{ width: '100%', height: '100%' }, canvasAnimatedStyle]}>
+          {/* Inside the board, not behind the whole screen: the grid scales
+              about its own top-left, so it has to share an origin with the note
+              container or the two would slide apart as you pinch. */}
+          <CanvasBackground translateX={translateX} translateY={translateY} scale={scaleValue} />
+          <Animated.View
+            style={[
+              { width: '100%', height: '100%', transformOrigin: 'top left' },
+              canvasAnimatedStyle,
+            ]}
+          >
             {/* Frames first: they are the backdrop the notes sit on. */}
             {groups?.map((group) => (
               <NoteGroupFrame

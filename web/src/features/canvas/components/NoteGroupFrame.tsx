@@ -10,6 +10,7 @@ interface NoteGroupFrameProps {
   group: NoteGroup;
   onRename?: (id: string, title: string) => void;
   onMoveStart?: (id: string) => void;
+  onPointerDragMove?: (id: string, dx: number, dy: number) => void;
   onMoveEnd?: (id: string, x: number, y: number) => void;
   onResize?: (id: string, width: number, height: number) => void;
   onDelete?: (id: string) => void;
@@ -20,6 +21,7 @@ export const NoteGroupFrame: React.FC<NoteGroupFrameProps> = ({
   group,
   onRename,
   onMoveStart,
+  onPointerDragMove,
   onMoveEnd,
   onResize,
   onDelete,
@@ -98,6 +100,7 @@ export const NoteGroupFrame: React.FC<NoteGroupFrameProps> = ({
         x: info.initialX + dxWorld,
         y: info.initialY + dyWorld,
       });
+      onPointerDragMove?.(group.id, dxWorld, dyWorld);
     } else if (info.mode === 'resize') {
       setCurrentSize({
         width: Math.max(150, info.initialWidth + dxWorld),

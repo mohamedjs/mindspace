@@ -195,9 +195,9 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     if (selectedIds.includes(id)) {
       setActiveDragClusterIds(selectedIds);
     } else {
-      // Otherwise select this note and drag it along with its descendants
+      // Otherwise select this note and drag it alone
       setSelectedIds([id]);
-      setActiveDragClusterIds([id, ...(descendantsMap.current[id] || [])]);
+      setActiveDragClusterIds([id]);
     }
   };
 
@@ -216,7 +216,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     const dx = finalX - parent.x;
     const dy = finalY - parent.y;
 
-    const idsToMove = selectedIds.includes(id) ? selectedIds : (descendantsMap.current[id] || []);
+    const idsToMove = selectedIds.includes(id) ? selectedIds : [id];
     const moves = [{ id, x: finalX, y: finalY }];
 
     for (const childId of idsToMove) {
@@ -662,6 +662,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
               group={group}
               onRename={onRenameGroup}
               onMoveStart={handleGroupMoveStart}
+              onPointerDragMove={handlePointerDragMove}
               onMoveEnd={handleGroupMoveEnd}
               onResize={onResizeGroup}
               onDelete={onDeleteGroup}

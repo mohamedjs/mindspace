@@ -197,7 +197,7 @@ export const NoteConnectors: React.FC<NoteConnectorsProps> = ({
                 fill="none"
                 strokeOpacity={isSelected ? 1 : 0.85}
                 markerEnd={isSelected ? 'url(#arrowhead-selected)' : 'url(#arrowhead-default)'}
-                className="pointer-events-none transition-all duration-150"
+                className="pointer-events-none"
               />
             </g>
           );

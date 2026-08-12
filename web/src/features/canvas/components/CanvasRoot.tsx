@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Mic, Settings } from 'lucide-react';
+import { Mic, Settings, Menu, LogOut, Coins } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreditChip } from '@/features/credits/components/CreditChip';
+import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/shared/theme';
 import { CanvasBackground } from './CanvasBackground';
 import { NoteConnectors } from './NoteConnectors';
@@ -33,7 +34,7 @@ interface CanvasRootProps {
   onOpenSettings?: () => void;
   onOpenRecordings?: () => void;
   onTidy?: () => void;
-  onPressNote?: (noteId: string) => void;
+  onPressNote?: (noteId: string, e?: React.PointerEvent) => void;
   onAddNote?: (x: number, y: number) => void;
   onAddGroup?: (x: number, y: number) => void;
   onRenameGroup?: (groupId: string, title: string) => void;
@@ -80,7 +81,9 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   childCounts,
 }) => {
   const { colors, showChildNotes, setShowChildNotes } = useTheme();
+  const { user, signOut } = useAuth();
   const [localNotes, setLocalNotes] = useState<StickyNoteData[]>(DEMO_FALLBACK_NOTES);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const isDemo = propNotes === undefined;
   const displayNotes = isDemo ? localNotes : propNotes;
 
@@ -323,6 +326,61 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
 
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
+  }, [zoomTo]);
+
+  // Touch listener for pinch-to-zoom
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+
+    let initialDist: number | null = null;
+    let initialScale: number | null = null;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        initialDist = Math.hypot(dx, dy);
+        initialScale = scaleRef.current;
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && initialDist && initialScale) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        
+        const rect = el.getBoundingClientRect();
+        const focalX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+        const focalY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+
+        // Apply scale delta to the initial scale at start of pinch
+        const scaleFactor = dist / initialDist;
+        zoomTo(initialScale * scaleFactor, focalX, focalY);
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        initialDist = null;
+        initialScale = null;
+      }
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: false });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: false });
+    el.addEventListener('touchcancel', onTouchEnd, { passive: false });
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
   }, [zoomTo]);
 
   // Keyboard navigation, shortcuts, Escape & Delete detaching
@@ -594,44 +652,80 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
       }
     : null;
 
+  const userChar = user?.email?.[0]?.toUpperCase() || 'U';
+
   return (
     <div className="flex flex-col flex-1 h-screen w-screen overflow-hidden bg-board select-none">
-      {/* Floating Clay Header (Hidden on lg: desktop screens where Sidebar renders) */}
-      <header
-        className="z-30 mx-3 mt-2 flex flex-row items-center justify-between px-4 py-3 shrink-0 lg:hidden"
-        style={clay({ color: colors.surface, radius: 24 })}
-      >
+      {/* Mobile Sidebar Toggle */}
+      <div className="fixed top-4 left-4 z-30 lg:hidden">
         <button
           type="button"
-          className="flex-1 flex flex-row items-center text-left cursor-pointer border-0 bg-transparent"
+          className="h-10 w-10 flex items-center justify-center cursor-pointer border-0 transition-opacity"
+          style={clay({ color: colors.surface, radius: 14, depth: 0.6 })}
           onClick={onOpenSpaces}
-          disabled={!onOpenSpaces}
+          aria-label="Menu"
         >
-          <div>
-            <div className="text-[19px] font-bold text-ink flex items-center gap-1">
-              <span>{spaceName}</span>
-              {onOpenSpaces && <span className="text-xs">▾</span>}
-            </div>
-            <div className="mt-0.5 text-[11px] font-medium text-muted">
-              Scroll to zoom · drag a note to move it
-            </div>
-          </div>
+          <Menu size={20} color={colors.ink} strokeWidth={2.5} />
         </button>
+      </div>
 
-        <CreditChip balance={creditBalance} onPress={onOpenCredits} />
-
-        {onOpenSettings && (
+      {/* Mobile User Avatar */}
+      <div className="fixed top-4 right-4 z-30 lg:hidden">
+        <div className="relative">
           <button
             type="button"
-            className="ml-2 h-9 w-9 flex items-center justify-center cursor-pointer border-0 transition-opacity"
-            style={clay({ color: shade(colors.surface, -0.06), radius: 18, depth: 0.6 })}
-            onClick={onOpenSettings}
-            aria-label="Settings"
+            className="h-10 w-10 flex items-center justify-center cursor-pointer border-0 font-bold transition-transform active:scale-95"
+            style={clay({ color: colors.accent, radius: 14, depth: 0.8 })}
+            onClick={() => setUserMenuOpen(!userMenuOpen)}
+            aria-label="User Menu"
           >
-            <Settings size={18} color={colors.ink} strokeWidth={2.5} />
+            <span className="text-white text-sm">{userChar}</span>
           </button>
-        )}
-      </header>
+
+          {userMenuOpen && (
+            <div
+              className="absolute top-full right-0 mt-2 w-48 py-1.5 px-1 rounded-2xl shadow-xl border border-line flex flex-col"
+              style={{ backgroundColor: colors.surface }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  onOpenSettings?.();
+                }}
+                className="flex flex-row items-center px-3 py-2 text-xs font-semibold hover:bg-black/5 rounded-xl border-0 bg-transparent cursor-pointer transition-colors"
+                style={{ color: colors.ink }}
+              >
+                <Settings size={14} className="mr-2" />
+                Settings
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  onOpenCredits?.();
+                }}
+                className="flex flex-row items-center px-3 py-2 text-xs font-semibold text-amber-500 hover:bg-amber-50 rounded-xl border-0 bg-transparent cursor-pointer transition-colors"
+              >
+                <Coins size={14} className="mr-2" />
+                Credits ({creditBalance})
+              </button>
+              <div className="h-[1px] my-1 mx-2" style={{ backgroundColor: shade(colors.surface, -0.1) }} />
+              <button
+                type="button"
+                onClick={() => {
+                  setUserMenuOpen(false);
+                  if (confirm('Sign out?')) signOut();
+                }}
+                className="flex flex-row items-center px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl border-0 bg-transparent cursor-pointer transition-colors"
+              >
+                <LogOut size={14} className="mr-2" />
+                Sign out
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Infinite Canvas Viewport */}
       <div
@@ -747,7 +841,15 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
                 note={note}
                 onUpdateColor={handleUpdateColor}
                 onDelete={onDeleteNote}
-                onPressNote={onPressNote}
+                onPressNote={(id, e) => {
+                  if (e?.shiftKey) {
+                    setSelectedIds((prev) => 
+                      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
+                    );
+                  } else {
+                    onPressNote?.(id, e);
+                  }
+                }}
               canvasScale={scale}
               childCount={childCounts?.get(note.id)}
               activeDragId={activeDragId}
@@ -827,6 +929,8 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
         onOpenRecordings={onOpenRecordings}
         showChildNotes={showChildNotes}
         onToggleChildNotes={() => setShowChildNotes(!showChildNotes)}
+        onUndo={() => toast('Undo coming soon')}
+        onRedo={() => toast('Redo coming soon')}
       />
 
       {/* Floating Record FAB */}

@@ -21,7 +21,7 @@ interface StickyNoteItemProps {
   onMoveClusterEnd?: (id: string, finalX: number, finalY: number) => void;
   onDelete?: (id: string) => void;
   onDragStart?: (id: string) => void;
-  onPressNote?: (id: string) => void;
+  onPressNote?: (id: string, e?: React.PointerEvent) => void;
   canvasScale?: number;
   childCount?: number;
   activeDragId?: string | null;
@@ -196,7 +196,7 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
       if (duration > 400 && info.pointerType === 'touch') {
         setColorPickerVisible(true);
       } else {
-        onPressNote?.(note.id);
+        onPressNote?.(note.id, e);
       }
     }
   };

@@ -8,6 +8,7 @@ import {
   fetchNotes,
   updateNoteColor,
   updateNoteContent,
+  updateNoteParent,
   updateNotePosition,
   updateNoteType,
 } from '../api/notes.api';
@@ -212,6 +213,50 @@ export function useUpdateNoteType() {
     mutationFn: ({ noteId, type }: { noteId: string; type: NoteType }) =>
       updateNoteType(noteId, type),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notes'] });
+    },
+  });
+}
+
+/**
+ * Re-parent a note, or detach it with `parentId: null`.
+ *
+ * Optimistic, because the arrow the user just drew has to snap into place —
+ * waiting a round trip to see the connector appear makes the tool feel broken.
+ * Callers must run wouldCycle() first: parent_id has no database-level cycle
+ * guard, and a ring is unrecoverable from the UI.
+ */
+export function useSetNoteParent(spaceId: string | null) {
+  const qc = useQueryClient();
+  const key = queryKeys.notes.bySpace(spaceId ?? '');
+
+  return useMutation({
+    mutationFn: ({ noteId, parentId }: { noteId: string; parentId: string | null }) =>
+      updateNoteParent(noteId, parentId),
+
+    onMutate: async ({ noteId, parentId }) => {
+      await qc.cancelQueries({ queryKey: key });
+      await qc.cancelQueries({ queryKey: queryKeys.notes.detail(noteId) });
+
+      const previousList = qc.getQueryData<StickyNoteData[]>(key);
+      const previousDetail = qc.getQueryData<StickyNoteData>(queryKeys.notes.detail(noteId));
+
+      qc.setQueryData<StickyNoteData[]>(key, (old) =>
+        (old ?? []).map((note) => (note.id === noteId ? { ...note, parentId } : note))
+      );
+      qc.setQueryData<StickyNoteData>(queryKeys.notes.detail(noteId), (old) =>
+        old ? { ...old, parentId } : old
+      );
+
+      return { previousList, previousDetail };
+    },
+    onError: (_err, { noteId }, context) => {
+      if (context?.previousList) qc.setQueryData(key, context.previousList);
+      if (context?.previousDetail) {
+        qc.setQueryData(queryKeys.notes.detail(noteId), context.previousDetail);
+      }
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ['notes'] });
     },
   });

@@ -33,7 +33,17 @@ export const NoteConnectors: React.FC<NoteConnectorsProps> = ({ notes, activeDra
     const parent = byId.get(note.parentId);
     if (!parent) return [];
     
-    return [{ id: note.id, fromId: parent.id, from: centerOf(parent), toId: note.id, to: centerOf(note) }];
+    return [{
+      id: note.id,
+      fromId: parent.id,
+      from: centerOf(parent),
+      toId: note.id,
+      to: centerOf(note),
+      // Half-extents of the child, so the arrowhead can stop at its edge
+      // instead of being buried under the card.
+      toHalfW: (note.width ?? 190) / 2,
+      toHalfH: (note.height ?? 145) / 2,
+    }];
   });
 
   if (!edges.length) return null;
@@ -110,11 +120,35 @@ const AnimatedEdge = ({
     const ty = edge.to.y + toDy - minY;
 
     const isHorizontal = Math.abs(tx - fx) > Math.abs(ty - fy);
-    const cpOffset = isHorizontal ? Math.abs(tx - fx) / 2 : Math.abs(ty - fy) / 2;
 
-    const d = isHorizontal
-      ? `M ${fx} ${fy} C ${fx + (tx > fx ? cpOffset : -cpOffset)} ${fy}, ${tx - (tx > fx ? cpOffset : -cpOffset)} ${ty}, ${tx} ${ty}`
-      : `M ${fx} ${fy} C ${fx} ${fy + (ty > fy ? cpOffset : -cpOffset)}, ${tx} ${ty - (ty > fy ? cpOffset : -cpOffset)}, ${tx} ${ty}`;
+    // Stop short of the child's edge and point an arrowhead at it. The thread
+    // is what says "these two are related"; the head is what says which one is
+    // the idea and which one elaborates on it.
+    //
+    // The curve is axis-aligned where it lands — the last control point shares
+    // a coordinate with the endpoint — so the incoming direction is simply
+    // ±x or ±y, and the edge crossing is one half-extent back along it.
+    const dirX = isHorizontal ? (tx > fx ? 1 : -1) : 0;
+    const dirY = isHorizontal ? 0 : ty > fy ? 1 : -1;
+    const ex = tx - dirX * edge.toHalfW;
+    const ey = ty - dirY * edge.toHalfH;
+
+    const cpOffset = isHorizontal ? Math.abs(ex - fx) / 2 : Math.abs(ey - fy) / 2;
+
+    let d = isHorizontal
+      ? `M ${fx} ${fy} C ${fx + dirX * cpOffset} ${fy}, ${ex - dirX * cpOffset} ${ey}, ${ex} ${ey}`
+      : `M ${fx} ${fy} C ${fx} ${fy + dirY * cpOffset}, ${ex} ${ey - dirY * cpOffset}, ${ex} ${ey}`;
+
+    // Two strokes back from the tip at ±25°, drawn as part of the same path so
+    // they animate with the drag for free. An SVG <Marker> would be tidier, but
+    // markers are typed in react-native-svg without a guarantee they render on
+    // both platforms, and this costs nothing.
+    const HEAD = 11;
+    const SPREAD = 0.44; // ~25°
+    const angle = Math.atan2(dirY, dirX);
+    d += ` M ${ex - HEAD * Math.cos(angle - SPREAD)} ${ey - HEAD * Math.sin(angle - SPREAD)}`;
+    d += ` L ${ex} ${ey}`;
+    d += ` L ${ex - HEAD * Math.cos(angle + SPREAD)} ${ey - HEAD * Math.sin(angle + SPREAD)}`;
 
     return { d };
   });
@@ -126,6 +160,8 @@ const AnimatedEdge = ({
       strokeWidth={3}
       fill="none"
       strokeOpacity={0.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
   );
 };

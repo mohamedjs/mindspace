@@ -66,6 +66,16 @@
   },
   "private": true,
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "testPathIgnorePatterns": [
+      "<rootDir>/node_modules/",
+      "<rootDir>/web/"
+    ],
+    "moduleNameMapper": {
+      "^test-renderer$": "react-test-renderer"
+    },
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.js"
+    ]
   }
 }

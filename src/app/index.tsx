@@ -20,6 +20,7 @@ import {
   useDeleteNote,
   useTidyNotes,
   useMoveCluster,
+  useSetNoteParent,
 } from '../features/sticky-notes/hooks/useNotes';
 import {
   useGroups,
@@ -54,7 +55,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const qc = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
-  const { colors, showChildNotes, notesView } = useTheme();
+  const { colors, showChildNotes, setShowChildNotes, notesView } = useTheme();
   const { recordingId } = useLocalSearchParams<{ recordingId?: string }>();
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [spacesSheetOpen, setSpacesSheetOpen] = useState(false);
@@ -71,14 +72,28 @@ export default function HomeScreen() {
     AsyncStorage.setItem(LAST_SPACE_KEY, id).catch(() => {});
   }, []);
 
-  // Auto-select the very first space (spaces[0]) whenever spaces load
-  // and no space is currently selected. The backend auto-creates one on signup.
+  // Reopen wherever you left off, falling back to the first space. The backend
+  // auto-creates one on signup, so spaces[0] always exists.
+  //
+  // selectSpace has always written LAST_SPACE_KEY; nothing ever read it back,
+  // so every launch landed on spaces[0] regardless of what you were working on.
   useEffect(() => {
-    if (!user || spacesLoading || spaceId) return;
+    if (!user || spacesLoading || spaceId || !spaces?.length) return;
 
-    if (spaces?.length) {
-      setSpaceId(spaces[0].id);
-    }
+    let cancelled = false;
+    AsyncStorage.getItem(LAST_SPACE_KEY)
+      .catch(() => null)
+      .then((savedId) => {
+        if (cancelled) return;
+        // A saved space that has since been deleted must not strand the user on
+        // a blank board.
+        const saved = savedId && spaces.find((s) => s.id === savedId);
+        setSpaceId(saved ? saved.id : spaces[0].id);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user, spaces, spacesLoading, spaceId]);
 
   const { data: notes } = useNotes(spaceId);
@@ -93,6 +108,7 @@ export default function HomeScreen() {
   const addGroup = useCreateGroup(spaceId);
   const editGroup = useUpdateGroup(spaceId);
   const removeGroup = useDeleteGroup(spaceId);
+  const setNoteParent = useSetNoteParent(spaceId);
   const { status: recordingStatus, error: recordingError } = useRecordingStatus(recordingId ?? null);
   const [outOfCreditsOpen, setOutOfCreditsOpen] = useState(false);
 
@@ -255,6 +271,35 @@ export default function HomeScreen() {
     [removeGroup]
   );
 
+  const handleSetNoteParent = useCallback(
+    (noteId: string, parentId: string | null) => setNoteParent.mutate({ noteId, parentId }),
+    [setNoteParent]
+  );
+
+  /**
+   * The note just became a sub-note while sub-notes are hidden, so it has
+   * vanished from the board. Unexplained, that reads as "the arrow tool deleted
+   * my note" — so say what happened and offer both ways out.
+   */
+  const handleLinkedWhileHidden = useCallback(
+    (childId: string, parentId: string, previousParentId: string | null) => {
+      const parent = notes?.find((n) => n.id === parentId);
+      Alert.alert(
+        'Now a sub-note',
+        `It moved under "${parent?.title?.trim() || parent?.content?.slice(0, 40) || 'the other note'}", and sub-notes are hidden on the canvas.`,
+        [
+          {
+            text: 'Undo',
+            style: 'cancel',
+            onPress: () => setNoteParent.mutate({ noteId: childId, parentId: previousParentId }),
+          },
+          { text: 'Show sub-notes', onPress: () => setShowChildNotes(true) },
+        ]
+      );
+    },
+    [notes, setNoteParent, setShowChildNotes]
+  );
+
   if (authLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-canvas">
@@ -297,6 +342,8 @@ export default function HomeScreen() {
           notes={visibleNotes}
           groups={groups}
           childCounts={childCounts}
+          onSetNoteParent={handleSetNoteParent}
+          onLinkedWhileHidden={handleLinkedWhileHidden}
           onAddNote={handleAddNote}
           onAddGroup={handleAddGroup}
           onRenameGroup={handleRenameGroup}

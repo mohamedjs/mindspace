@@ -38,6 +38,19 @@ interface StickyNoteItemProps {
   childCount?: number;
   activeDragState?: SharedValue<{ id: string | null; dx: number; dy: number }>;
   activeDragNotes?: SharedValue<string[]>;
+  /**
+   * The arrow tool is armed. Notes stop being draggable and stop swallowing
+   * touches, so the board's link gesture receives the whole drag — otherwise
+   * the note's own pan wins the moment a finger lands on it.
+   */
+  linkMode?: boolean;
+  /**
+   * What this note is during a link drag: where the arrow started, a legal
+   * drop, or one that would make a cycle. Drives the outline.
+   */
+  linkRole?: 'source' | 'valid' | 'invalid' | null;
+  /** Part of a marquee selection — drags as one unit with the rest. */
+  selected?: boolean;
 }
 
 export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
@@ -52,6 +65,9 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
   childCount,
   activeDragState,
   activeDragNotes,
+  linkMode,
+  linkRole,
+  selected,
 }) => {
   const { colors } = useTheme();
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
@@ -59,6 +75,15 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
 
   // Deterministic tilt for a hand-placed feel (-2.5° to +2.5°).
   const tilt = note.rotation ?? (((note.id.charCodeAt(0) || 0) % 5) - 2) * 1.2;
+
+  // Say no *before* the finger lifts: a drop that silently does nothing reads
+  // as a broken tool, and "would make a cycle" is not guessable.
+  const ringColor =
+    linkRole === 'invalid'
+      ? colors.warning
+      : linkRole === 'valid' || linkRole === 'source' || selected
+        ? colors.accent
+        : null;
 
   const defaultScheme = noteColors[note.type] || noteColors.idea;
   const paperBg = note.color || defaultScheme.bg;
@@ -162,12 +187,33 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
     };
   });
 
-  return (
-    <GestureDetector gesture={composed}>
+  const body = (
       <Animated.View
         className="absolute"
+        pointerEvents={linkMode ? 'none' : 'auto'}
         style={[{ width: note.width || 240, minHeight: note.height || 200 }, animatedStyle]}
       >
+        {/*
+          Link-target ring. An overlay rather than a border on the card itself:
+          a border would reflow the note by its own width the moment it became
+          an endpoint, so notes would twitch as the finger passes over them.
+        */}
+        {ringColor && (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: -4,
+              left: -4,
+              right: -4,
+              bottom: -4,
+              borderWidth: 3,
+              borderColor: ringColor,
+              borderRadius: 22,
+              zIndex: 30,
+            }}
+          />
+        )}
         {/*
           Cast shadow sits on its own layer *behind* the paper rather than on
           the paper itself. A shadow on the paper would be clipped by the folded
@@ -261,6 +307,12 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
           onClose={() => setColorPickerVisible(false)}
         />
       </Animated.View>
-    </GestureDetector>
   );
+
+  // Swapping the composed gesture on a mounted GestureDetector is the flaky
+  // corner of gesture-handler, so the detector is dropped entirely instead.
+  // Mode changes are a toolbar tap, never mid-gesture, so remounting is free.
+  if (linkMode) return body;
+
+  return <GestureDetector gesture={composed}>{body}</GestureDetector>;
 };

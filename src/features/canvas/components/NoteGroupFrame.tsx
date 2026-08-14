@@ -22,6 +22,12 @@ interface NoteGroupFrameProps {
   onDelete?: (id: string) => void;
   /** Live canvas zoom, so a drag maps screen px to world units. */
   canvasScale?: SharedValue<number>;
+  /**
+   * The arrow tool is armed. The frame body already lets touches through, but
+   * the title chip and the resize handle do not — and they sit right where you
+   * would start a link from a note near the frame's edge.
+   */
+  linkMode?: boolean;
 }
 
 /**
@@ -40,6 +46,7 @@ export const NoteGroupFrame: React.FC<NoteGroupFrameProps> = ({
   onResize,
   onDelete,
   canvasScale,
+  linkMode,
 }) => {
   const { colors, scheme } = useTheme();
   const [title, setTitle] = useState(group.title ?? '');
@@ -127,7 +134,7 @@ export const NoteGroupFrame: React.FC<NoteGroupFrameProps> = ({
     <Animated.View
       className="absolute"
       style={[animatedStyle]}
-      pointerEvents="box-none"
+      pointerEvents={linkMode ? 'none' : 'box-none'}
     >
       <View
         className="absolute inset-0 rounded-3xl border-2 border-dashed"

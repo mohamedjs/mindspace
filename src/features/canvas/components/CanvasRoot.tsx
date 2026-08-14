@@ -4,6 +4,7 @@ import { Text } from '../../../shared/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -16,7 +17,15 @@ import { CanvasBackground } from './CanvasBackground';
 import { NoteConnectors } from './NoteConnectors';
 import { NoteGroupFrame } from './NoteGroupFrame';
 import { CanvasToolbar } from './CanvasToolbar';
+import { LinkRubberBand } from './LinkRubberBand';
 import { screenToWorld, zoomAbout } from '../utils/coords';
+import {
+  noteAtPoint,
+  notesInRect,
+  notesInsideRect,
+  withDescendants,
+  wouldCycle,
+} from '../utils/graph';
 import type { NoteGroup } from '../api/groups.api';
 import { clay, clayAccent, shade } from '../../../shared/theme/clay';
 import { Mic, Settings } from 'lucide-react-native';
@@ -46,6 +55,13 @@ interface CanvasRootProps {
   onDeleteGroup?: (groupId: string) => void;
   /** noteId -> number of sub-notes it has, for the corner badge. */
   childCounts?: Map<string, number>;
+  /**
+   * Re-parent a note. Drives the arrow tool; also used to detach.
+   * The canvas rejects cycles before ever calling this.
+   */
+  onSetNoteParent?: (noteId: string, parentId: string | null) => void;
+  /** Sub-notes are hidden, so a freshly linked note is about to disappear. */
+  onLinkedWhileHidden?: (childId: string, parentId: string, previousParentId: string | null) => void;
 }
 
 const DEMO_FALLBACK_NOTES: StickyNoteData[] = [
@@ -125,6 +141,8 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   onResizeGroup,
   onDeleteGroup,
   childCounts,
+  onSetNoteParent,
+  onLinkedWhileHidden,
 }) => {
   const { colors, showChildNotes, setShowChildNotes } = useTheme();
   const [localNotes, setLocalNotes] = useState<StickyNoteData[]>(DEMO_FALLBACK_NOTES);
@@ -163,12 +181,20 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
         childrenMap[note.parentId].push(note.id);
       }
     }
-    const getDescendants = (id: string): string[] => {
+    // `visiting` is the guard, not an optimisation. The memo above is only
+    // written *after* the walk returns, so a parent_id ring would recurse until
+    // the stack blew — and once such a row exists it reproduces on every load.
+    // The arrow tool is the first thing that can create one; wouldCycle refuses
+    // to, and this makes a bad row from anywhere else a wrong tree rather than
+    // a white screen.
+    const getDescendants = (id: string, visiting = new Set<string>()): string[] => {
       if (map[id]) return map[id];
+      if (visiting.has(id)) return [];
+      visiting.add(id);
       const children = childrenMap[id] || [];
       let all = [...children];
       for (const child of children) {
-        all = all.concat(getDescendants(child));
+        all = all.concat(getDescendants(child, visiting));
       }
       map[id] = all;
       return all;
@@ -179,9 +205,26 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     descendantsMap.value = map;
   }, [displayNotes, descendantsMap]);
 
+  /**
+   * Everything that travels with `id`, excluding `id` itself.
+   *
+   * Union of the selection (when the dragged note is part of it) and every
+   * descendant of everything in that set. The union is the point: a marquee
+   * that happens to catch a parent but not its sub-notes would otherwise tear
+   * them off, and "a note's children follow it" is an invariant the board has
+   * always had. With nothing selected this is exactly the old behaviour.
+   */
+  const dragSetFor = React.useCallback(
+    (id: string) => {
+      const seeds = selectedRef.current.includes(id) ? selectedRef.current : [id];
+      return withDescendants(seeds, descendantsMap.value).filter((n) => n !== id);
+    },
+    [descendantsMap]
+  );
+
   const handleNoteDragStart = React.useCallback((id: string) => {
-    activeDragNotes.value = descendantsMap.value[id] || [];
-  }, [descendantsMap, activeDragNotes]);
+    activeDragNotes.value = dragSetFor(id);
+  }, [activeDragNotes, dragSetFor]);
 
   const activeGroupDragNotes = React.useRef<string[]>([]);
 
@@ -189,15 +232,13 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     const group = groups?.find((g) => g.id === groupId);
     if (!group) return;
 
-    const inside = displayNotes
-      .filter(
-        (n) =>
-          n.x >= group.x &&
-          n.y >= group.y &&
-          n.x + (n.width ?? 190) <= group.x + group.width &&
-          n.y + (n.height ?? 145) <= group.y + group.height
-      )
-      .map((n) => n.id);
+    // Rendered size, not the stored one: a note whose row says 120 tall renders
+    // at least 200, so the old test counted notes that visibly hang out of the
+    // frame as being inside it.
+    const inside = notesInsideRect(
+      { x: group.x, y: group.y, w: group.width, h: group.height },
+      displayNotes
+    );
 
     activeGroupDragNotes.current = inside;
     activeDragNotes.value = inside;
@@ -245,10 +286,9 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
       const dx = finalX - parent.x;
       const dy = finalY - parent.y;
 
-      const descendants = descendantsMap.value[id] || [];
       const moves = [{ id, x: finalX, y: finalY }];
 
-      for (const childId of descendants) {
+      for (const childId of dragSetFor(id)) {
         const child = displayNotes.find((n) => n.id === childId);
         if (child) {
           moves.push({ id: child.id, x: child.x + dx, y: child.y + dy });
@@ -266,7 +306,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
         );
       }
     },
-    [displayNotes, descendantsMap, onMoveCluster, isDemo]
+    [displayNotes, dragSetFor, onMoveCluster, isDemo]
   );
 
   // Infinite pan/zoom canvas: translation + scale on the UI thread, exactly
@@ -286,20 +326,257 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   const pinchFocalY = useSharedValue(0);
   const startScale = useSharedValue(1);
 
+
+  // ─── Tool modes ─────────────────────────────────────────────────────────
+  /**
+   * What a one-finger drag on the board does.
+   *
+   *   pan     — move the board. The default, unlike web's `pointer`: on a phone
+   *             panning is the constant need and a drag that drew a selection
+   *             box instead would read as broken.
+   *   pointer — marquee-select notes.
+   *   arrow   — draw a parent -> child link.
+   *
+   * Encoded as one shared value rather than a flag per mode: three booleans
+   * describe eight states, five of which are illegal, and that is where the
+   * next bug would live.
+   */
+  const [toolMode, setToolMode] = useState<'pan' | 'pointer' | 'arrow'>('pan');
+  const MODE = { pan: 0, pointer: 1, arrow: 2 } as const;
+  const modeSV = useSharedValue<number>(MODE.pan);
+
+  React.useEffect(() => {
+    modeSV.value = MODE[toolMode];
+  }, [toolMode, modeSV, MODE]);
+
+  const arrowArmed = toolMode === 'arrow';
+  const [linkSourceId, setLinkSourceId] = useState<string | null>(null);
+  const [linkTargetId, setLinkTargetId] = useState<string | null>(null);
+
+  /**
+   * The same two ids, mirrored into refs.
+   *
+   * The pan gesture is rebuilt every render, so `runOnJS(finishLink)` captures
+   * whichever closure existed when the drag *started* — before beginLink's
+   * setState had rendered. Reading state there would see `null` on release and
+   * the link would silently never commit. State drives the outlines; the refs
+   * drive the logic.
+   */
+  const linkSourceRef = useRef<string | null>(null);
+  const linkTargetRef = useRef<string | null>(null);
+
+  const linkActive = useSharedValue(false);
+  const linkSourceCentre = useSharedValue({ x: 0, y: 0 });
+  const linkPointer = useSharedValue({ x: 0, y: 0 });
+
+  /**
+   * Parent lookup for the cycle check.
+   *
+   * Built from the *visible* notes, which is sound today only because hiding
+   * sub-notes leaves nothing but roots on the board — and a root cannot be an
+   * ancestor of anything you could still reach. If the visibility filter ever
+   * becomes partial, the upward walk would terminate early and this would fail
+   * open; feed it the unfiltered list at that point.
+   */
+  const parentOf = React.useMemo(
+    () => new Map<string, string | null>(displayNotes.map((n) => [n.id, n.parentId ?? null])),
+    [displayNotes]
+  );
+
+  const isTargetValid =
+    Boolean(linkSourceId && linkTargetId) &&
+    !wouldCycle(linkTargetId!, linkSourceId!, parentOf);
+
+  /** Begin a link if the press landed on a note; otherwise the drag is a no-op. */
+  const beginLink = React.useCallback(
+    (wx: number, wy: number) => {
+      const hit = noteAtPoint(wx, wy, displayNotes);
+      if (!hit) return;
+      const note = displayNotes.find((n) => n.id === hit)!;
+      linkSourceCentre.value = {
+        x: note.x + (note.width ?? 190) / 2,
+        y: note.y + (note.height ?? 145) / 2,
+      };
+      linkActive.value = true;
+      linkSourceRef.current = hit;
+      setLinkSourceId(hit);
+    },
+    [displayNotes, linkActive, linkSourceCentre]
+  );
+
+  /**
+   * Called on every move frame. setState with an unchanged id is a no-op in
+   * React, so the canvas only re-renders when the note under the finger
+   * actually changes.
+   *
+   * ponytail: linear scan per frame. Fine for the tens of notes a board holds;
+   * index by grid cell if a space ever grows into the thousands.
+   */
+  const hoverLink = React.useCallback(
+    (wx: number, wy: number) => {
+      const hit = noteAtPoint(wx, wy, displayNotes);
+      const next = hit && hit !== linkSourceRef.current ? hit : null;
+      linkTargetRef.current = next;
+      // setState with an unchanged id is a no-op, so this only re-renders when
+      // the note under the finger actually changes.
+      setLinkTargetId(next);
+    },
+    [displayNotes]
+  );
+
+  const finishLink = React.useCallback(() => {
+    linkActive.value = false;
+
+    const sourceId = linkSourceRef.current;
+    const targetId = linkTargetRef.current;
+    linkSourceRef.current = null;
+    linkTargetRef.current = null;
+    setLinkSourceId(null);
+    setLinkTargetId(null);
+
+    if (!sourceId || !targetId) return;
+    // Re-check rather than trusting the render-time flag: the notes list can
+    // have refetched between the last move frame and the release.
+    if (wouldCycle(targetId, sourceId, parentOf)) return;
+
+    const target = displayNotes.find((n) => n.id === targetId);
+    const previousParentId = target?.parentId ?? null;
+    if (previousParentId === sourceId) return; // already linked; nothing to do
+
+    onSetNoteParent?.(targetId, sourceId);
+    // One link per activation, then back to panning. Staying armed makes it far
+    // too easy to re-parent a note you only meant to tap.
+    setToolMode('pan');
+
+    if (!showChildNotes) onLinkedWhileHidden?.(targetId, sourceId, previousParentId);
+  }, [
+    parentOf,
+    displayNotes,
+    onSetNoteParent,
+    showChildNotes,
+    onLinkedWhileHidden,
+    linkActive,
+  ]);
+
+  // ─── Marquee selection ──────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // Read from the gesture's onEnd, which closes over the render that started
+  // the drag — same staleness trap as the link ids.
+  const selectedRef = useRef<string[]>([]);
+  const marqueeActive = useSharedValue(false);
+  const marqueeFrom = useSharedValue({ x: 0, y: 0 });
+  const marqueeTo = useSharedValue({ x: 0, y: 0 });
+
+  const applySelection = React.useCallback((ids: string[]) => {
+    selectedRef.current = ids;
+    setSelectedIds(ids);
+  }, []);
+
+  const finishMarquee = React.useCallback(() => {
+    const a = marqueeFrom.value;
+    const b = marqueeTo.value;
+    marqueeActive.value = false;
+
+    // A tap, not a drag — treat it as "clear the selection" rather than
+    // selecting whatever single note happened to be under the finger.
+    if (Math.abs(b.x - a.x) < 6 && Math.abs(b.y - a.y) < 6) {
+      applySelection([]);
+      return;
+    }
+
+    const s = scaleValue.value;
+    const toWorldX = (v: number) => (v - translateX.value) / s;
+    const toWorldY = (v: number) => (v - translateY.value) / s;
+
+    const x1 = toWorldX(Math.min(a.x, b.x));
+    const y1 = toWorldY(Math.min(a.y, b.y));
+    const x2 = toWorldX(Math.max(a.x, b.x));
+    const y2 = toWorldY(Math.max(a.y, b.y));
+
+    applySelection(notesInRect({ x: x1, y: y1, w: x2 - x1, h: y2 - y1 }, displayNotes));
+  }, [applySelection, displayNotes, marqueeActive, marqueeFrom, marqueeTo, scaleValue, translateX, translateY]);
+
+  const cancelLink = React.useCallback(() => {
+    linkActive.value = false;
+    linkSourceRef.current = null;
+    linkTargetRef.current = null;
+    setLinkSourceId(null);
+    setLinkTargetId(null);
+  }, [linkActive]);
+
+  /**
+   * One pan, three jobs, chosen per gesture from `modeSV`.
+   *
+   * Swapping the composed gesture on a live GestureDetector is the flaky part
+   * of gesture-handler, so the mode is read from a shared value inside the
+   * worklet instead — that also guarantees a drag finishes in whichever mode it
+   * started, even if the toolbar is tapped mid-drag.
+   */
   const panGesture = Gesture.Pan()
     .minPointers(1)
     .maxPointers(1)
-    .onStart(() => {
+    .onStart((e) => {
+      if (modeSV.value === 2) {
+        linkPointer.value = { x: e.x, y: e.y };
+        const wx = (e.x - translateX.value) / scaleValue.value;
+        const wy = (e.y - translateY.value) / scaleValue.value;
+        runOnJS(beginLink)(wx, wy);
+        return;
+      }
+      if (modeSV.value === 1) {
+        marqueeFrom.value = { x: e.x, y: e.y };
+        marqueeTo.value = { x: e.x, y: e.y };
+        marqueeActive.value = true;
+        return;
+      }
       startX.value = translateX.value;
       startY.value = translateY.value;
     })
     .onUpdate((e) => {
+      if (marqueeActive.value) {
+        marqueeTo.value = { x: e.x, y: e.y };
+        return;
+      }
+      if (linkActive.value) {
+        linkPointer.value = { x: e.x, y: e.y };
+        const wx = (e.x - translateX.value) / scaleValue.value;
+        const wy = (e.y - translateY.value) / scaleValue.value;
+        runOnJS(hoverLink)(wx, wy);
+        return;
+      }
+      // Still armed but the press missed every note — swallow the drag rather
+      // than panning, so an arm-then-miss doesn't shove the board sideways.
+      if (modeSV.value === 2) return;
+
       translateX.value = startX.value + e.translationX;
       translateY.value = startY.value + e.translationY;
+    })
+    .onEnd(() => {
+      if (marqueeActive.value) {
+        marqueeActive.value = false;
+        runOnJS(finishMarquee)();
+        return;
+      }
+      if (!linkActive.value) return;
+      // Cleared here, in the worklet, so the onFinalize below sees the drag as
+      // already resolved and does not also queue a cancel.
+      linkActive.value = false;
+      runOnJS(finishLink)();
+    })
+    .onFinalize(() => {
+      // Covers a cancelled gesture (a second finger, a system interruption),
+      // which fires onFinalize without onEnd and would otherwise strand the
+      // rubber band or the marquee box on screen.
+      if (linkActive.value) runOnJS(cancelLink)();
+      marqueeActive.value = false;
     });
 
   const pinchGesture = Gesture.Pinch()
     .onStart((e) => {
+      // Only blocked mid-arrow, not merely while armed: needing to zoom out to
+      // reach the target note is the normal case, and forcing a disarm/re-arm
+      // round trip for it makes the tool feel broken.
+      if (linkActive.value) return;
       startScale.value = scaleValue.value;
       pinchStartX.value = translateX.value;
       pinchStartY.value = translateY.value;
@@ -307,6 +584,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
       pinchFocalY.value = e.focalY;
     })
     .onUpdate((e) => {
+      if (linkActive.value) return;
       const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, startScale.value * e.scale));
       // Zoom about the point between the fingers rather than the middle of the
       // screen, so the thing you are pinching stays under them. With a
@@ -321,6 +599,19 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   // wins over this pan via Gesture.Race in StickyNoteItem, so dragging a
   // note doesn't also pan the board underneath it.
   const canvasGesture = Gesture.Simultaneous(panGesture, pinchGesture);
+
+  /** Screen-space box, so it needs no world conversion while dragging. */
+  const marqueeStyle = useAnimatedStyle(() => {
+    const a = marqueeFrom.value;
+    const b = marqueeTo.value;
+    return {
+      opacity: marqueeActive.value ? 1 : 0,
+      left: Math.min(a.x, b.x),
+      top: Math.min(a.y, b.y),
+      width: Math.abs(b.x - a.x),
+      height: Math.abs(b.y - a.y),
+    };
+  });
 
   const canvasAnimatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -403,7 +694,9 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
               {spaceName} {onOpenSpaces ? '▾' : ''}
             </Text>
             <Text className="mt-0.5 text-[11px] font-medium text-muted">
-              Pinch to zoom · hold a note to move it
+              {arrowArmed
+                ? 'Drag from the idea to the note under it'
+                : 'Pinch to zoom · hold a note to move it'}
             </Text>
           </View>
         </TouchableOpacity>
@@ -445,6 +738,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
                 onResize={onResizeGroup}
                 onDelete={onDeleteGroup}
                 canvasScale={scaleValue}
+                linkMode={arrowArmed}
               />
             ))}
             <NoteConnectors 
@@ -466,11 +760,41 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
                 childCount={childCounts?.get(note.id)}
                 activeDragState={activeDragState}
                 activeDragNotes={activeDragNotes}
+                linkMode={arrowArmed}
+                selected={selectedIds.includes(note.id)}
+                linkRole={
+                  note.id === linkSourceId
+                    ? 'source'
+                    : note.id === linkTargetId
+                      ? isTargetValid
+                        ? 'valid'
+                        : 'invalid'
+                      : null
+                }
               />
             ))}
           </Animated.View>
         </View>
       </GestureDetector>
+
+      <Animated.View
+        pointerEvents="none"
+        className="absolute z-20 rounded-lg border-2"
+        style={[
+          { borderColor: colors.accent, backgroundColor: `${colors.accent}22` },
+          marqueeStyle,
+        ]}
+      />
+
+      <LinkRubberBand
+        source={linkSourceCentre}
+        pointer={linkPointer}
+        active={linkActive}
+        translateX={translateX}
+        translateY={translateY}
+        scale={scaleValue}
+        valid={!linkTargetId || isTargetValid}
+      />
 
       <CanvasToolbar
         onAddNote={
@@ -489,6 +813,13 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
               }
             : undefined
         }
+        toolMode={toolMode}
+        canConnect={Boolean(onSetNoteParent)}
+        onSetToolMode={(mode) => {
+          cancelLink();
+          if (mode !== 'pointer') applySelection([]);
+          setToolMode(mode);
+        }}
         onTidy={onTidy}
         onFitToView={displayNotes.length ? handleFitToView : undefined}
         onOpenRecordings={onOpenRecordings}

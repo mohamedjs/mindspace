@@ -190,18 +190,31 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     }
   };
 
+  /**
+   * Everything that travels with `id`.
+   *
+   * Union of the selection (when the dragged note is in it) and every
+   * descendant of everything in that set. descendantsMap was being computed and
+   * never read, so dragging a parent left its sub-notes behind — the one
+   * spatial invariant the board has always had. The union restores it and keeps
+   * multi-select working.
+   */
+  const dragSetFor = (id: string) => {
+    const seeds = selectedIds.includes(id) ? selectedIds : [id];
+    const out = new Set<string>();
+    for (const seed of seeds) {
+      out.add(seed);
+      for (const d of descendantsMap.current[seed] ?? []) out.add(d);
+    }
+    return [...out];
+  };
+
   const handlePointerDragStart = (id: string) => {
     setActiveDragId(id);
     setActiveDragDelta({ dx: 0, dy: 0 });
-    
-    // If the note being dragged is part of the selection, drag the whole selection
-    if (selectedIds.includes(id)) {
-      setActiveDragClusterIds(selectedIds);
-    } else {
-      // Otherwise select this note and drag it alone
-      setSelectedIds([id]);
-      setActiveDragClusterIds([id]);
-    }
+
+    if (!selectedIds.includes(id)) setSelectedIds([id]);
+    setActiveDragClusterIds(dragSetFor(id));
   };
 
   const handlePointerDragMove = (id: string, dx: number, dy: number) => {
@@ -219,10 +232,9 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     const dx = finalX - parent.x;
     const dy = finalY - parent.y;
 
-    const idsToMove = selectedIds.includes(id) ? selectedIds : [id];
     const moves = [{ id, x: finalX, y: finalY }];
 
-    for (const childId of idsToMove) {
+    for (const childId of dragSetFor(id)) {
       if (childId === id) continue; // Skip parent which is already in moves
       const child = displayNotes.find((n) => n.id === childId);
       if (child) {

@@ -7,6 +7,11 @@ file adds to it.
 Build them **after** parity, in Phase 9. Both touch code you will have just
 written, and neither is worth debugging on top of an incomplete canvas.
 
+> **Status:** the arrow tool (§11.1) is now **implemented in the Expo app** as
+> well, so the two clients should stay in step. Where the platforms differ the
+> difference is called out inline — see §11.1.4 (drag vs. hover) and §11.1.7
+> (detach). The sidebar (§11.2) is desktop-only and has no Expo counterpart.
+
 | Feature | Scope | Where it lands |
 |---|---|---|
 | **A. Arrow tool** — connect two notes as parent/child by dragging an arrow | Canvas, connectors, a new port method, cycle safety | §11.1 |
@@ -182,12 +187,13 @@ link instead of moving a note.
 | Step | Behaviour |
 |---|---|
 | Arm | Toolbar arrow button becomes `active`; board cursor → `crosshair`; **note dragging is disabled** while armed |
-| Hover a note | Note gets an accent outline: "this can be an endpoint" |
+| Hover a note | Note gets an accent outline: "this can be an endpoint". **Touch has no hover** — the Expo build highlights whatever is under the finger *during* the drag instead, which gives the same warning before release |
 | `pointerdown` on a note | That note is the **parent**. Start a rubber-band line from its centre |
 | `pointermove` | Line follows the pointer, arrowhead at the pointer end |
 | Hover a valid target | Target outlines in the accent colour |
 | Hover an invalid target (self, or a descendant) | Target outlines in the **warning** colour, arrowhead shows a "no" state. Do not wait until release to say no |
 | `pointerup` on a valid note | `setNoteParent(targetId, sourceId)`. Tool **disarms** (one link per activation — arm again for the next) |
+| Hit-testing | Web uses `document.elementFromPoint`. React Native has no equivalent, so the Expo build resolves the note from world-space rectangles via `noteAtPoint()` in `canvas/utils/graph.ts` — topmost wins, visible notes only |
 | `pointerup` on empty canvas or an invalid target | Cancel silently. Do **not** create a note |
 | `Escape`, or right-click | Cancel and disarm |
 
@@ -219,6 +225,14 @@ show a toast — *"Now a sub-note of «parent title»"* — with two actions:
 previous value). Capture the previous parent before the mutation.
 
 ## 11.1.7 Detaching and deleting a link
+
+> **Platform split — the Expo app does this differently, on purpose.**
+> The arrow tool now ships in the Expo app (`src/features/canvas/…`), and there
+> detach lives as a **"Detach from parent" row in the note editor**, not on the
+> connector. A 3px curve is not a finger target, and there is no right-click on
+> touch. Web keeps the connector-selection design below **in addition** — it is
+> a genuine desktop affordance — but it must not be the *only* way to detach,
+> or the interaction cannot be used on a touchscreen at all. Ship both.
 
 Connectors are currently `pointer-events: none`. The arrow tool makes them
 objects the user can act on, so they need a hit area:

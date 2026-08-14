@@ -27,6 +27,7 @@ import {
   useUpdateNoteColor,
   useUpdateNoteType,
   useDeleteNote,
+  useSetNoteParent,
 } from '../hooks/useNotes';
 import { ColorPicker } from './ColorPicker';
 import { PeelFlap } from './PeelFlap';
@@ -35,6 +36,7 @@ import {
   ArrowLeft,
   Check,
   ChevronRight,
+  Unlink,
   Mic,
   Palette,
   Plus,
@@ -100,6 +102,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const updateContent = useUpdateNoteContent();
   const updateColor = useUpdateNoteColor(effectiveSpaceId);
   const updateType = useUpdateNoteType();
+  const setNoteParent = useSetNoteParent(effectiveSpaceId ?? null);
   const deleteNote = useDeleteNote(effectiveSpaceId);
   const createSubNote = useCreateNote(effectiveSpaceId);
   const { data: spaceNotes } = useNotes(effectiveSpaceId);
@@ -576,6 +579,40 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             scrollEnabled={false}
             textAlignVertical="top"
           />
+
+          {/*
+            Detach from the parent.
+
+            The web build lets you select the connector itself and press Delete.
+            That target is a 3px curve — unhittable with a finger — so on touch
+            the same action lives here, on the child, where there is room for a
+            real 44px row.
+          */}
+          {Boolean(note?.parentId) && (
+            <TouchableOpacity
+              className="mt-8 flex-row items-center px-3 py-3"
+              style={{ backgroundColor: shade(paperBg, -0.08), borderRadius: 14 }}
+              activeOpacity={0.75}
+              onPress={() =>
+                Alert.alert(
+                  'Detach from parent?',
+                  'This note becomes a top-level idea again. Its own sub-notes stay with it.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Detach',
+                      onPress: () => setNoteParent.mutate({ noteId, parentId: null }),
+                    },
+                  ]
+                )
+              }
+            >
+              <Unlink size={16} color={mutedTextColor} strokeWidth={2.5} />
+              <Text className="ml-2.5 text-sm font-semibold" style={{ color: textColor }}>
+                Detach from parent
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* ─── Sub-notes ─── */}
           {effectiveSpaceId && (

@@ -115,6 +115,9 @@ export const toPlan = (row: Record<string, any>): SubscriptionPlan => ({
   isFeatured: row.is_featured,
   maxRecordingMinutes: row.max_recording_minutes,
   isByok: row.is_byok,
+  // Older rows predate the column; treat a missing value as "has AI" so a
+  // stale cache can never silently strip a paying user's features.
+  aiEnabled: row.ai_enabled ?? true,
 });
 
 export const toSubscription = (row: Record<string, any>): ActiveSubscription => ({

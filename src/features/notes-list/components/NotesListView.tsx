@@ -17,6 +17,8 @@ interface NotesListViewProps {
   notes?: StickyNoteData[];
   onPressNote?: (noteId: string) => void;
   onStartRecord?: () => void;
+  /** Plan includes the voice pipeline. */
+  aiEnabled?: boolean;
   onOpenCredits?: () => void;
   onOpenSpaces?: () => void;
   onOpenSettings?: () => void;
@@ -40,6 +42,7 @@ export const NotesListView: React.FC<NotesListViewProps> = ({
   notes,
   onPressNote,
   onStartRecord,
+  aiEnabled = true,
   onOpenCredits,
   onOpenSpaces,
   onOpenSettings,
@@ -83,7 +86,7 @@ export const NotesListView: React.FC<NotesListViewProps> = ({
           <ListPane tree={tree} onPressNote={onPressNote} />
         )}
 
-        <RecordFab onPress={onStartRecord} />
+        {aiEnabled && <RecordFab onPress={onStartRecord} />}
       </SafeAreaView>
     </View>
   );

@@ -15,6 +15,7 @@ import { useActiveSubscription, usePlans } from '../../features/billing/hooks/us
 import { useDeleteUserKey, useSaveUserKey, useUserKeys } from '../../features/byok/hooks/useUserKeys';
 import type { UserKey } from '../../features/byok/api/keys.api';
 import { useTheme } from '../../shared/theme';
+import { features } from '../../shared/config/features';
 import { clay, clayAccent, shade } from '../../shared/theme/clay';
 import { ChevronLeft } from 'lucide-react-native';
 
@@ -84,7 +85,7 @@ export default function KeysScreen() {
   const { data: plans } = usePlans();
   const isByok = Boolean(plans?.find((p) => p.id === subscription?.planId)?.isByok);
 
-  if (!subLoading && plans && !isByok) {
+  if (!features.byok || (!subLoading && plans && !isByok)) {
     return <Redirect href="/plans" />;
   }
 

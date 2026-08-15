@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { TextInput, TouchableOpacity, View } from 'react-native';
 import { Text } from '../../../shared/ui/Text';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -9,6 +9,7 @@ import Animated, {
   withSpring,
   type SharedValue,
 } from 'react-native-reanimated';
+import { Check, Pencil } from 'lucide-react-native';
 import { PushPin } from './PushPin';
 import { ColorPicker } from './ColorPicker';
 import { PeelFlap } from './PeelFlap';
@@ -49,11 +50,18 @@ interface StickyNoteItemProps {
    * drop, or one that would make a cycle. Drives the outline.
    */
   linkRole?: 'source' | 'valid' | 'invalid' | null;
+  /**
+   * Tapped. The canvas decides what that means — open the editor, toggle the
+   * selection, or pick a link endpoint — because only it knows the tool mode.
+   */
+  onTap?: (id: string) => void;
+  /** Save an inline edit made on the board, without opening the note. */
+  onSaveContent?: (id: string, fields: { title: string | null; content: string }) => void;
   /** Part of a marquee selection — drags as one unit with the rest. */
   selected?: boolean;
 }
 
-export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
+const StickyNoteItemImpl: React.FC<StickyNoteItemProps> = ({
   note,
   onUpdateColor,
   onMove,
@@ -68,9 +76,41 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
   linkMode,
   linkRole,
   selected,
+  onTap,
+  onSaveContent,
 }) => {
   const { colors } = useTheme();
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
+
+  /**
+   * Inline editing, right on the board.
+   *
+   * Opening the full editor to fix a word was the single most common reason to
+   * leave the canvas, and leaving the canvas loses your place on it. Drafts are
+   * local until saved, so a background refetch cannot overwrite what is being
+   * typed.
+   */
+  const [editing, setEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(note.title ?? '');
+  const [draftContent, setDraftContent] = useState(note.content);
+
+  const dirty = draftTitle !== (note.title ?? '') || draftContent !== note.content;
+
+  const beginEdit = () => {
+    setDraftTitle(note.title ?? '');
+    setDraftContent(note.content);
+    setEditing(true);
+  };
+
+  const saveEdit = () => {
+    if (dirty) {
+      onSaveContent?.(note.id, {
+        title: draftTitle.trim() ? draftTitle.trim() : null,
+        content: draftContent,
+      });
+    }
+    setEditing(false);
+  };
   const [isLifted, setIsLifted] = useState(false);
 
   // Deterministic tilt for a hand-placed feel (-2.5° to +2.5°).
@@ -148,7 +188,8 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
     });
 
   const handleTap = () => {
-    onPressNote?.(note.id);
+    if (onTap) onTap(note.id);
+    else onPressNote?.(note.id);
   };
 
   const tapGesture = Gesture.Tap()
@@ -163,6 +204,9 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
       runOnJS(setColorPickerVisible)(true);
     });
 
+  // While a field has focus every gesture is off: a drag that starts on a
+  // caret is someone trying to place the caret, and a long-press is someone
+  // trying to select text.
   const composed = Gesture.Race(dragGesture, Gesture.Exclusive(longPressGesture, tapGesture));
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -247,19 +291,69 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
         >
 
 
+          {/*
+            Pencil to start, check to commit — an explicit save rather than a
+            silent one. On a board you glance at, a note that quietly rewrote
+            itself while your thumb rested on it would be worse than one extra
+            tap. The button doubles as the dirty indicator.
+          */}
+          {Boolean(onSaveContent) && (
+            <TouchableOpacity
+              className="absolute right-1.5 top-1.5 z-20 h-8 w-8 items-center justify-center rounded-full"
+              style={{ backgroundColor: shade(paperBg, editing && dirty ? -0.3 : -0.12) }}
+              onPress={editing ? saveEdit : beginEdit}
+              hitSlop={8}
+              accessibilityLabel={editing ? 'Save note' : 'Edit note here'}
+            >
+              {editing ? (
+                <Check size={16} color={textColor} strokeWidth={3} />
+              ) : (
+                <Pencil size={13} color={textColor} strokeWidth={2.5} />
+              )}
+            </TouchableOpacity>
+          )}
+
           <View className="mt-0.5 flex-1">
-            {Boolean(note.title) && (
-              <Text
-                className="mb-1 text-base font-bold tracking-[-0.2px]"
-                style={{ color: textColor }}
-                numberOfLines={1}
-              >
-                {note.title}
-              </Text>
+            {editing ? (
+              <>
+                <TextInput
+                  className="mb-1 p-0 text-base font-bold tracking-[-0.2px]"
+                  style={{ color: textColor }}
+                  value={draftTitle}
+                  onChangeText={setDraftTitle}
+                  placeholder="Title"
+                  placeholderTextColor={shade(textColor, 0.45)}
+                  autoFocus
+                  returnKeyType="next"
+                />
+                <TextInput
+                  className="p-0 text-sm font-medium leading-5"
+                  style={{ color: textColor }}
+                  value={draftContent}
+                  onChangeText={setDraftContent}
+                  placeholder="What is this about?"
+                  placeholderTextColor={shade(textColor, 0.45)}
+                  multiline
+                  scrollEnabled={false}
+                  textAlignVertical="top"
+                />
+              </>
+            ) : (
+              <>
+                {Boolean(note.title) && (
+                  <Text
+                    className="mb-1 text-base font-bold tracking-[-0.2px]"
+                    style={{ color: textColor }}
+                    numberOfLines={1}
+                  >
+                    {note.title}
+                  </Text>
+                )}
+                <Text className="text-sm font-medium leading-5" style={{ color: textColor }}>
+                  {note.content}
+                </Text>
+              </>
             )}
-            <Text className="text-sm font-medium leading-5" style={{ color: textColor }}>
-              {note.content}
-            </Text>
           </View>
 
           <View className="mt-2.5 flex-row justify-start">
@@ -312,7 +406,41 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
   // Swapping the composed gesture on a mounted GestureDetector is the flaky
   // corner of gesture-handler, so the detector is dropped entirely instead.
   // Mode changes are a toolbar tap, never mid-gesture, so remounting is free.
-  if (linkMode) return body;
+  // No gesture detector while a field has focus: a drag on a caret is someone
+  // placing the caret, and a long-press is someone selecting text. Editing ends
+  // on save, so the swap never happens mid-gesture.
+  if (linkMode || editing) return body;
 
   return <GestureDetector gesture={composed}>{body}</GestureDetector>;
 };
+
+/**
+ * Memoised, because the canvas re-renders on every selection or mode change and
+ * a board of thirty notes was re-rendering all thirty to highlight one.
+ *
+ * The comparison is explicit rather than shallow: `note` is a fresh object on
+ * every React Query settle even when nothing about it changed, and the handler
+ * props are recreated per render by CanvasRoot. Comparing the fields that
+ * actually affect the output is what makes the memo bite.
+ */
+export const StickyNoteItem = React.memo(StickyNoteItemImpl, (a, b) => {
+  const n = a.note;
+  const m = b.note;
+  return (
+    n.id === m.id &&
+    n.x === m.x &&
+    n.y === m.y &&
+    n.title === m.title &&
+    n.content === m.content &&
+    n.color === m.color &&
+    n.type === m.type &&
+    n.width === m.width &&
+    n.height === m.height &&
+    n.parentId === m.parentId &&
+    a.childCount === b.childCount &&
+    a.selected === b.selected &&
+    a.linkRole === b.linkRole &&
+    a.linkMode === b.linkMode &&
+    a.onSaveContent === b.onSaveContent
+  );
+});

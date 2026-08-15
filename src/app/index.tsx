@@ -21,6 +21,7 @@ import {
   useTidyNotes,
   useMoveCluster,
   useSetNoteParent,
+  useUpdateNoteContent,
 } from '../features/sticky-notes/hooks/useNotes';
 import {
   useGroups,
@@ -29,6 +30,7 @@ import {
   useDeleteGroup,
 } from '../features/canvas/hooks/useGroups';
 import { useBalance } from '../features/credits/hooks/useCredits';
+import { useEntitlements } from '../features/billing/hooks/useEntitlements';
 import { useRecordingStatus } from '../features/voice/hooks/useRecordingStatus';
 import { runThinkingPipeline } from '../features/voice/services/pipeline';
 import { describeFailure, describeStoredFailure } from '../features/voice/services/pipelineErrors';
@@ -109,6 +111,8 @@ export default function HomeScreen() {
   const editGroup = useUpdateGroup(spaceId);
   const removeGroup = useDeleteGroup(spaceId);
   const setNoteParent = useSetNoteParent(spaceId);
+  const saveNoteContent = useUpdateNoteContent();
+  const { aiEnabled } = useEntitlements();
   const { status: recordingStatus, error: recordingError } = useRecordingStatus(recordingId ?? null);
   const [outOfCreditsOpen, setOutOfCreditsOpen] = useState(false);
 
@@ -271,6 +275,18 @@ export default function HomeScreen() {
     [removeGroup]
   );
 
+  const handleSaveNoteContent = useCallback(
+    (noteId: string, fields: { title: string | null; content: string }) =>
+      saveNoteContent.mutate(
+        { noteId, ...fields },
+        {
+          onError: (err) =>
+            Toast.show({ type: 'error', text1: 'Could not save', text2: err.message }),
+        }
+      ),
+    [saveNoteContent]
+  );
+
   const handleSetNoteParent = useCallback(
     (noteId: string, parentId: string | null) => setNoteParent.mutate({ noteId, parentId }),
     [setNoteParent]
@@ -330,6 +346,7 @@ export default function HomeScreen() {
           notes={notes}
           onPressNote={openNote}
           onStartRecord={startRecord}
+          aiEnabled={aiEnabled}
           onOpenCredits={() => router.push('/credits')}
           onOpenSpaces={() => setSpacesSheetOpen(true)}
           onOpenSettings={() => router.push('/settings')}
@@ -344,6 +361,9 @@ export default function HomeScreen() {
           childCounts={childCounts}
           onSetNoteParent={handleSetNoteParent}
           onLinkedWhileHidden={handleLinkedWhileHidden}
+          aiEnabled={aiEnabled}
+          onUpgrade={() => router.push('/plans')}
+          onSaveNoteContent={handleSaveNoteContent}
           onAddNote={handleAddNote}
           onAddGroup={handleAddGroup}
           onRenameGroup={handleRenameGroup}

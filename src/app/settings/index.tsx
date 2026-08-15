@@ -12,6 +12,8 @@ import {
 } from '../../features/ai/hooks/useModels';
 import { useDeleteAccount, useProfile, useUpdateDisplayName } from '../../features/account/hooks/useAccount';
 import { useActiveSubscription, usePlans } from '../../features/billing/hooks/useBilling';
+import { useEntitlements } from '../../features/billing/hooks/useEntitlements';
+import { features } from '../../shared/config/features';
 import { useUserKeys } from '../../features/byok/hooks/useUserKeys';
 import { ThemeToggle } from '../../shared/theme/ThemeToggle';
 import { useTheme } from '../../shared/theme';
@@ -274,7 +276,7 @@ function AccountSection() {
   const { colors } = useTheme();
   const { data: subscription } = useActiveSubscription();
   const { data: plans } = usePlans();
-  const isByok = Boolean(plans?.find((p) => p.id === subscription?.planId)?.isByok);
+  const isByok = Boolean(plans?.find((p) => p.id === subscription?.planId)?.isByok) && features.byok;
   const rowStyle = clay({ color: shade(colors.surface, -0.05), radius: 18, depth: 0.5 });
 
   const handleSignOut = () => {
@@ -356,6 +358,7 @@ function AccountSection() {
 }
 
 export default function SettingsScreen() {
+  const { aiEnabled } = useEntitlements();
   const router = useRouter();
   const { colors } = useTheme();
 
@@ -373,7 +376,7 @@ export default function SettingsScreen() {
 
       <ScrollView className="px-5" contentContainerStyle={{ paddingVertical: 20 }}>
         <ProfileCard />
-        <AiModelsSection />
+        {aiEnabled && <AiModelsSection />}
         <AppearanceSection />
         <AccountSection />
       </ScrollView>

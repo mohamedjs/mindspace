@@ -150,6 +150,14 @@ export interface SubscriptionPlan {
   isFeatured: boolean;
   maxRecordingMinutes: number;
   isByok: boolean;
+  /**
+   * Whether this plan can use the voice pipeline at all.
+   *
+   * False only on Free, which gets every board, note, group, list, calendar and
+   * reminder feature with the AI switched off. An entitlement, not a balance —
+   * a plan without it never reaches the code that spends credits.
+   */
+  aiEnabled: boolean;
 }
 
 export interface ActiveSubscription {

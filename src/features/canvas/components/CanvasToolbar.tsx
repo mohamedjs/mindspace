@@ -20,7 +20,7 @@ import {
 import Animated, { LinearTransition, FadeIn, FadeOut } from 'react-native-reanimated';
 import { useState } from 'react';
 
-export type ToolMode = 'pan' | 'pointer' | 'arrow';
+export type ToolMode = 'pan' | 'select' | 'arrow';
 
 interface CanvasToolbarProps {
   onAddNote?: () => void;
@@ -119,8 +119,8 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         <Tool
           icon={MousePointer2}
           label="Select notes"
-          onPress={() => onSetToolMode('pointer')}
-          active={toolMode === 'pointer'}
+          onPress={() => onSetToolMode('select')}
+          active={toolMode === 'select'}
         />
         {canConnect && (
           <Tool

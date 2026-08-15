@@ -8,7 +8,7 @@ import { clay } from '../theme/clay';
 export function ThemedToast() {
   const { colors } = useTheme();
 
-  const BaseToast = ({ text1, text2, props, type }: ToastProps & { type?: 'success' | 'error' | 'info' }) => {
+  const BaseToast = ({ text1, text2, props, type }: { text1?: string; text2?: string; props?: any; type?: 'success' | 'error' | 'info' }) => {
     // Optionally change border or accent color based on type
     const accentColor = type === 'error' ? '#C6453C' : type === 'success' ? '#4CAF50' : colors.accent;
 

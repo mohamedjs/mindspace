@@ -103,17 +103,14 @@ describe('placeChild', () => {
 
 describe('tidyLayout', () => {
   it('reflows every note into grid order, keeping identity and extra fields', () => {
-    const notes = [
-      { id: 'a', content: 'one' },
-      { id: 'b', content: 'two' },
-      { id: 'c', content: 'three' },
-      { id: 'd', content: 'four' },
-      { id: 'e', content: 'five' },
-    ];
+    const notes = Array.from({ length: COLUMNS + 1 }).map((_, i) => ({
+      id: String.fromCharCode(97 + i),
+      content: `note ${i}`,
+    }));
     const tidied = tidyLayout(notes);
 
-    expect(tidied.map((n) => n.id)).toEqual(['a', 'b', 'c', 'd', 'e']);
-    expect(tidied[0].content).toBe('one');
+    expect(tidied.map((n) => n.id)).toEqual(notes.map(n => n.id));
+    expect(tidied[0].content).toBe('note 0');
     expect(tidied[0]).toMatchObject({ x: 0, y: 0 });
     // Fifth note wraps to row two.
     expect(tidied[COLUMNS].x).toBe(0);

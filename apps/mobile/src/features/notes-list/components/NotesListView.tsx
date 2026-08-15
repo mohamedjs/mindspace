@@ -75,7 +75,7 @@ export const NotesListView: React.FC<NotesListViewProps> = ({
           onOpenCredits={onOpenCredits}
           onOpenSpaces={onOpenSpaces}
           onOpenSettings={onOpenSettings}
-          onOpenRecordings={onOpenRecordings}
+          onOpenRecordings={aiEnabled ? onOpenRecordings : undefined}
         />
 
         <ViewTabs value={tab} onChange={setTab} />

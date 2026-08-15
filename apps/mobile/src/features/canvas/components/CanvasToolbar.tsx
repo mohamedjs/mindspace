@@ -8,6 +8,7 @@ import {
   Frame,
   Hand,
   MousePointer2,
+  Pencil,
   MoveRight,
   LayoutGrid,
   Mic,
@@ -20,7 +21,7 @@ import {
 import Animated, { LinearTransition, FadeIn, FadeOut } from 'react-native-reanimated';
 import { useState } from 'react';
 
-export type ToolMode = 'pan' | 'select' | 'arrow';
+export type ToolMode = 'pan' | 'select' | 'arrow' | 'write';
 
 interface CanvasToolbarProps {
   onAddNote?: () => void;
@@ -122,6 +123,13 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           onPress={() => onSetToolMode('select')}
           active={toolMode === 'select'}
         />
+        {/* Tap a note and start typing in it, without opening the editor. */}
+        <Tool
+          icon={Pencil}
+          label="Write in a note"
+          onPress={() => onSetToolMode(toolMode === 'write' ? 'pan' : 'write')}
+          active={toolMode === 'write'}
+        />
         {canConnect && (
           <Tool
             icon={MoveRight}
@@ -151,7 +159,9 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
             <Tool icon={LayoutGrid} label="Tidy notes into a grid" onPress={onTidy} />
             <Divider />
             <Tool icon={Scan} label="Fit everything on screen" onPress={onFitToView} />
-            <Tool icon={Mic} label="Recordings in this space" onPress={onOpenRecordings} />
+            {Boolean(onOpenRecordings) && (
+              <Tool icon={Mic} label="Recordings in this space" onPress={onOpenRecordings} />
+            )}
             <Tool
               icon={showChildNotes ? Eye : EyeOff}
               label={showChildNotes ? 'Hide sub-notes' : 'Show sub-notes'}

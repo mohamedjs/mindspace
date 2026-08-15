@@ -436,6 +436,15 @@ without further context.
 
 ## 12. Running the app
 
+Full command reference — every script for the Expo app, the web app, both at
+once, environment files and troubleshooting — is in
+[`COMMANDS.md`](COMMANDS.md).
+
+```bash
+npm run dev:tunnel
+```
+
+
 ```bash
 npm install
 ```

@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import Toast from 'react-native-toast-message';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { RecordScreen } from '../features/voice/components/RecordScreen';
 import { uploadRecording } from '../features/voice/services/upload';
@@ -9,6 +9,7 @@ import { runThinkingPipeline } from '../features/voice/services/pipeline';
 import { PipelineError, describeFailure } from '../features/voice/services/pipelineErrors';
 import { queryKeys } from '../lib/query-client/keys';
 import { useAuth } from '../providers/AuthProvider';
+import { useEntitlements } from '../features/billing/hooks/useEntitlements';
 
 export default function RecordRoute() {
   const router = useRouter();
@@ -21,6 +22,7 @@ export default function RecordRoute() {
     fillNoteId?: string;
   }>();
   const { user } = useAuth();
+  const { aiEnabled, isLoading: planLoading } = useEntitlements();
   const targetNoteId = parentNoteId ?? fillNoteId;
 
   const handleRecorded = useCallback(
@@ -63,6 +65,15 @@ export default function RecordRoute() {
 
   if (!spaceId) {
     return null;
+  }
+
+  // Every microphone is already hidden on a plan without AI, but the route is
+  // still reachable by deep link or an entry left on the back stack. Guarding
+  // here as well is what makes "Free has no recording" true rather than merely
+  // invisible — and it fails closed, so a plan that has not loaded yet cannot
+  // start a recording either.
+  if (!planLoading && !aiEnabled) {
+    return <Redirect href="/plans" />;
   }
 
   return (

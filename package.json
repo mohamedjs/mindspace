@@ -6,10 +6,26 @@
     "apps/*"
   ],
   "scripts": {
-    "dev:mobile": "npm run start --workspace=@mindspace/mobile",
-    "dev:web": "npm run dev --workspace=@mindspace/web",
-    "build:web": "npm run build --workspace=@mindspace/web",
+    "mobile": "npm run start   --workspace=@mindspace/mobile",
+    "mobile:tunnel": "npm run tunnel  --workspace=@mindspace/mobile",
+    "mobile:lan": "npm run lan     --workspace=@mindspace/mobile",
+    "mobile:clear": "npm run clear   --workspace=@mindspace/mobile",
+    "mobile:ios": "npm run ios     --workspace=@mindspace/mobile",
+    "mobile:android": "npm run android --workspace=@mindspace/mobile",
+    "mobile:web": "npm run web     --workspace=@mindspace/mobile",
+    "web": "npm run dev     --workspace=@mindspace/web",
+    "web:build": "npm run build   --workspace=@mindspace/web",
+    "web:start": "npm run start   --workspace=@mindspace/web",
+    "dev": "concurrently -n web,mobile -c cyan,magenta \"npm:web\" \"npm:mobile\"",
+    "dev:tunnel": "concurrently -n web,mobile -c cyan,magenta \"npm:web\" \"npm:mobile:tunnel\"",
     "test": "npm test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "check": "npm run typecheck && npm test",
+    "dev:mobile": "npm run mobile",
+    "dev:web": "npm run web",
+    "build:web": "npm run web:build"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
   }
 }

@@ -12,6 +12,7 @@ import {
   StickyNote,
   Hand,
   MousePointer2,
+  Pencil,
   Undo2,
   Redo2,
   ChevronDown,
@@ -21,9 +22,11 @@ import {
 import { useTheme } from '@/shared/theme';
 import { clay, shade } from '@/shared/theme/clay';
 
+export type ToolMode = 'pointer' | 'pan' | 'arrow' | 'write';
+
 interface CanvasToolbarProps {
-  toolMode: 'pointer' | 'pan' | 'arrow';
-  onSetToolMode: (mode: 'pointer' | 'pan' | 'arrow') => void;
+  toolMode: ToolMode;
+  onSetToolMode: (mode: ToolMode) => void;
   onAddNote?: () => void;
   onAddGroup?: () => void;
   onTidy?: () => void;
@@ -103,6 +106,12 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           label="Select (Pointer)"
           onPress={() => onSetToolMode('pointer')}
           active={toolMode === 'pointer'}
+        />
+        <Tool
+          icon={Pencil}
+          label="Write in a note (Pencil)"
+          onPress={() => onSetToolMode(toolMode === 'write' ? 'pointer' : 'write')}
+          active={toolMode === 'write'}
         />
         <Tool
           icon={ArrowRight}

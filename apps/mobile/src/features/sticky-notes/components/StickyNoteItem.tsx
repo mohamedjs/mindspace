@@ -55,6 +55,12 @@ interface StickyNoteItemProps {
    * selection, or pick a link endpoint — because only it knows the tool mode.
    */
   onTap?: (id: string) => void;
+  /**
+   * The canvas is asking this note to open for editing — the toolbar's pencil
+   * tool, rather than the note's own button.
+   */
+  editRequested?: boolean;
+  onEditRequestHandled?: () => void;
   /** Save an inline edit made on the board, without opening the note. */
   onSaveContent?: (id: string, fields: { title: string | null; content: string }) => void;
   /** Part of a marquee selection — drags as one unit with the rest. */
@@ -78,6 +84,8 @@ const StickyNoteItemImpl: React.FC<StickyNoteItemProps> = ({
   selected,
   onTap,
   onSaveContent,
+  editRequested,
+  onEditRequestHandled,
 }) => {
   const { colors } = useTheme();
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
@@ -95,6 +103,16 @@ const StickyNoteItemImpl: React.FC<StickyNoteItemProps> = ({
   const [draftContent, setDraftContent] = useState(note.content);
 
   const dirty = draftTitle !== (note.title ?? '') || draftContent !== note.content;
+
+  React.useEffect(() => {
+    if (!editRequested || editing) return;
+    setDraftTitle(note.title ?? '');
+    setDraftContent(note.content);
+    setEditing(true);
+    // Consumed immediately so tapping the same note twice can reopen it after
+    // a save, and so the request cannot re-fire on an unrelated re-render.
+    onEditRequestHandled?.();
+  }, [editRequested]);
 
   const beginEdit = () => {
     setDraftTitle(note.title ?? '');
@@ -441,6 +459,7 @@ export const StickyNoteItem = React.memo(StickyNoteItemImpl, (a, b) => {
     a.selected === b.selected &&
     a.linkRole === b.linkRole &&
     a.linkMode === b.linkMode &&
+    a.editRequested === b.editRequested &&
     a.onSaveContent === b.onSaveContent
   );
 });

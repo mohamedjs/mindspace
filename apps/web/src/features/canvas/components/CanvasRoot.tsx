@@ -9,14 +9,14 @@ import { useTheme } from '@/shared/theme';
 import { CanvasBackground } from './CanvasBackground';
 import { NoteConnectors } from './NoteConnectors';
 import { NoteGroupFrame } from './NoteGroupFrame';
-import { CanvasToolbar } from './CanvasToolbar';
+import { CanvasToolbar, type ToolMode } from './CanvasToolbar';
 import { screenToWorld, zoomAbout } from '../utils/coords';
 import { wouldCycle } from '../utils/graph';
 import type { NoteGroup } from '../api/groups.api';
 import { clay, clayAccent, shade } from '@/shared/theme/clay';
 import { StickyNoteItem } from '@/features/sticky-notes/components/StickyNoteItem';
 import type { Note as StickyNoteData } from '@/core/domain';
-import { useSetNoteParent } from '@/features/sticky-notes/hooks/useNotes';
+import { useSetNoteParent, useUpdateNoteContent } from '@/features/sticky-notes/hooks/useNotes';
 
 interface CanvasRootProps {
   spaceId?: string | null;
@@ -114,7 +114,9 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   } | null>(null);
 
   // Tool Mode State
-  const [toolMode, setToolMode] = useState<'pointer' | 'pan' | 'arrow'>('pointer');
+  const [toolMode, setToolMode] = useState<ToolMode>('pointer');
+  /** Which note the pencil tool has asked to open for typing. */
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const isArrowArmed = toolMode === 'arrow';
   const isPanMode = toolMode === 'pan';
 
@@ -162,6 +164,20 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     }
     descendantsMap.current = map;
   }, [displayNotes]);
+
+  const saveContentMutation = useUpdateNoteContent();
+  const handleSaveNoteContent = useCallback(
+    (noteId: string, fields: { title: string | null; content: string }) => {
+      if (isDemo) {
+        setLocalNotes((prev) =>
+          prev.map((n) => (n.id === noteId ? { ...n, ...fields } : n))
+        );
+        return;
+      }
+      saveContentMutation.mutate({ noteId, ...fields });
+    },
+    [isDemo, saveContentMutation]
+  );
 
   const handleSetNoteParent = useCallback(
     (noteId: string, parentId: string | null) => {
@@ -854,6 +870,12 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
                 onUpdateColor={handleUpdateColor}
                 onDelete={onDeleteNote}
                 onPressNote={(id, e) => {
+                  // Pencil tool: a click opens the note for typing in place
+                  // rather than navigating away from the board.
+                  if (toolMode === 'write') {
+                    setEditingNoteId(id);
+                    return;
+                  }
                   if (e?.shiftKey) {
                     setSelectedIds((prev) => 
                       prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
@@ -871,7 +893,10 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
               onPointerDragStart={handlePointerDragStart}
               onPointerDragMove={handlePointerDragMove}
               onPointerDragEnd={handlePointerDragEnd}
-              isDragDisabled={isArrowArmed}
+              isDragDisabled={isArrowArmed || toolMode === 'write'}
+              onSaveContent={handleSaveNoteContent}
+              editRequested={note.id === editingNoteId}
+              onEditRequestHandled={() => setEditingNoteId(null)}
               isPanMode={isPanMode}
               outlineState={outline}
               onArrowPointerDown={(id, e) => {

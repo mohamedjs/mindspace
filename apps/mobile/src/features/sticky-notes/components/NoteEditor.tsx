@@ -32,6 +32,7 @@ import {
 import { ColorPicker } from './ColorPicker';
 import { PeelFlap } from './PeelFlap';
 import { useRecordingStatus } from '../../voice/hooks/useRecordingStatus';
+import { useEntitlements } from '../../billing/hooks/useEntitlements';
 import {
   ArrowLeft,
   Check,
@@ -103,6 +104,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const updateColor = useUpdateNoteColor(effectiveSpaceId);
   const updateType = useUpdateNoteType();
   const setNoteParent = useSetNoteParent(effectiveSpaceId ?? null);
+  // Free has no voice pipeline, so neither microphone belongs on the screen.
+  const { aiEnabled } = useEntitlements();
   const deleteNote = useDeleteNote(effectiveSpaceId);
   const createSubNote = useCreateNote(effectiveSpaceId);
   const { data: spaceNotes } = useNotes(effectiveSpaceId);
@@ -395,6 +398,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               {/* Speak this note. Filled in the accent colour so it reads as
                   a primary action, distinct from the outlined sub-note mic
                   further down the page. */}
+              {aiEnabled && (
               <TouchableOpacity
                 onPress={startVoiceIntoNote}
                 disabled={isThinking}
@@ -405,6 +409,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               >
                 <Mic size={18} color={colors.onAccent} strokeWidth={2.5} />
               </TouchableOpacity>
+              )}
 
               {/* Delete */}
               <TouchableOpacity
@@ -701,6 +706,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                 </TouchableOpacity>
                 {/* Speak the idea through instead of typing — the AI writes
                     the sub-notes it hears into this note. */}
+                {aiEnabled && (
                 <TouchableOpacity
                   onPress={startVoiceSubNotes}
                   disabled={isThinking}
@@ -710,6 +716,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                 >
                   <Mic size={18} color={textColor} strokeWidth={2.5} />
                 </TouchableOpacity>
+                )}
               </View>
             </View>
           )}

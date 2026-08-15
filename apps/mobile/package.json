@@ -59,6 +59,9 @@
   },
   "scripts": {
     "start": "expo start",
+    "tunnel": "expo start --tunnel",
+    "lan": "expo start --lan",
+    "clear": "expo start --clear",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",

@@ -16,7 +16,7 @@ import { useTheme } from '../../../shared/theme';
 import { CanvasBackground } from './CanvasBackground';
 import { NoteConnectors } from './NoteConnectors';
 import { NoteGroupFrame } from './NoteGroupFrame';
-import { CanvasToolbar } from './CanvasToolbar';
+import { CanvasToolbar, type ToolMode } from './CanvasToolbar';
 import { screenToWorld, zoomAbout } from '../utils/coords';
 import Toast from 'react-native-toast-message';
 import { notesInsideRect, withDescendants, wouldCycle } from '../utils/graph';
@@ -339,6 +339,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
    *
    *   pan     — nothing; one finger drags the board. The default.
    *   select  — tap notes to add or remove them from a selection.
+   *   write   — tap a note and start typing in it, no editor to open.
    *   arrow   — tap the parent, then tap the child.
    *
    * Both non-default modes are **tap-driven, not drag-driven**. The first cut
@@ -352,7 +353,9 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
    * drag frame meant a `runOnJS` hop plus a possible re-render of every note,
    * sixty times a second. Tapping does that work twice per link.
    */
-  const [toolMode, setToolMode] = useState<'pan' | 'select' | 'arrow'>('pan');
+  const [toolMode, setToolMode] = useState<ToolMode>('pan');
+  /** Which note the pencil tool has asked to open for typing. */
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const arrowArmed = toolMode === 'arrow';
 
   /** Read inside the pan worklet, which must not pan in the tap-driven modes. */
@@ -393,6 +396,11 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
    */
   const handleNoteTap = React.useCallback(
     (noteId: string) => {
+      if (toolMode === 'write') {
+        setEditingNoteId(noteId);
+        return;
+      }
+
       if (toolMode === 'select') {
         const next = selectedRef.current.includes(noteId)
           ? selectedRef.current.filter((id) => id !== noteId)
@@ -446,8 +454,9 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   );
 
   const changeMode = React.useCallback(
-    (mode: 'pan' | 'select' | 'arrow') => {
+    (mode: ToolMode) => {
       setLinkSourceId(null);
+      setEditingNoteId(null);
       if (mode !== 'select') applySelection([]);
       setToolMode(mode);
     },
@@ -582,7 +591,9 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
                 ? linkSourceId
                   ? 'Now tap the note that belongs under it'
                   : 'Tap the main idea first'
-                : toolMode === 'select'
+                : toolMode === 'write'
+                  ? 'Tap a note to write in it'
+                  : toolMode === 'select'
                   ? `Tap notes to select · ${selectedIds.length} chosen`
                   : 'Pinch to zoom · hold a note to move it'}
             </Text>
@@ -652,6 +663,8 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
                 linkRole={note.id === linkSourceId ? 'source' : null}
                 onTap={handleNoteTap}
                 onSaveContent={onSaveNoteContent}
+                editRequested={note.id === editingNoteId}
+                onEditRequestHandled={() => setEditingNoteId(null)}
               />
             ))}
           </Animated.View>
@@ -680,7 +693,8 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
         onSetToolMode={changeMode}
         onTidy={onTidy}
         onFitToView={displayNotes.length ? handleFitToView : undefined}
-        onOpenRecordings={onOpenRecordings}
+        // Recordings are an AI artefact; a Free board has none to list.
+        onOpenRecordings={aiEnabled ? onOpenRecordings : undefined}
         showChildNotes={showChildNotes}
         onToggleChildNotes={() => setShowChildNotes(!showChildNotes)}
       />

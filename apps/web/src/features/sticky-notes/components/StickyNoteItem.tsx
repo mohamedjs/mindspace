@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Check, Pencil } from 'lucide-react';
 import { PushPin } from './PushPin';
 import { ColorPicker } from './ColorPicker';
 import { PeelFlap } from './PeelFlap';
@@ -37,6 +38,11 @@ interface StickyNoteItemProps {
   onArrowPointerDown?: (id: string, e: React.PointerEvent) => void;
   onArrowPointerEnter?: (id: string) => void;
   onArrowPointerLeave?: (id: string) => void;
+  /** Save an inline edit made on the board, without opening the note. */
+  onSaveContent?: (id: string, fields: { title: string | null; content: string }) => void;
+  /** The canvas is asking this note to open for typing — the pencil tool. */
+  editRequested?: boolean;
+  onEditRequestHandled?: () => void;
 }
 
 export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
@@ -62,8 +68,48 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
   onArrowPointerDown,
   onArrowPointerEnter,
   onArrowPointerLeave,
+  onSaveContent,
+  editRequested,
+  onEditRequestHandled,
 }) => {
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
+
+  /**
+   * Inline editing, right on the board.
+   *
+   * Opening the full editor to fix a word was the commonest reason to leave the
+   * canvas, and leaving the canvas loses your place on it. The draft is local
+   * until saved, so a background refetch cannot overwrite what is being typed.
+   */
+  const [editing, setEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(note.title ?? '');
+  const [draftContent, setDraftContent] = useState(note.content);
+
+  const dirty = draftTitle !== (note.title ?? '') || draftContent !== note.content;
+
+  const beginEdit = () => {
+    setDraftTitle(note.title ?? '');
+    setDraftContent(note.content);
+    setEditing(true);
+  };
+
+  const saveEdit = () => {
+    if (dirty) {
+      onSaveContent?.(note.id, {
+        title: draftTitle.trim() ? draftTitle.trim() : null,
+        content: draftContent,
+      });
+    }
+    setEditing(false);
+  };
+
+  useEffect(() => {
+    if (editRequested && !editing) {
+      beginEdit();
+      onEditRequestHandled?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editRequested]);
   const [isLifted, setIsLifted] = useState(false);
 
   const tilt = note.rotation ?? (((note.id.charCodeAt(0) || 0) % 5) - 2) * 1.2;
@@ -261,21 +307,80 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
           borderBottomRightRadius: CURL,
         }}
       >
-        <div className="mt-0.5 flex-1 overflow-hidden">
-          {Boolean(note.title) && (
-            <div
-              className="mb-1 text-base font-bold tracking-[-0.2px] truncate"
-              style={{ color: textColor }}
-            >
-              {note.title}
-            </div>
-          )}
-          <div
-            className={`${sizeConfig.textClass} ${sizeConfig.clampClass}`}
-            style={{ color: textColor }}
+        {/*
+          Pencil to start, check to commit — an explicit save rather than a
+          silent one. On a board you glance at, a note that quietly rewrote
+          itself would be worse than one extra click. The button doubles as the
+          unsaved-changes indicator.
+        */}
+        {Boolean(onSaveContent) && (
+          <button
+            type="button"
+            className="absolute right-1.5 top-1.5 z-20 flex h-7 w-7 items-center justify-center rounded-full border-0 cursor-pointer"
+            style={{ background: shade(paperBg, editing && dirty ? -0.3 : -0.12) }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              editing ? saveEdit() : beginEdit();
+            }}
+            aria-label={editing ? 'Save note' : 'Write in this note'}
+            title={editing ? 'Save note' : 'Write in this note'}
           >
-            {note.content}
-          </div>
+            {editing ? (
+              <Check size={15} color={textColor} strokeWidth={3} />
+            ) : (
+              <Pencil size={12} color={textColor} strokeWidth={2.5} />
+            )}
+          </button>
+        )}
+
+        <div className="mt-0.5 flex-1 overflow-hidden">
+          {editing ? (
+            <div
+              // Typing must not reach the canvas: a pointerdown here is a caret
+              // placement, not the start of a drag.
+              onPointerDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Escape') setEditing(false);
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveEdit();
+              }}
+            >
+              <input
+                className="mb-1 w-full border-0 bg-transparent p-0 text-base font-bold tracking-[-0.2px] outline-none"
+                style={{ color: textColor }}
+                value={draftTitle}
+                onChange={(e) => setDraftTitle(e.target.value)}
+                placeholder="Title"
+                autoFocus
+              />
+              <textarea
+                className={`w-full resize-none border-0 bg-transparent p-0 outline-none ${sizeConfig.textClass}`}
+                style={{ color: textColor, minHeight: 64 }}
+                value={draftContent}
+                onChange={(e) => setDraftContent(e.target.value)}
+                placeholder="What is this about?"
+                rows={3}
+              />
+            </div>
+          ) : (
+            <>
+              {Boolean(note.title) && (
+                <div
+                  className="mb-1 text-base font-bold tracking-[-0.2px] truncate"
+                  style={{ color: textColor }}
+                >
+                  {note.title}
+                </div>
+              )}
+              <div
+                className={`${sizeConfig.textClass} ${sizeConfig.clampClass}`}
+                style={{ color: textColor }}
+              >
+                {note.content}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="mt-2.5 flex flex-row justify-start">

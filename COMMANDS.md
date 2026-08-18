@@ -46,6 +46,39 @@ start, so always scan the QR from the run you just started.
 npm run web
 ```
 
+## Public links — testing from outside your network
+
+```bash
+npm run tunnel:all
+```
+
+Starts the web app, a public tunnel to it, and the Expo tunnel together. Two
+links come out:
+
+- **Web** — a `https://….loca.lt` URL printed by the tunnel line.
+- **Mobile** — the `exp://….exp.direct` QR printed by Expo. Scan it with the
+  **iPhone Camera app**.
+
+Web only:
+
+```bash
+npm run web:tunnel
+```
+
+> **Why localtunnel and not ngrok.** There is an ngrok authtoken on this machine,
+> but Expo issued it and its ACL only permits binding `*.exp.direct` — it powers
+> `expo start --tunnel` and refuses any other hostname with `ERR_NGROK_316`. To
+> use ngrok for the web app you need your own token from
+> dashboard.ngrok.com: run `ngrok config add-authtoken <token>` once, then
+> `ngrok http 3000` alongside `npm run web`. localtunnel needs no account, which
+> is why it is the default here.
+
+> **localtunnel shows an interstitial** the first time a browser opens the link,
+> asking for a "tunnel password" — that is your network's public IP, which
+> `curl https://loca.lt/mytunnelpassword` prints. Click through once per device.
+
+Both tunnel hostnames change on every start.
+
 ## Both at once
 
 ```bash

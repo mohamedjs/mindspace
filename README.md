@@ -438,7 +438,9 @@ without further context.
 
 Full command reference — every script for the Expo app, the web app, both at
 once, environment files and troubleshooting — is in
-[`COMMANDS.md`](COMMANDS.md).
+[`COMMANDS.md`](COMMANDS.md). What is implemented and the invariants behind it
+are catalogued in
+[`docs/IMPLEMENTATION_REFERENCE.md`](docs/IMPLEMENTATION_REFERENCE.md).
 
 ```bash
 npm run dev:tunnel

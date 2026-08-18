@@ -3,6 +3,12 @@
 **Audience: the AI agent doing the port.** Read this file completely before
 touching anything. Then read the numbered files in order.
 
+> **Already-built code lives elsewhere.** These files describe the *plan*. For
+> what now actually exists in both apps — canvas geometry and graph helpers,
+> tool modes, inline editing, entitlements, feature flags — and the invariants
+> that are easy to break, read
+> [`../IMPLEMENTATION_REFERENCE.md`](../IMPLEMENTATION_REFERENCE.md) first.
+
 ---
 
 ## 0. What you are being asked to do

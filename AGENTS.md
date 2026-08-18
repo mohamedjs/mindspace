@@ -10,3 +10,13 @@ without further context, and it is authoritative over anything you remember
 about this codebase.
 
 Do not change anything under `supabase/` as part of that port.
+
+# What already exists
+
+Before changing the canvas, billing, or the gesture layer, read
+`docs/IMPLEMENTATION_REFERENCE.md`. It catalogues what is built in both apps and
+the invariants that are easy to break by accident — worklet declaration order,
+rendered-vs-stored note geometry, cycle guards, fail-closed entitlements, and
+literal-only feature-flag env names. Each has already caused a bug once.
+
+Commands for running either app: `COMMANDS.md`.

@@ -16,6 +16,7 @@
     "web": "npm run dev     --workspace=@mindspace/web",
     "web:build": "npm run build   --workspace=@mindspace/web",
     "web:start": "npm run start   --workspace=@mindspace/web",
+    "web:tunnel": "concurrently -n web,tunnel -c cyan,green \"npm:web\" \"npx --yes localtunnel --port 3000\"",
     "dev": "concurrently -n web,mobile -c cyan,magenta \"npm:web\" \"npm:mobile\"",
     "dev:tunnel": "concurrently -n web,mobile -c cyan,magenta \"npm:web\" \"npm:mobile:tunnel\"",
     "test": "npm test --workspaces --if-present",
@@ -23,7 +24,8 @@
     "check": "npm run typecheck && npm test",
     "dev:mobile": "npm run mobile",
     "dev:web": "npm run web",
-    "build:web": "npm run web:build"
+    "build:web": "npm run web:build",
+    "tunnel:all": "concurrently -n web,tunnel,mobile -c cyan,green,magenta \"npm:web\" \"npx --yes localtunnel --port 3000\" \"npm:mobile:tunnel\""
   },
   "devDependencies": {
     "concurrently": "^10.0.5"

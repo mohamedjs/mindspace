@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+*.png
+apps/mobile/.expo
+.env
+.venv
+__pycache__
+.pytest_cache

@@ -45,4 +45,4 @@ yarn-error.*
 
 # Supabase CLI local project link cache
 supabase/.temp/
-package-*.json
+.next/

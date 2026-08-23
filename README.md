@@ -25,7 +25,8 @@ gives you back the thinking.
 8. [Payments](#8-payments)
 9. [Trust, privacy and account control](#9-trust-privacy-and-account-control)
 10. [What is live and what still needs setup](#10-what-is-live-and-what-still-needs-setup)
-11. [Running the app](#11-running-the-app)
+11. [Porting to the web](#11-porting-to-the-web)
+12. [Running the app](#12-running-the-app)
 
 ---
 
@@ -423,7 +424,28 @@ checklist.
 
 ---
 
-## 11. Running the app
+## 11. Porting to the web
+
+A full Next.js 16 migration brief lives in [`docs/web-migration/`](docs/web-migration/README.md) —
+ten documents covering the architecture, what ports over unchanged, route and
+component mapping, the canvas, the voice pipeline, the backend contract, and a
+parity checklist. It is written for another engineer or AI agent to execute
+without further context.
+
+---
+
+## 12. Running the app
+
+Full command reference — every script for the Expo app, the web app, both at
+once, environment files and troubleshooting — is in
+[`COMMANDS.md`](COMMANDS.md). What is implemented and the invariants behind it
+are catalogued in
+[`docs/IMPLEMENTATION_REFERENCE.md`](docs/IMPLEMENTATION_REFERENCE.md).
+
+```bash
+npm run dev:tunnel
+```
+
 
 ```bash
 npm install

@@ -291,9 +291,11 @@ users see the mic). Return the column from the API and both clients get it right
 | Method | Path | Response | Auth | Notes |
 |---|---|---|---|---|
 | GET | `/spaces/{space_id}/timeline?limit=50` | `[{id, type, ref_id, summary, created_at}]`, `created_at desc` | Bearer | No client reads it today |
-| GET | `/spaces/{space_id}/relationships` | `[{id, from_note_id, to_note_id, type, created_by, created_at}]`, `deleted_at is null` | Bearer | No client reads it today |
+| GET | `/spaces/{space_id}/relationships` | `[{id, from_note_id, to_note_id, type, created_by, created_at}]`, `deleted_at is null` | Bearer | No *app* client reads it today; the agent surface does — see [§16](#agent-surface) |
 
-**No write routes on either.** See [04 §B.2](04-authorization.md#b2-own--for-select-only-timeline_events).
+**Timeline has no write routes** — it is `own … for select` only. See
+[04 §B.2](04-authorization.md#b2-own--for-select-only-timeline_events).
+Relationships *do* take writes, listed in [§16](#agent-surface).
 
 ## 14. Compat layer — `app/compat/functions_router.py`
 
@@ -321,6 +323,40 @@ Any other `{name}` → 404 `{"error": "unknown_function", "message": name}`.
 | GET | `/health/ready` | `{"status":"ok","db":"ok","storage":"ok"}` — pings Postgres and MinIO | — |
 
 ---
+
+## 16. Agent surface — `app/modules/notes/agent_router.py` {#agent-surface}
+
+Not a Supabase call being replaced: these are new, added when the MCP server
+was rewritten to go through this API instead of talking to PostgREST itself.
+They are listed here because the FastAPI port has to carry them too, and
+because the MCP client is written against these paths and must not have to
+change during the migration.
+
+| Method | Path | Request | Response | Auth | Notes |
+|---|---|---|---|---|---|
+| POST | `/spaces/{space_id}/ingest` | `{notes: [NoteInput] (1..200), relations?: [RelationInput], groups?: [GroupInput]}` | `{notes: [{client_key, id}], relations: n, groups: [GroupOut]}` | Bearer | Writes a whole structured tree in one call |
+| POST | `/relationships` | `{space_id, from_note_id, to_note_id, type?='related'}` | `RelationshipOut` | Bearer | Both endpoints must live in `space_id` |
+| DELETE | `/relationships` | `{space_id, from_note_id, to_note_id, type?}` | `204` — **soft delete** | Bearer | Omitting `type` clears every connector between the pair |
+
+`NoteInput` is `{client_key, content, type?='idea', title?, color?, parent_key?, due_at?}`.
+`parent_key` names another note in the same payload; `parent_id` may name an
+existing note instead. A note may reference a parent declared later in the
+array.
+
+**All structuring happens server-side** — topological sort, parent resolution,
+colour from note type, canvas layout and group frames. That is the whole point
+of the endpoint: the caller is a language model, and layout decided in the
+client would drift from what the app itself produces. The logic lives in
+`apps/web/src/lib/api/structure.ts` today and moves to the notes module here.
+
+Errors: `422 invalid_structure` for a cycle or a duplicate `client_key` —
+caller mistakes, not server faults. `404 space_not_found` when `space_id` is
+not the caller's, because RLS polices `user_id` but not `space_id` on insert.
+
+PostgREST has no transaction, so a partial ingest rolls its notes back by soft
+delete and says so in the response. **The FastAPI port should not reproduce
+that** — wrap the whole ingest in one SQLAlchemy transaction and delete this
+paragraph.
 
 ## Behavioural details that must survive verbatim
 

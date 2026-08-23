@@ -4,17 +4,15 @@
   "private": true,
   "type": "module",
   "bin": {
-    "mindspace-mcp": "dist/apps/mcp/src/index.js"
+    "mindspace-mcp": "dist/index.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/apps/mcp/src/index.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --experimental-strip-types src/structure.test.ts"
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@supabase/supabase-js": "^2.112.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {

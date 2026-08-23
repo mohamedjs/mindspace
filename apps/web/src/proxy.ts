@@ -25,7 +25,13 @@ export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isPublic = path === '/sign-in' || path.startsWith('/auth/');
 
-  if (!user && !isPublic) {
+  // Route handlers authenticate themselves — Bearer token or cookie — and
+  // answer with the JSON error envelope. Redirecting them to an HTML sign-in
+  // page would hand every non-browser client (the MCP server, any script) a
+  // 307 and a login form instead of a 401 it can act on.
+  const isApi = path.startsWith('/api/');
+
+  if (!user && !isPublic && !isApi) {
     return NextResponse.redirect(new URL('/sign-in', request.url));
   }
   return response;

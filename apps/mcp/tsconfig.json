@@ -2,29 +2,18 @@
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
-    "module": "es2022",
-    // Not nodenext: the _shared files sit under the repo-root package.json,
-    // which has no "type": "module", so nodenext would emit them as CJS into
-    // this ESM package and the named imports would fail at runtime.
-    "moduleResolution": "bundler",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "types": ["node"],
-    // The layout + extraction logic is imported straight from
-    // supabase/functions/_shared, which lives above this package — hence the
-    // repo-root rootDir (and the dist/apps/mcp/src/... bin path it implies).
-    // rewriteRelativeImportExtensions turns those Deno-style ".ts" specifiers
-    // into ".js" on emit.
-    "rootDir": "../..",
+    "rootDir": "src",
     "outDir": "dist",
+    // The sources import each other with Deno-style ".ts" specifiers;
+    // these two turn them into ".js" on emit.
     "rewriteRelativeImportExtensions": true,
     "allowImportingTsExtensions": true
   },
-  "include": [
-    "src/**/*.ts",
-    "../../supabase/functions/_shared/layout.ts",
-    "../../supabase/functions/_shared/extraction.ts"
-  ],
-  "exclude": ["src/**/*.test.ts"]
+  "include": ["src/**/*.ts"]
 }

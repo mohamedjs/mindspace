@@ -31,6 +31,9 @@ import {
 } from '../hooks/useNotes';
 import { ColorPicker } from './ColorPicker';
 import { PeelFlap } from './PeelFlap';
+import { MarkdownView } from './MarkdownView';
+import { MarkdownToolbar } from './MarkdownToolbar';
+import { applyInsert, toggleTaskAt, type Insert } from '../services/markdown';
 import { useRecordingStatus } from '../../voice/hooks/useRecordingStatus';
 import { useEntitlements } from '../../billing/hooks/useEntitlements';
 import {
@@ -38,11 +41,12 @@ import {
   Check,
   ChevronRight,
   Unlink,
+  Eye,
   Mic,
   Palette,
+  Pencil,
   Plus,
   Trash2,
-  List,
   Save,
   Tag,
   Lightbulb,
@@ -117,6 +121,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
   const [typePickerVisible, setTypePickerVisible] = useState(false);
   const [subNoteText, setSubNoteText] = useState('');
+  // Notes are read far more often than they are written, and the formatting
+  // only shows when rendered — so a note opens as a document and the text
+  // field is a mode you step into.
+  const [editing, setEditing] = useState(false);
 
   const contentRef = useRef<TextInput>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -269,22 +277,35 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     });
   }, [dirty, updateContent, noteId, title, content, effectiveSpaceId, router]);
 
-  /** Insert a bullet point prefix at the cursor position. */
-  const insertBullet = useCallback(() => {
-    const lines = content.split('\n');
-    // If the last line is empty or the whole content is empty, add a bullet there
-    const lastLine = lines[lines.length - 1];
-    if (!lastLine || lastLine.trim() === '') {
-      lines[lines.length - 1] = '• ';
-    } else {
-      lines.push('• ');
-    }
-    const next = lines.join('\n');
-    setContent(next);
-    setDirty(true);
-    // Focus the content input
-    setTimeout(() => contentRef.current?.focus(), 50);
-  }, [content]);
+  /** Write a Markdown format into the note from the editing toolbar. */
+  const handleInsert = useCallback(
+    (insert: Insert) => {
+      setContent((current) => applyInsert(current, insert));
+      setDirty(true);
+      setTimeout(() => contentRef.current?.focus(), 50);
+    },
+    []
+  );
+
+  /**
+   * Tick a checkbox from the rendered note.
+   *
+   * The box lives in the note's own text, so the toggle is an edit like any
+   * other — and it saves straight away rather than arming the Save button,
+   * because tapping a to-do reads as a completed action, not as typing. Any
+   * unsaved text edits ride along in the same write, since they are already
+   * part of `content`.
+   */
+  const handleToggleTask = useCallback(
+    (taskIndex: number) => {
+      const next = toggleTaskAt(content, taskIndex);
+      if (next === content) return;
+      setContent(next);
+      setDirty(false);
+      updateContent.mutate({ noteId, title: title || null, content: next });
+    },
+    [content, noteId, title, updateContent]
+  );
 
   if (isLoading) {
     return (
@@ -360,14 +381,23 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
             {/* Action buttons */}
             <View className="flex-row items-center">
-              {/* Bullet list */}
+              {/* Read the note as a document / edit its Markdown */}
               <TouchableOpacity
-                onPress={insertBullet}
+                onPress={() => setEditing((on) => !on)}
                 className="mr-2 h-10 w-10 items-center justify-center"
-                style={clay({ color: shade(paperBg, -0.08), radius: 14, depth: 0.5 })}
+                style={clay({
+                  color: editing ? colors.accent : shade(paperBg, -0.08),
+                  radius: 14,
+                  depth: 0.5,
+                })}
                 hitSlop={4}
+                accessibilityLabel={editing ? 'Preview note' : 'Edit note'}
               >
-                <List size={18} color={textColor} strokeWidth={2.5} />
+                {editing ? (
+                  <Eye size={18} color={colors.onAccent} strokeWidth={2.5} />
+                ) : (
+                  <Pencil size={18} color={textColor} strokeWidth={2.5} />
+                )}
               </TouchableOpacity>
 
               {/* Type tag */}
@@ -564,26 +594,48 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             }}
           />
 
-          {/* Content input */}
-          <TextInput
-            ref={contentRef}
-            value={content}
-            onChangeText={handleContentChange}
-            placeholder="Start writing your note…"
-            placeholderTextColor={mutedTextColor}
-            style={{
-              fontSize: 17,
-              lineHeight: 28,
-              color: textColor,
-              fontWeight: '400',
-              padding: 0,
-              minHeight: 200,
-              textAlignVertical: 'top',
-            }}
-            multiline
-            scrollEnabled={false}
-            textAlignVertical="top"
-          />
+          {/* Content — Markdown, read as a document or edited as text */}
+          {editing ? (
+            <>
+              <MarkdownToolbar
+                onInsert={handleInsert}
+                paperBg={paperBg}
+                textColor={textColor}
+              />
+              <TextInput
+                ref={contentRef}
+                value={content}
+                onChangeText={handleContentChange}
+                placeholder="Start writing your note…"
+                placeholderTextColor={mutedTextColor}
+                style={{
+                  fontSize: 17,
+                  lineHeight: 28,
+                  color: textColor,
+                  fontWeight: '400',
+                  padding: 0,
+                  minHeight: 200,
+                  textAlignVertical: 'top',
+                }}
+                multiline
+                scrollEnabled={false}
+                textAlignVertical="top"
+                autoFocus
+              />
+            </>
+          ) : (
+            <TouchableOpacity activeOpacity={1} onLongPress={() => setEditing(true)}>
+              <MarkdownView
+                content={content}
+                paperBg={paperBg}
+                textColor={textColor}
+                mutedColor={mutedTextColor}
+                accent={colors.accent}
+                onAccent={colors.onAccent}
+                onToggleTask={handleToggleTask}
+              />
+            </TouchableOpacity>
+          )}
 
           {/*
             Detach from the parent.

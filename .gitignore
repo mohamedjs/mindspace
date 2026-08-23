@@ -46,3 +46,4 @@ yarn-error.*
 # Supabase CLI local project link cache
 supabase/.temp/
 .next/
+package-lock.json

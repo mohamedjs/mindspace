@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -20,6 +20,7 @@ import {
 } from '../hooks/useNotes';
 import { ColorPicker } from './ColorPicker';
 import { PeelFlap } from './PeelFlap';
+import { RichTextEditor } from './RichTextEditor';
 import { useRecordingStatus } from '@/features/voice/hooks/useRecordingStatus';
 import {
   ArrowLeft,
@@ -28,7 +29,6 @@ import {
   Palette,
   Plus,
   Trash2,
-  List,
   Save,
   Tag,
   Lightbulb,
@@ -96,8 +96,6 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const [typePickerVisible, setTypePickerVisible] = useState(false);
   const [subNoteText, setSubNoteText] = useState('');
 
-  const contentRef = useRef<HTMLTextAreaElement>(null);
-
   const qc = useQueryClient();
   const { status: recordingStatus } = useRecordingStatus(recordingId ?? null);
   const isThinking =
@@ -139,10 +137,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     setDirty(true);
   };
 
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
+  const handleContentChange = useCallback((markdown: string) => {
+    setContent(markdown);
     setDirty(true);
-  };
+  }, []);
 
   const handleBack = useCallback(() => {
     if (dirty && noteId) {
@@ -216,20 +214,6 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
     router.push(`/record?spaceId=${effectiveSpaceId}&fillNoteId=${noteId}`);
   }, [dirty, updateContent, noteId, title, content, effectiveSpaceId, router]);
 
-  const insertBullet = useCallback(() => {
-    const lines = content.split('\n');
-    const lastLine = lines[lines.length - 1];
-    if (!lastLine || lastLine.trim() === '') {
-      lines[lines.length - 1] = '• ';
-    } else {
-      lines.push('• ');
-    }
-    const next = lines.join('\n');
-    setContent(next);
-    setDirty(true);
-    setTimeout(() => contentRef.current?.focus(), 50);
-  }, [content]);
-
   if (isLoading) {
     return (
       <div className="flex flex-col flex-1 min-h-screen bg-canvas">
@@ -276,16 +260,6 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             </button>
 
             <div className="flex flex-row items-center gap-2">
-              <button
-                type="button"
-                onClick={insertBullet}
-                className="h-10 w-10 flex items-center justify-center rounded-xl cursor-pointer border-0 transition-opacity"
-                style={clay({ color: shade(paperBg, -0.08), radius: 14, depth: 0.5 })}
-                title="Insert Bullet"
-              >
-                <List size={18} color={textColor} strokeWidth={2.5} />
-              </button>
-
               <button
                 type="button"
                 onClick={() => setTypePickerVisible(!typePickerVisible)}
@@ -438,14 +412,15 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             style={{ backgroundColor: shade(paperBg, -0.1) }}
           />
 
-          {/* Content Area */}
-          <textarea
-            ref={contentRef}
+          {/* Content Area — a Markdown document, stored as Markdown */}
+          <RichTextEditor
             value={content}
             onChange={handleContentChange}
-            placeholder="Start writing your note…"
-            className="w-full min-h-[220px] text-lg leading-7 bg-transparent border-0 outline-none p-0 resize-none placeholder:opacity-50 font-normal"
-            style={{ color: textColor }}
+            paperBg={paperBg}
+            textColor={textColor}
+            mutedColor={mutedTextColor}
+            accent={colors.accent}
+            onAccent={colors.onAccent}
           />
 
           {/* Sub-notes Section */}

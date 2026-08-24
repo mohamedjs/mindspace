@@ -7,6 +7,10 @@
 `src/lib/` changes, with two named exceptions on web
 (`proxy.ts`, `app/api/functions/[name]/route.ts`).
 
+The one qualifier: `src/app/api/` and `src/lib/api/` on web hold the stopgap
+route handlers added for the MCP server. They are not feature code and they are
+deleted, not ported — [§ The Next.js API routes](#nextjs-api-routes).
+
 That is possible because `src/core/ports/` already states every capability
 without naming Supabase, `src/infrastructure/container.ts` is the single wiring
 point, and `src/core/architecture.test.ts` fails the build if anything outside
@@ -268,6 +272,69 @@ const FORBIDDEN_IMPORTS = [/@supabase\/supabase-js/, /@supabase\/ssr/, /lib\/sup
 ```
 
 so a stray Supabase import cannot creep back in outside infrastructure.
+
+---
+
+## The Next.js API routes — delete them {#nextjs-api-routes}
+
+Added after this plan was first written, when the MCP server was rewritten to
+stop talking to PostgREST directly. They are a **stopgap**, not a second
+backend, and the cutover retires them.
+
+```
+apps/web/src/app/api/spaces/…            ← delete
+apps/web/src/app/api/notes/[noteId]/     ← delete
+apps/web/src/app/api/groups/[groupId]/   ← delete
+apps/web/src/app/api/relationships/      ← delete
+apps/web/src/app/api/auth/refresh/       ← delete
+apps/web/src/lib/api/http.ts             ← delete (envelope lives in FastAPI)
+apps/web/src/lib/api/auth.ts             ← delete (authed()/requireSpace() → FastAPI deps)
+apps/web/src/infrastructure/supabase/bearer.ts ← delete with the rest of supabase/
+```
+
+Two things move rather than die:
+
+| From | To | Why |
+|---|---|---|
+| `apps/web/src/lib/api/structure.ts` + its test | `app/modules/notes/` — see [05 §16](05-api-contract.md#agent-surface) | The document → note-tree structuring is business logic, not a route concern |
+| `apps/web/src/lib/api/http.ts` `unwrap()` PGRST116 → 404 | the repositories' `not_found` path | Same mapping, expressed once in SQLAlchemy terms |
+
+**They were written against `05-api-contract.md` on purpose**, so this is a
+deletion rather than a migration: FastAPI serves the same paths, the same
+payloads and the same error envelope. Verify that before deleting — if a route
+drifted from the contract, fix the contract or the FastAPI implementation, not
+the caller.
+
+### The MCP server
+
+`apps/mcp` is the only client of these routes, and it changes by **one env
+var**:
+
+```diff
+-MINDSPACE_API_URL=https://your-mindspace-web-app
++MINDSPACE_API_URL=https://your-mindspace-api
+```
+
+No code change. That was the point of routing it through an HTTP contract
+instead of the database — see `apps/mcp/README.md`. Add it to the smoke checks
+in [09](09-phases.md): `list_spaces` and one `ingest_notes` against the FastAPI
+base URL, before the routes come out of the web app.
+
+Ordering matters. Delete the routes **after** FastAPI serves the contract and
+the MCP server has been repointed and exercised, or the agent surface goes dark
+in between.
+
+### `proxy.ts`
+
+The API-path exclusion added with those routes stays:
+
+```ts
+const isApi = path.startsWith('/api/');
+```
+
+It is not tied to them. Any Bearer-token client hitting a Next.js route must get
+the JSON error envelope rather than a 307 to `/sign-in`, and that stays true for
+`app/api/functions/[name]/route.ts`, which this plan keeps.
 
 ---
 

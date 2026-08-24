@@ -4,12 +4,8 @@ import {
   REL_TYPES,
   colorForNote,
   resolveParentId,
-} from '../../../supabase/functions/_shared/extraction.ts';
-import {
-  layoutNewNotes,
-  placeChild,
-  type Rect,
-} from '../../../supabase/functions/_shared/layout.ts';
+} from '@/features/ai/schemas/extraction';
+import { layoutNewNotes, placeChild, type Rect } from '@/features/ai/services/layout';
 
 /**
  * Turns the tree an agent hands us into the exact rows sticky_notes /
@@ -17,11 +13,14 @@ import {
  * positions included. Pure: no network, no clock, no randomness beyond the
  * injected id factory, which is what makes structure.test.ts possible.
  *
- * The LLM calling this server replaces ai-extract's model call, so we reuse
+ * The LLM driving the MCP server replaces ai-extract's model call, so we reuse
  * that pipeline's *modules* (colorForNote, resolveParentId, the layout
  * engine) rather than the edge function, which is welded to a transcript row
  * and to credit reservations. parseExtraction is deliberately NOT reused: it
  * caps at 8 notes, which is right for 60s of speech and wrong for a PDF.
+ *
+ * Lives in the API, not in the MCP client: the client must stay a thin HTTP
+ * caller, and the mobile app / any future agent gets the same layout for free.
  */
 
 /** Breathing room between a group frame and the notes it encloses. */

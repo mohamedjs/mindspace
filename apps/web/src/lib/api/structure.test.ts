@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
-import { structureNotes, topoSort, type NoteInput } from './structure.ts';
+import { CHILD_WIDTH } from '@/features/ai/services/layout';
+import { structureNotes, topoSort, type NoteInput } from './structure';
 
 /**
  * Guards the document -> note-tree structuring: ordering, parent resolution,
  * relation mapping and layout. No network, no Supabase.
- * Run: npm test --workspace=@mindspace/mcp
+ * Moved here from apps/mcp with the logic it covers — the MCP server is now a
+ * thin HTTP client and this runs inside POST /api/spaces/[spaceId]/ingest.
+ * Run: npm test --workspace=@mindspace/web
  */
 
 const note = (clientKey: string, parentKey: string | null = null): NoteInput => ({
@@ -25,8 +28,7 @@ const run = (input: Parameters<typeof structureNotes>[0]) => {
   return structureNotes(input);
 };
 
-// --- ordering: a child listed before its parent still gets linked -----------
-{
+test('a child listed before its parent still gets linked, parents inserted first', () => {
   const result = run({
     spaceId: SPACE,
     // deliberately out of order: grandchild, child, root
@@ -45,10 +47,9 @@ const run = (input: Parameters<typeof structureNotes>[0]) => {
   for (const row of result.notes) {
     if (row.parent_id) assert.ok(position.get(row.parent_id)! < position.get(row.id)!);
   }
-}
+});
 
-// --- parents: existing note ids resolve, unknown keys drop to top level -----
-{
+test('existing note ids resolve as parents, unknown keys drop to top level', () => {
   const existingId = '00000000-0000-4000-8000-0000000000aa';
   const result = run({
     spaceId: SPACE,
@@ -60,17 +61,17 @@ const run = (input: Parameters<typeof structureNotes>[0]) => {
   const byContent = new Map(result.notes.map((n) => [n.content, n]));
   assert.equal(byContent.get('grafted')!.parent_id, existingId);
   assert.equal(byContent.get('lost')!.parent_id, null);
-}
+});
 
-// --- cycles and duplicate keys fail loudly ---------------------------------
-assert.throws(() => topoSort([note('a', 'b'), note('b', 'a')]), /cycle/);
-assert.throws(
-  () => run({ spaceId: SPACE, notes: [note('dup'), note('dup')], existing: [], newId: seqId }),
-  /duplicate clientKey/
-);
+test('cycles and duplicate keys fail loudly', () => {
+  assert.throws(() => topoSort([note('a', 'b'), note('b', 'a')]), /cycle/);
+  assert.throws(
+    () => run({ spaceId: SPACE, notes: [note('dup'), note('dup')], existing: [], newId: seqId }),
+    /duplicate clientKey/
+  );
+});
 
-// --- relations map onto real ids, self-links and dupes are dropped ----------
-{
+test('relations map onto real ids; self-links, dupes and ghosts are dropped', () => {
   const result = run({
     spaceId: SPACE,
     notes: [note('a'), note('b')],
@@ -89,19 +90,12 @@ assert.throws(
   assert.equal(rel.from_note_id, result.idByKey.get('a'));
   assert.equal(rel.to_note_id, result.idByKey.get('b'));
   assert.equal(rel.space_id, SPACE);
-}
+});
 
-// --- layout: nothing overlaps, children orbit, groups frame their members ---
-{
+test('layout: nothing overlaps, children orbit, groups frame their members', () => {
   const result = run({
     spaceId: SPACE,
-    notes: [
-      note('r1'),
-      note('r1a', 'r1'),
-      note('r1b', 'r1'),
-      note('r2'),
-      note('loose'),
-    ],
+    notes: [note('r1'), note('r1a', 'r1'), note('r1b', 'r1'), note('r2'), note('loose')],
     groups: [{ title: 'Section one', memberKeys: ['r1'], color: null }],
     existing: [{ id: 'x', x: 0, y: 0, width: 190, height: 145, parent_id: null }],
     newId: seqId,
@@ -134,9 +128,7 @@ assert.throws(
   }
 
   // Children are the smaller radial size, not grid-sized.
-  assert.equal(result.notes.find((n) => n.content === 'r1a')!.width, 150);
+  assert.equal(result.notes.find((n) => n.content === 'r1a')!.width, CHILD_WIDTH);
   // Colour comes from type, never left null (the canvas renders it).
   assert.ok(result.notes.every((n) => /^#[0-9A-F]{6}$/i.test(n.color)));
-}
-
-console.log('structure: ok');
+});

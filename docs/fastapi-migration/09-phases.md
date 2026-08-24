@@ -82,7 +82,8 @@ reference implementation and the rollback target.
 - [ ] `timeline` module — `record_note_event()` reproducing `on_note_change()` exactly, **including the position-only early return** and the `note_count` / `last_activity_at` maintenance
 - [ ] `notes` groups CRUD
 - [ ] `GET /spaces/{id}/relationships`, `GET /spaces/{id}/timeline` (read-only)
-- [ ] `tests/modules/test_notes.py`, `test_spaces.py`, `test_timeline.py`
+- [ ] Agent surface — `POST /spaces/{id}/ingest`, `POST`/`DELETE /relationships` ([05 §16](05-api-contract.md#agent-surface)); port `structure.ts` from `apps/web/src/lib/api/` **with its test**, and wrap the whole ingest in one transaction rather than reproducing the soft-delete rollback
+- [ ] `tests/modules/test_notes.py`, `test_spaces.py`, `test_timeline.py`, `test_ingest.py`
 
 **Acceptance:**
 - Creating a note bumps `spaces.note_count` and writes a `note_created` event.
@@ -90,6 +91,8 @@ reference implementation and the rollback target.
 - Soft-deleting a parent sets every child's `parent_id` to null and writes `note_deleted` and decrements `note_count` (floored at 0).
 - Editing only `x`/`y` via `/notes/{id}/content` is impossible (schema has no x/y).
 - `moveMany` with 30 notes issues **one** statement.
+- The MCP server, pointed at this API by changing `MINDSPACE_API_URL` alone, runs `list_spaces` and one `ingest_notes` successfully — no code change in `apps/mcp`. If it needs one, the routes drifted from the contract.
+- A failed ingest leaves **no** partial tree (transaction, not compensating delete).
 - No repository method exists without a `user_id` parameter (grep test).
 
 **Rollback:** revert the module; nothing else depends on it yet.
@@ -276,9 +279,11 @@ cycle with no rollback.
 - [ ] Remove `@supabase/*` from both `package.json`s and re-lock
 - [ ] Move `supabase/` to `docs/legacy/supabase/` (do **not** delete — it is the only record of the prompt versions and the migration rationale comments)
 - [ ] Delete `app/compat/` once both clients use RESTful paths (separate change)
+- [ ] Delete the stopgap Next.js routes — `apps/web/src/app/api/{spaces,notes,groups,relationships,auth}` and `apps/web/src/lib/api/` — **only after** the MCP server has been repointed and exercised against FastAPI ([06 §Next.js API routes](06-frontend-cutover.md#nextjs-api-routes)). Keep `app/api/functions/[name]/route.ts` and the `isApi` exclusion in `proxy.ts`
+- [ ] Ship the new `MINDSPACE_API_URL` to anyone running the MCP server before the routes come out, or the agent surface goes dark
 - [ ] Pause/delete the Supabase project **only after a final `pg_dump` is archived off-platform**
 
-**Acceptance:** `grep -rn "supabase" apps/ --include=*.ts --include=*.tsx` returns nothing outside comments.
+**Acceptance:** `grep -rn "supabase" apps/ --include=*.ts --include=*.tsx` returns nothing outside comments, and `apps/mcp` still passes its smoke check with only its base URL changed.
 **Rollback:** past this point there is none. That is why it is a separate phase gated on a full release cycle.
 
 ---

@@ -28,8 +28,8 @@ The mobile app's **behaviour does not change**. Only
 | [02-target-architecture.md](02-target-architecture.md) | Module boundaries, dependency rules, full directory tree, tech choices with versions |
 | [03-data-model.md](03-data-model.md) | Table → SQLAlchemy model, enum translation, `auth.users` → `users` |
 | [04-authorization.md](04-authorization.md) | **The RLS chapter.** Policy by policy, table by table, plus the four non-policy grants that carry business rules |
-| [05-api-contract.md](05-api-contract.md) | Endpoint-by-endpoint table: method, path, schemas, auth, what it replaces |
-| [06-frontend-cutover.md](06-frontend-cutover.md) | Exactly which files in `apps/web` and `apps/mobile` change |
+| [05-api-contract.md](05-api-contract.md) | Endpoint-by-endpoint table: method, path, schemas, auth, what it replaces — including the agent/ingest surface the MCP server calls |
+| [06-frontend-cutover.md](06-frontend-cutover.md) | Exactly which files in `apps/web` and `apps/mobile` change, and which of them get deleted rather than ported |
 | [07-docker.md](07-docker.md) | Dockerfiles, `docker-compose.yml`, `.env.example`, the one command |
 | [08-data-migration-runbook.md](08-data-migration-runbook.md) | Dump, transform, verify, roll back |
 | [09-phases.md](09-phases.md) | Ordered checkable tasks, acceptance criteria, rollback notes, strangler-fig option |

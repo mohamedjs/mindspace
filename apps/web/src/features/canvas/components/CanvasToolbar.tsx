@@ -41,6 +41,8 @@ interface CanvasToolbarProps {
 interface ToolProps {
   icon: LucideIcon;
   label: string;
+  /** Keyboard shortcut, shown in the tooltip only — aria-label stays the plain label. */
+  shortcut?: string;
   onPress?: () => void;
   active?: boolean;
 }
@@ -60,7 +62,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
 }) => {
   const { colors } = useTheme();
 
-  const Tool: React.FC<ToolProps> = ({ icon: Icon, label, onPress, active }) => (
+  const Tool: React.FC<ToolProps> = ({ icon: Icon, label, shortcut, onPress, active }) => (
     <button
       type="button"
       className="h-10 w-10 flex items-center justify-center cursor-pointer border-0 transition-transform active:scale-95 disabled:cursor-default"
@@ -73,7 +75,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
       onClick={onPress}
       disabled={!onPress}
       aria-label={label}
-      title={label}
+      title={shortcut ? `${label} · ${shortcut}` : label}
     >
       <Icon
         size={17}
@@ -98,42 +100,47 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         <Tool
           icon={Hand}
           label="Pan canvas (Hand)"
+          shortcut="1"
           onPress={() => onSetToolMode('pan')}
           active={toolMode === 'pan'}
         />
         <Tool
           icon={MousePointer2}
           label="Select (Pointer)"
+          shortcut="2"
           onPress={() => onSetToolMode('pointer')}
           active={toolMode === 'pointer'}
         />
         <Tool
           icon={Pencil}
           label="Write in a note (Pencil)"
+          shortcut="3"
           onPress={() => onSetToolMode(toolMode === 'write' ? 'pointer' : 'write')}
           active={toolMode === 'write'}
         />
         <Tool
           icon={ArrowRight}
           label="Connect notes (Arrow)"
+          shortcut="4"
           onPress={() => onSetToolMode('arrow')}
           active={toolMode === 'arrow'}
         />
 
         <div className={`flex-col lg:flex-row gap-2 ${!isExpanded ? 'hidden lg:flex' : 'flex'}`}>
           <div className="w-10 h-[1px] lg:w-[1px] lg:h-10 my-0.5 lg:my-0 lg:mx-1 shrink-0 rounded-full" style={{ backgroundColor: shade(colors.surface, -0.1) }} />
-          <Tool icon={StickyNote} label="Add a note" onPress={onAddNote} />
-          <Tool icon={Frame} label="Add a group frame" onPress={onAddGroup} />
-          <Tool icon={LayoutGrid} label="Tidy notes into a grid" onPress={onTidy} />
+          <Tool icon={StickyNote} label="Add a note" shortcut="5" onPress={onAddNote} />
+          <Tool icon={Frame} label="Add a group frame" shortcut="6" onPress={onAddGroup} />
+          <Tool icon={LayoutGrid} label="Tidy notes into a grid" shortcut="7" onPress={onTidy} />
           <div className="w-10 h-[1px] lg:w-[1px] lg:h-10 my-0.5 lg:my-0 lg:mx-1 shrink-0 rounded-full" style={{ backgroundColor: shade(colors.surface, -0.1) }} />
-          <Tool icon={Undo2} label="Undo" onPress={onUndo} />
-          <Tool icon={Redo2} label="Redo" onPress={onRedo} />
+          <Tool icon={Undo2} label="Undo" shortcut="Ctrl+Z" onPress={onUndo} />
+          <Tool icon={Redo2} label="Redo" shortcut="Ctrl+Shift+Z" onPress={onRedo} />
           <div className="w-10 h-[1px] lg:w-[1px] lg:h-10 my-0.5 lg:my-0 lg:mx-1 shrink-0 rounded-full" style={{ backgroundColor: shade(colors.surface, -0.1) }} />
-          <Tool icon={Scan} label="Fit everything on screen" onPress={onFitToView} />
-          <Tool icon={Mic} label="Recordings in this space" onPress={onOpenRecordings} />
+          <Tool icon={Scan} label="Fit everything on screen" shortcut="8" onPress={onFitToView} />
+          <Tool icon={Mic} label="Recordings in this space" shortcut="9" onPress={onOpenRecordings} />
           <Tool
             icon={showChildNotes ? Eye : EyeOff}
             label={showChildNotes ? 'Hide sub-notes' : 'Show sub-notes'}
+            shortcut="H"
             onPress={onToggleChildNotes}
             active={!showChildNotes}
           />

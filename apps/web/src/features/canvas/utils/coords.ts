@@ -3,8 +3,8 @@
  *
  * Both the note container and the grid sheet use `transformOrigin: top left`,
  * so the whole board is described by `screen = translate + world * scale`.
- * Everything below is an inversion or a re-derivation of that one line, and
- * every one of them runs inside a reanimated worklet on the UI thread.
+ * The transform helpers below are inversions or re-derivations of that one
+ * line, and each runs inside a reanimated worklet on the UI thread.
  */
 
 export interface Point {
@@ -74,4 +74,49 @@ export function gridScale(scale: number): number {
   let s = scale;
   while (s < 0.5) s *= 2;
   return s;
+}
+
+export interface WheelLike {
+  deltaX: number;
+  deltaY: number;
+  /** 0 = pixels, 1 = lines, 2 = pages. */
+  deltaMode: number;
+  ctrlKey: boolean;
+  metaKey: boolean;
+}
+
+export type WheelIntent =
+  | { type: 'zoom'; factor: number }
+  | { type: 'pan'; dx: number; dy: number };
+
+/** One line of a line-mode wheel, in pixels. */
+const LINE_HEIGHT = 16;
+
+/**
+ * What a wheel event means on the board.
+ *
+ * A trackpad pinch reaches the browser as a wheel event with a *synthetic*
+ * `ctrlKey` — nobody is holding Ctrl — so that flag is the only reliable way
+ * to tell a pinch from an ordinary two-finger swipe. Pinch (and Ctrl/Cmd +
+ * wheel on a mouse) zooms; everything else pans, in screen pixels, exactly
+ * like dragging the board with the pointer.
+ *
+ * Deltas are normalised to pixels first: a mouse usually reports whole lines
+ * (`deltaMode` 1) and occasionally pages (2), and both feel broken if taken
+ * as pixel counts.
+ */
+export function wheelIntent(e: WheelLike, viewport: Point): WheelIntent {
+  const [sx, sy] =
+    e.deltaMode === 1
+      ? [LINE_HEIGHT, LINE_HEIGHT]
+      : e.deltaMode === 2
+        ? [viewport.x, viewport.y]
+        : [1, 1];
+  const dx = e.deltaX * sx;
+  const dy = e.deltaY * sy;
+
+  if (e.ctrlKey || e.metaKey) {
+    return { type: 'zoom', factor: Math.exp(-dy * 0.01) };
+  }
+  return { type: 'pan', dx, dy };
 }

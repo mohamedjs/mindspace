@@ -10,7 +10,7 @@ import { CanvasBackground } from './CanvasBackground';
 import { NoteConnectors } from './NoteConnectors';
 import { NoteGroupFrame } from './NoteGroupFrame';
 import { CanvasToolbar, type ToolMode } from './CanvasToolbar';
-import { screenToWorld, zoomAbout } from '../utils/coords';
+import { screenToWorld, wheelIntent, zoomAbout } from '../utils/coords';
 import { wouldCycle } from '../utils/graph';
 import type { NoteGroup } from '../api/groups.api';
 import { clay, clayAccent, shade } from '@/shared/theme/clay';
@@ -337,19 +337,25 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     setScale(s);
   }, []);
 
-  // Wheel listener for zoom
+  // Wheel listener: pinch (or Ctrl/Cmd + wheel) zooms, everything else pans
   useEffect(() => {
     const el = boardRef.current;
     if (!el) return;
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const rect = el.getBoundingClientRect();
-      const step = e.ctrlKey ? 0.01 : 0.0015;
-      const focalX = e.clientX - rect.left;
-      const focalY = e.clientY - rect.top;
+      const intent = wheelIntent(e, { x: el.clientWidth, y: el.clientHeight });
 
-      zoomTo(scaleRef.current * Math.exp(-e.deltaY * step), focalX, focalY);
+      if (intent.type === 'pan') {
+        // Incremental, unlike the pointer drag, so read the latest translate
+        // rather than the one this render closed over: wheel events arrive in
+        // bursts and every delta in a burst has to land.
+        setTranslate((t) => ({ x: t.x - intent.dx, y: t.y - intent.dy }));
+        return;
+      }
+
+      const rect = el.getBoundingClientRect();
+      zoomTo(scaleRef.current * intent.factor, e.clientX - rect.left, e.clientY - rect.top);
     };
 
     el.addEventListener('wheel', onWheel, { passive: false });

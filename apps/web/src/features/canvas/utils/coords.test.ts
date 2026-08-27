@@ -1,4 +1,4 @@
-import { gridScale, screenToWorld, worldToScreen, wrapToTile, zoomAbout } from './coords';
+import { gridScale, screenToWorld, wheelIntent, worldToScreen, wrapToTile, zoomAbout } from './coords';
 
 const MIN_SCALE = 0.12;
 const MAX_SCALE = 2.5;
@@ -127,5 +127,59 @@ describe('wrapToTile', () => {
 
   it('shrinks the wrap window as the board zooms out', () => {
     expect(wrapToTile(100, 24 * 0.5)).toBeGreaterThanOrEqual(-12);
+  });
+});
+
+describe('wheelIntent', () => {
+  const viewport = { x: 1000, y: 800 };
+
+  /** A trackpad pinch: synthetic ctrlKey, no real modifier held. */
+  it('zooms on ctrlKey, in or out with the delta sign', () => {
+    const inward = wheelIntent(
+      { deltaX: 0, deltaY: -10, deltaMode: 0, ctrlKey: true, metaKey: false },
+      viewport
+    );
+    expect(inward).toEqual({ type: 'zoom', factor: Math.exp(0.1) });
+
+    const outward = wheelIntent(
+      { deltaX: 0, deltaY: 10, deltaMode: 0, ctrlKey: true, metaKey: false },
+      viewport
+    );
+    expect(outward.type).toBe('zoom');
+    expect(outward).toEqual({ type: 'zoom', factor: Math.exp(-0.1) });
+  });
+
+  it('zooms on metaKey too', () => {
+    expect(
+      wheelIntent({ deltaX: 0, deltaY: -10, deltaMode: 0, ctrlKey: false, metaKey: true }, viewport)
+        .type
+    ).toBe('zoom');
+  });
+
+  /** The bug this replaced: a plain two-finger swipe used to zoom. */
+  it('pans on a plain two-finger swipe', () => {
+    expect(
+      wheelIntent({ deltaX: 12, deltaY: -30, deltaMode: 0, ctrlKey: false, metaKey: false }, viewport)
+    ).toEqual({ type: 'pan', dx: 12, dy: -30 });
+  });
+
+  it('scales line-mode deltas to pixels', () => {
+    expect(
+      wheelIntent({ deltaX: 1, deltaY: 3, deltaMode: 1, ctrlKey: false, metaKey: false }, viewport)
+    ).toEqual({ type: 'pan', dx: 16, dy: 48 });
+  });
+
+  it('scales page-mode deltas to the viewport', () => {
+    expect(
+      wheelIntent({ deltaX: -1, deltaY: 2, deltaMode: 2, ctrlKey: false, metaKey: false }, viewport)
+    ).toEqual({ type: 'pan', dx: -1000, dy: 1600 });
+  });
+
+  /** Normalisation happens before the zoom step, so a line-mode mouse notch
+   *  zooms by a noticeable amount instead of a fraction of a percent. */
+  it('normalises deltas in the zoom branch as well', () => {
+    expect(
+      wheelIntent({ deltaX: 0, deltaY: 3, deltaMode: 1, ctrlKey: true, metaKey: false }, viewport)
+    ).toEqual({ type: 'zoom', factor: Math.exp(-0.48) });
   });
 });

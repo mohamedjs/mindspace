@@ -12,11 +12,24 @@ import { NoteGroupFrame } from './NoteGroupFrame';
 import { CanvasToolbar, type ToolMode } from './CanvasToolbar';
 import { screenToWorld, wheelIntent, zoomAbout } from '../utils/coords';
 import { wouldCycle } from '../utils/graph';
+import { resolveShortcut } from '../utils/shortcuts';
 import type { NoteGroup } from '../api/groups.api';
 import { clay, clayAccent, shade } from '@/shared/theme/clay';
 import { StickyNoteItem } from '@/features/sticky-notes/components/StickyNoteItem';
 import type { Note as StickyNoteData } from '@/core/domain';
 import { useSetNoteParent, useUpdateNoteContent } from '@/features/sticky-notes/hooks/useNotes';
+
+/** The toolbar's handlers, shared verbatim between the buttons and the keyboard shortcuts. */
+type ToolbarActions = {
+  onAddNote?: () => void;
+  onAddGroup?: () => void;
+  onTidy?: () => void;
+  onFitToView?: () => void;
+  onOpenRecordings?: () => void;
+  onToggleChildNotes: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+};
 
 interface CanvasRootProps {
   spaceId?: string | null;
@@ -417,12 +430,18 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     };
   }, [zoomTo]);
 
+  // Toolbar handlers, filled in on every render below so the keydown listener
+  // always calls exactly what the toolbar buttons call.
+  const toolbarActionsRef = useRef<ToolbarActions>({ onToggleChildNotes: () => {} });
+
   // Keyboard navigation, shortcuts, Escape & Delete detaching
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+      const target = e.target as HTMLElement | null;
 
-          if (e.key === 'Escape') {
+      // Escape is the way out of write mode, so it has to work from inside the
+      // note editor too — it types nothing, so nothing is stolen by taking it.
+      if (e.key === 'Escape') {
         setToolMode('pointer');
         setArrowSourceId(null);
         setArrowPointerWorld(null);
@@ -432,11 +451,45 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
         return;
       }
 
+      // Every other key: never steal it from somewhere the user can type. The
+      // note editor is a TipTap contenteditable, not a TEXTAREA, so it needs
+      // the isContentEditable arm — without it, typing "5" spawned a note.
+      if (['INPUT', 'TEXTAREA'].includes(target?.tagName ?? '') || target?.isContentEditable) return;
+
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedConnectorChildId) {
         e.preventDefault();
         handleSetNoteParent(selectedConnectorChildId, null);
         setSelectedConnectorChildId(null);
         toast.success('Disconnected sub-note');
+        return;
+      }
+
+      const action = resolveShortcut({
+        key: e.key,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        altKey: e.altKey,
+        shiftKey: e.shiftKey,
+        targetTag: target?.tagName,
+        isContentEditable: target?.isContentEditable,
+      });
+      if (action) {
+        const a = toolbarActionsRef.current;
+        switch (action) {
+          case 'pan': setToolMode('pan'); break;
+          case 'pointer': setToolMode('pointer'); break;
+          case 'write': setToolMode((m) => (m === 'write' ? 'pointer' : 'write')); break;
+          case 'arrow': setToolMode('arrow'); break;
+          case 'addNote': a.onAddNote?.(); break;
+          case 'addGroup': a.onAddGroup?.(); break;
+          case 'tidy': a.onTidy?.(); break;
+          case 'fitToView': a.onFitToView?.(); break;
+          case 'recordings': a.onOpenRecordings?.(); break;
+          case 'toggleChildNotes': a.onToggleChildNotes(); break;
+          // Don't let the browser's own undo stack fire as well.
+          case 'undo': e.preventDefault(); a.onUndo?.(); break;
+          case 'redo': e.preventDefault(); a.onRedo?.(); break;
+        }
         return;
       }
 
@@ -687,6 +740,28 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     : null;
 
   const userChar = user?.email?.[0]?.toUpperCase() || 'U';
+
+  const toolbarActions: ToolbarActions = {
+    onAddNote: onAddNote
+      ? () => {
+          const { x, y } = viewportCentre();
+          onAddNote(x - 95, y - 72);
+        }
+      : undefined,
+    onAddGroup: onAddGroup
+      ? () => {
+          const { x, y } = viewportCentre();
+          onAddGroup(x - 230, y - 180);
+        }
+      : undefined,
+    onTidy,
+    onFitToView: displayNotes.length ? handleFitToView : undefined,
+    onOpenRecordings,
+    onToggleChildNotes: () => setShowChildNotes(!showChildNotes),
+    onUndo: () => toast('Undo coming soon'),
+    onRedo: () => toast('Redo coming soon'),
+  };
+  toolbarActionsRef.current = toolbarActions;
 
   return (
     <div className="flex flex-col flex-1 h-screen w-screen overflow-hidden bg-board select-none">
@@ -951,29 +1026,8 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
       <CanvasToolbar
         toolMode={toolMode}
         onSetToolMode={setToolMode}
-        onAddNote={
-          onAddNote
-            ? () => {
-                const { x, y } = viewportCentre();
-                onAddNote(x - 95, y - 72);
-              }
-            : undefined
-        }
-        onAddGroup={
-          onAddGroup
-            ? () => {
-                const { x, y } = viewportCentre();
-                onAddGroup(x - 230, y - 180);
-              }
-            : undefined
-        }
-        onTidy={onTidy}
-        onFitToView={displayNotes.length ? handleFitToView : undefined}
-        onOpenRecordings={onOpenRecordings}
         showChildNotes={showChildNotes}
-        onToggleChildNotes={() => setShowChildNotes(!showChildNotes)}
-        onUndo={() => toast('Undo coming soon')}
-        onRedo={() => toast('Redo coming soon')}
+        {...toolbarActions}
       />
 
       {/* Floating Record FAB */}

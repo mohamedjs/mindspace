@@ -1,0 +1,103 @@
+name: mindspace
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mindspace}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mindspace}
+      POSTGRES_DB: ${POSTGRES_DB:-mindspace}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mindspace} -d ${POSTGRES_DB:-mindspace}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/minio/health/live || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build:
+      context: ./services/api
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mindspace}:${POSTGRES_PASSWORD:-mindspace}@postgres:5432/${POSTGRES_DB:-mindspace}
+      S3_ENDPOINT_URL: http://minio:9000
+    command: ["sh", "-c", "alembic upgrade head && python -m seeds.bucket"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      minio:    {condition: service_healthy}
+    restart: "no"
+
+  seed:
+    build:
+      context: ./services/api
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mindspace}:${POSTGRES_PASSWORD:-mindspace}@postgres:5432/${POSTGRES_DB:-mindspace}
+    command: ["python", "-m", "seeds.seed"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    restart: "no"
+
+  api:
+    build:
+      context: ./services/api
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mindspace}:${POSTGRES_PASSWORD:-mindspace}@postgres:5432/${POSTGRES_DB:-mindspace}
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:9000     # presigned URLs the browser/phone must reach
+      RUN_SCHEDULER: "true"
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./services/api:/app          # dev hot reload
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--reload"]
+    depends_on:
+      seed: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: dev
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    volumes:
+      - ./apps/web:/repo/apps/web
+      - /repo/apps/web/node_modules
+      - /repo/apps/web/.next
+    depends_on:
+      api: {condition: service_healthy}
+
+volumes:
+  pgdata:
+  miniodata:

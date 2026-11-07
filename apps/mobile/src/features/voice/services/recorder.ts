@@ -1,5 +1,5 @@
 import { RecordingOptions, RecordingPresets } from 'expo-audio';
-import { supabaseContainer } from '../../../infrastructure/container';
+import { container } from '../../../infrastructure/container';
 
 /** Free tier hard-stops at 180s (spec §3). */
 /**
@@ -38,10 +38,10 @@ export async function createRecordingRow({
   spaceId,
   durationMs,
 }: CreateRecordingRowArgs): Promise<string> {
-  return supabaseContainer.recordings.create({ spaceId, durationMs });
+  return container.recordings.create({ spaceId, durationMs });
 }
 
 
 export async function markRecordingFailed(recordingId: string, message: string) {
-  return supabaseContainer.recordings.markFailed(recordingId, message);
+  return container.recordings.markFailed(recordingId, message);
 }

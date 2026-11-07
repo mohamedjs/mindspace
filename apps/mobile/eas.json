@@ -8,22 +8,19 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://uenmgxvmxdjgyavyslmn.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_PWR-0RnQaVII-LnP0HWFug_4yMkrtyt"
+        "EXPO_PUBLIC_API_URL": "http://192.168.1.10:8080"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://uenmgxvmxdjgyavyslmn.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_PWR-0RnQaVII-LnP0HWFug_4yMkrtyt"
+        "EXPO_PUBLIC_API_URL": "https://api-staging.mindspace.app"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_SUPABASE_URL": "https://uenmgxvmxdjgyavyslmn.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_PWR-0RnQaVII-LnP0HWFug_4yMkrtyt"
+        "EXPO_PUBLIC_API_URL": "https://api.mindspace.app"
       }
     }
   },

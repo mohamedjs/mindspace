@@ -65,6 +65,8 @@ interface StickyNoteItemProps {
   onSaveContent?: (id: string, fields: { title: string | null; content: string }) => void;
   /** Part of a marquee selection — drags as one unit with the rest. */
   selected?: boolean;
+  /** Long-pressed to select and open selection bar from any mode. */
+  onLongPress?: (id: string) => void;
 }
 
 const StickyNoteItemImpl: React.FC<StickyNoteItemProps> = ({
@@ -82,6 +84,7 @@ const StickyNoteItemImpl: React.FC<StickyNoteItemProps> = ({
   linkMode,
   linkRole,
   selected,
+  onLongPress,
   onTap,
   onSaveContent,
   editRequested,
@@ -216,10 +219,15 @@ const StickyNoteItemImpl: React.FC<StickyNoteItemProps> = ({
       runOnJS(handleTap)();
     });
 
+  const handleLongPress = () => {
+    if (onLongPress) onLongPress(note.id);
+    else setColorPickerVisible(true);
+  };
+
   const longPressGesture = Gesture.LongPress()
     .minDuration(400)
     .onStart(() => {
-      runOnJS(setColorPickerVisible)(true);
+      runOnJS(handleLongPress)();
     });
 
   // While a field has focus every gesture is off: a drag that starts on a

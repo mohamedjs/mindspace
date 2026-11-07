@@ -50,9 +50,9 @@ export function creditsToRecordingLabel(credits: number): string {
   return `about ${(minutes / 60).toFixed(1).replace(/\.0$/, '')} hours of talking`;
 }
 
-import { supabaseContainer } from '../../../infrastructure/container';
+import { container } from '../../../infrastructure/container';
 
-const billing = supabaseContainer.billing;
+const billing = container.billing;
 
 export const fetchPlans = () => billing.listPlans();
 export const fetchActiveSubscription = () => billing.getActiveSubscription();

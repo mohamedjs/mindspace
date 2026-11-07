@@ -33,7 +33,7 @@ const HANDLERS: Record<PaymentChannel, PaymentHandler> = {
   test_pay: async (intent) => ({ confirmToken: intent.payload.confirmToken }),
 
   // Each needs its native SDK plus store credentials; see the matching
-  // provider file under supabase/functions/_shared/payments/ for the list.
+  // payments provider configuration for the list.
   google_pay: notWiredYet('google_pay'),
   apple_pay: notWiredYet('apple_pay'),
   instapay: notWiredYet('instapay'),

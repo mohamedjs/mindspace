@@ -1,16 +1,15 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { TouchableOpacity, View, type LayoutChangeEvent } from 'react-native';
 import { Text } from '../../../shared/ui/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 import { StickyNoteItem } from '../../sticky-notes/components/StickyNoteItem';
-import type { Note as StickyNoteData } from '../../../core/domain';
+import type { Note as StickyNoteData, NoteType } from '../../../core/domain';
 import { CreditChip } from '../../credits/components/CreditChip';
 import { useTheme } from '../../../shared/theme';
 import { CanvasBackground } from './CanvasBackground';
@@ -20,9 +19,10 @@ import { CanvasToolbar, type ToolMode } from './CanvasToolbar';
 import { screenToWorld, zoomAbout } from '../utils/coords';
 import Toast from 'react-native-toast-message';
 import { notesInsideRect, withDescendants, wouldCycle } from '../utils/graph';
+import { UndoManager } from '../utils/undoStack';
 import type { NoteGroup } from '../api/groups.api';
-import { clay, clayAccent, shade } from '../../../shared/theme/clay';
-import { Mic, Settings, Sparkles } from 'lucide-react-native';
+import { clay, shade } from '../../../shared/theme/clay';
+import { Settings, Undo2, Redo2 } from 'lucide-react-native';
 
 interface CanvasRootProps {
   spaceName?: string;
@@ -30,6 +30,7 @@ interface CanvasRootProps {
   notes?: StickyNoteData[];
   groups?: NoteGroup[];
   onUpdateNoteColor?: (noteId: string, color: string) => void;
+  onUpdateNoteType?: (noteId: string, type: NoteType) => void;
   onDeleteNote?: (noteId: string) => void;
   onMoveNote?: (noteId: string, x: number, y: number) => void;
   onMoveCluster?: (moves: { id: string; x: number; y: number }[]) => void;
@@ -65,6 +66,7 @@ interface CanvasRootProps {
   onSaveNoteContent?: (noteId: string, fields: { title: string | null; content: string }) => void;
   /** Tapped when someone on a plan without AI reaches for the microphone. */
   onUpgrade?: () => void;
+  lang?: 'en' | 'ar';
 }
 
 const DEMO_FALLBACK_NOTES: StickyNoteData[] = [
@@ -115,9 +117,6 @@ const DEMO_FALLBACK_NOTES: StickyNoteData[] = [
   },
 ];
 
-// Low enough to fit a board of a few dozen notes on screen at once. Text is
-// unreadable down there, but the layout still is — that's what zooming out is
-// for on a canvas this size.
 const MIN_SCALE = 0.12;
 const MAX_SCALE = 2.5;
 
@@ -126,6 +125,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   creditBalance = 140,
   notes: propNotes,
   onUpdateNoteColor,
+  onUpdateNoteType,
   onDeleteNote,
   onMoveNote,
   onMoveCluster,
@@ -149,36 +149,82 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   aiEnabled = true,
   onUpgrade,
   onSaveNoteContent,
+  lang = 'en',
 }) => {
   const { colors, showChildNotes, setShowChildNotes } = useTheme();
   const [localNotes, setLocalNotes] = useState<StickyNoteData[]>(DEMO_FALLBACK_NOTES);
-  // propNotes is undefined only when no data source is wired up at all (e.g. a
-  // standalone preview) — once a real (possibly empty) array arrives, render it
-  // as-is so a genuinely empty space shows empty, not five fake notes.
   const isDemo = propNotes === undefined;
   const displayNotes = isDemo ? localNotes : propNotes;
 
-  const handleUpdateColor = (id: string, color: string) => {
-    if (onUpdateNoteColor) {
-      onUpdateNoteColor(id, color);
-    } else {
-      setLocalNotes((prev) => prev.map((item) => (item.id === id ? { ...item, color } : item)));
-    }
-  };
+  // ─── Undo / Redo Manager ──────────────────────────────────────────────────
+  const undoManager = useRef(new UndoManager(50));
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
-  const handleMoveNote = (id: string, x: number, y: number) => {
-    if (onMoveNote && !isDemo) {
-      onMoveNote(id, x, y);
-    } else {
-      setLocalNotes((prev) => prev.map((item) => (item.id === id ? { ...item, x, y } : item)));
+  const syncUndoState = useCallback(() => {
+    setCanUndo(undoManager.current.canUndo());
+    setCanRedo(undoManager.current.canRedo());
+  }, []);
+
+  const handleUndo = useCallback(async () => {
+    if (undoManager.current.canUndo()) {
+      await undoManager.current.undo();
+      syncUndoState();
     }
-  };
+  }, [syncUndoState]);
+
+  const handleRedo = useCallback(async () => {
+    if (undoManager.current.canRedo()) {
+      await undoManager.current.redo();
+      syncUndoState();
+    }
+  }, [syncUndoState]);
+
+  // Clear undo stack on unmount or space change
+  useEffect(() => {
+    undoManager.current.clear();
+    setCanUndo(false);
+    setCanRedo(false);
+  }, [spaceName]);
+
+  const handleUpdateColor = useCallback(
+    (id: string, color: string) => {
+      if (onUpdateNoteColor) {
+        onUpdateNoteColor(id, color);
+      } else {
+        setLocalNotes((prev) => prev.map((item) => (item.id === id ? { ...item, color } : item)));
+      }
+    },
+    [onUpdateNoteColor]
+  );
+
+  const handleUpdateType = useCallback(
+    (id: string, type: NoteType) => {
+      if (onUpdateNoteType) {
+        onUpdateNoteType(id, type);
+      } else {
+        setLocalNotes((prev) => prev.map((item) => (item.id === id ? { ...item, type } : item)));
+      }
+    },
+    [onUpdateNoteType]
+  );
+
+  const handleMoveNote = useCallback(
+    (id: string, x: number, y: number) => {
+      if (onMoveNote && !isDemo) {
+        onMoveNote(id, x, y);
+      } else {
+        setLocalNotes((prev) => prev.map((item) => (item.id === id ? { ...item, x, y } : item)));
+      }
+    },
+    [onMoveNote, isDemo]
+  );
 
   const descendantsMap = useSharedValue<Record<string, string[]>>({});
   const activeDragState = useSharedValue({ id: null as string | null, dx: 0, dy: 0 });
   const activeDragNotes = useSharedValue<string[]>([]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const map: Record<string, string[]> = {};
     const childrenMap: Record<string, string[]> = {};
     for (const note of displayNotes) {
@@ -187,12 +233,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
         childrenMap[note.parentId].push(note.id);
       }
     }
-    // `visiting` is the guard, not an optimisation. The memo above is only
-    // written *after* the walk returns, so a parent_id ring would recurse until
-    // the stack blew — and once such a row exists it reproduces on every load.
-    // The arrow tool is the first thing that can create one; wouldCycle refuses
-    // to, and this makes a bad row from anywhere else a wrong tree rather than
-    // a white screen.
+
     const getDescendants = (id: string, visiting = new Set<string>()): string[] => {
       if (map[id]) return map[id];
       if (visiting.has(id)) return [];
@@ -211,16 +252,15 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     descendantsMap.value = map;
   }, [displayNotes, descendantsMap]);
 
-  /**
-   * Everything that travels with `id`, excluding `id` itself.
-   *
-   * Union of the selection (when the dragged note is part of it) and every
-   * descendant of everything in that set. The union is the point: a marquee
-   * that happens to catch a parent but not its sub-notes would otherwise tear
-   * them off, and "a note's children follow it" is an invariant the board has
-   * always had. With nothing selected this is exactly the old behaviour.
-   */
-  const dragSetFor = React.useCallback(
+  const selectedRef = useRef<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const applySelection = useCallback((ids: string[]) => {
+    selectedRef.current = ids;
+    setSelectedIds(ids);
+  }, []);
+
+  const dragSetFor = useCallback(
     (id: string) => {
       const seeds = selectedRef.current.includes(id) ? selectedRef.current : [id];
       return withDescendants(seeds, descendantsMap.value).filter((n) => n !== id);
@@ -228,29 +268,32 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     [descendantsMap]
   );
 
-  const handleNoteDragStart = React.useCallback((id: string) => {
-    activeDragNotes.value = dragSetFor(id);
-  }, [activeDragNotes, dragSetFor]);
+  const handleNoteDragStart = useCallback(
+    (id: string) => {
+      activeDragNotes.value = dragSetFor(id);
+    },
+    [activeDragNotes, dragSetFor]
+  );
 
-  const activeGroupDragNotes = React.useRef<string[]>([]);
+  const activeGroupDragNotes = useRef<string[]>([]);
 
-  const handleGroupDragStart = React.useCallback((groupId: string) => {
-    const group = groups?.find((g) => g.id === groupId);
-    if (!group) return;
+  const handleGroupDragStart = useCallback(
+    (groupId: string) => {
+      const group = groups?.find((g) => g.id === groupId);
+      if (!group) return;
 
-    // Rendered size, not the stored one: a note whose row says 120 tall renders
-    // at least 200, so the old test counted notes that visibly hang out of the
-    // frame as being inside it.
-    const inside = notesInsideRect(
-      { x: group.x, y: group.y, w: group.width, h: group.height },
-      displayNotes
-    );
+      const inside = notesInsideRect(
+        { x: group.x, y: group.y, w: group.width, h: group.height },
+        displayNotes
+      );
 
-    activeGroupDragNotes.current = inside;
-    activeDragNotes.value = inside;
-  }, [groups, displayNotes, activeDragNotes]);
+      activeGroupDragNotes.current = inside;
+      activeDragNotes.value = inside;
+    },
+    [groups, displayNotes, activeDragNotes]
+  );
 
-  const handleMoveGroupEnd = React.useCallback(
+  const handleMoveGroupEnd = useCallback(
     (groupId: string, finalX: number, finalY: number) => {
       const group = groups?.find((g) => g.id === groupId);
       if (group) {
@@ -284,7 +327,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     [groups, displayNotes, onMoveGroup, onMoveCluster, isDemo]
   );
 
-  const handleMoveClusterEnd = React.useCallback(
+  const handleMoveClusterEnd = useCallback(
     (id: string, finalX: number, finalY: number) => {
       const parent = displayNotes.find((n) => n.id === id);
       if (!parent) return;
@@ -293,11 +336,13 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
       const dy = finalY - parent.y;
 
       const moves = [{ id, x: finalX, y: finalY }];
+      const prevPositions = [{ id, x: parent.x, y: parent.y }];
 
       for (const childId of dragSetFor(id)) {
         const child = displayNotes.find((n) => n.id === childId);
         if (child) {
           moves.push({ id: child.id, x: child.x + dx, y: child.y + dy });
+          prevPositions.push({ id: child.id, x: child.x, y: child.y });
         }
       }
 
@@ -311,97 +356,73 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
           })
         );
       }
+
+      undoManager.current.push({
+        name: `move ${moves.length} notes`,
+        undo: () => {
+          if (onMoveCluster && !isDemo) onMoveCluster(prevPositions);
+          else {
+            setLocalNotes((prev) =>
+              prev.map((item) => {
+                const p = prevPositions.find((prevP) => prevP.id === item.id);
+                return p ? { ...item, x: p.x, y: p.y } : item;
+              })
+            );
+          }
+        },
+        redo: () => {
+          if (onMoveCluster && !isDemo) onMoveCluster(moves);
+          else {
+            setLocalNotes((prev) =>
+              prev.map((item) => {
+                const m = moves.find((nextM) => nextM.id === item.id);
+                return m ? { ...item, x: m.x, y: m.y } : item;
+              })
+            );
+          }
+        },
+      });
+      syncUndoState();
     },
-    [displayNotes, dragSetFor, onMoveCluster, isDemo]
+    [displayNotes, dragSetFor, onMoveCluster, isDemo, syncUndoState]
   );
 
-  // Infinite pan/zoom canvas: translation + scale on the UI thread, exactly
-  // the transform coords.ts's worldToScreen/screenToWorld already assume —
-  // world-space note x/y stay untouched, only the container moves.
+  // Infinite pan/zoom canvas: shared values on UI thread
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const scaleValue = useSharedValue(1);
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
-  // Pinch keeps its own start values: pan is capped at one pointer, so the two
-  // never write translate in the same frame, but sharing the fields would still
-  // leave whichever gesture starts second holding the other's origin.
   const pinchStartX = useSharedValue(0);
   const pinchStartY = useSharedValue(0);
   const pinchFocalX = useSharedValue(0);
   const pinchFocalY = useSharedValue(0);
   const startScale = useSharedValue(1);
 
-
   // ─── Tool modes ─────────────────────────────────────────────────────────
-  /**
-   * What a tap on the board does.
-   *
-   *   pan     — nothing; one finger drags the board. The default.
-   *   select  — tap notes to add or remove them from a selection.
-   *   write   — tap a note and start typing in it, no editor to open.
-   *   arrow   — tap the parent, then tap the child.
-   *
-   * Both non-default modes are **tap-driven, not drag-driven**. The first cut
-   * copied the web build: press a note, drag a rubber band, release on the
-   * target; and drag a marquee box to multi-select. Both are mouse gestures.
-   * On a phone your finger covers the thing you are aiming at, there is no
-   * hover to preview the outcome, and a marquee fights the pan you use
-   * constantly. Two deliberate taps beat one blind drag.
-   *
-   * The mode is also the whole reason the canvas got slow: hit-testing on every
-   * drag frame meant a `runOnJS` hop plus a possible re-render of every note,
-   * sixty times a second. Tapping does that work twice per link.
-   */
   const [toolMode, setToolMode] = useState<ToolMode>('pan');
-  /** Which note the pencil tool has asked to open for typing. */
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const arrowArmed = toolMode === 'arrow';
 
-  /** Read inside the pan worklet, which must not pan in the tap-driven modes. */
   const panEnabled = useSharedValue(true);
-  React.useEffect(() => {
-    panEnabled.value = toolMode === 'pan';
+  useEffect(() => {
+    panEnabled.value = toolMode === 'pan' || toolMode === 'hand';
   }, [toolMode, panEnabled]);
 
-  /** The note tapped first in arrow mode — the parent-to-be. */
   const [linkSourceId, setLinkSourceId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const selectedRef = useRef<string[]>([]);
 
-  const applySelection = React.useCallback((ids: string[]) => {
-    selectedRef.current = ids;
-    setSelectedIds(ids);
-  }, []);
-
-  /**
-   * Parent lookup for the cycle check.
-   *
-   * Built from the *visible* notes, which is sound today only because hiding
-   * sub-notes leaves nothing but roots on the board — and a root cannot be an
-   * ancestor of anything you could still reach. If the visibility filter ever
-   * becomes partial, the upward walk would terminate early and this would fail
-   * open; feed it the unfiltered list at that point.
-   */
   const parentOf = React.useMemo(
     () => new Map<string, string | null>(displayNotes.map((n) => [n.id, n.parentId ?? null])),
     [displayNotes]
   );
 
-  /**
-   * A note was tapped. What that means depends on the mode.
-   *
-   * Runs on the JS thread from the note's own tap gesture, so there is no
-   * hit-testing to do — the note that was touched tells us who it is.
-   */
-  const handleNoteTap = React.useCallback(
+  const handleNoteTap = useCallback(
     (noteId: string) => {
       if (toolMode === 'write') {
         setEditingNoteId(noteId);
         return;
       }
 
-      if (toolMode === 'select') {
+      if (toolMode === 'select' || toolMode === 'pointer') {
         const next = selectedRef.current.includes(noteId)
           ? selectedRef.current.filter((id) => id !== noteId)
           : [...selectedRef.current, noteId];
@@ -409,13 +430,13 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
         return;
       }
 
-      if (toolMode === 'arrow') {
+      if (toolMode === 'arrow' || toolMode === 'connect') {
         if (!linkSourceId) {
           setLinkSourceId(noteId);
           return;
         }
         if (noteId === linkSourceId) {
-          setLinkSourceId(null); // tapped the parent again — cancel
+          setLinkSourceId(null);
           return;
         }
         if (wouldCycle(noteId, linkSourceId, parentOf)) {
@@ -429,9 +450,16 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
 
         const target = displayNotes.find((n) => n.id === noteId);
         const previousParentId = target?.parentId ?? null;
-        if (previousParentId !== linkSourceId) {
-          onSetNoteParent?.(noteId, linkSourceId);
-          if (!showChildNotes) onLinkedWhileHidden?.(noteId, linkSourceId, previousParentId);
+        const sourceId = linkSourceId;
+        if (previousParentId !== sourceId) {
+          onSetNoteParent?.(noteId, sourceId);
+          if (!showChildNotes) onLinkedWhileHidden?.(noteId, sourceId, previousParentId);
+          undoManager.current.push({
+            name: 'connect note',
+            undo: () => onSetNoteParent?.(noteId, previousParentId),
+            redo: () => onSetNoteParent?.(noteId, sourceId),
+          });
+          syncUndoState();
         }
         setLinkSourceId(null);
         setToolMode('pan');
@@ -450,25 +478,28 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
       onPressNote,
       showChildNotes,
       onLinkedWhileHidden,
+      syncUndoState,
     ]
   );
 
-  const changeMode = React.useCallback(
+  const handleNoteLongPress = useCallback(
+    (noteId: string) => {
+      applySelection([noteId]);
+    },
+    [applySelection]
+  );
+
+  const changeMode = useCallback(
     (mode: ToolMode) => {
       setLinkSourceId(null);
       setEditingNoteId(null);
-      if (mode !== 'select') applySelection([]);
+      if (mode !== 'select' && mode !== 'pointer') applySelection([]);
       setToolMode(mode);
     },
     [applySelection]
   );
 
-
-  /**
-   * Pan the board. Only pans — the tap-driven modes leave it disabled rather
-   * than teaching one gesture three jobs, which is what made the previous
-   * version both hard to follow and expensive per frame.
-   */
+  // ─── Gesture declarations (§4 of IMPLEMENTATION_REFERENCE.md) ───────────
   const panGesture = Gesture.Pan()
     .minPointers(1)
     .maxPointers(1)
@@ -492,18 +523,11 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     })
     .onUpdate((e) => {
       const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, startScale.value * e.scale));
-      // Zoom about the point between the fingers rather than the middle of the
-      // screen, so the thing you are pinching stays under them. With a
-      // top-left origin that means re-deriving the translation each frame:
-      // screen = translate + world * scale, held fixed at the focal point.
       translateX.value = zoomAbout(pinchFocalX.value, pinchStartX.value, startScale.value, next);
       translateY.value = zoomAbout(pinchFocalY.value, pinchStartY.value, startScale.value, next);
       scaleValue.value = next;
     });
 
-  // Pan and pinch run together; a note's own long-press-gated drag gesture
-  // wins over this pan via Gesture.Race in StickyNoteItem, so dragging a
-  // note doesn't also pan the board underneath it.
   const canvasGesture = Gesture.Simultaneous(panGesture, pinchGesture);
 
   const canvasAnimatedStyle = useAnimatedStyle(() => ({
@@ -514,15 +538,12 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     ],
   }));
 
-  // The board's own size, needed to turn "centre of the screen" into world
-  // coordinates and to work out a fit-everything zoom.
   const boardSize = useRef({ width: 0, height: 0 });
   const onBoardLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
     boardSize.current = { width, height };
   };
 
-  /** Screen centre -> world, undoing the container's transform. */
   const viewportCentre = useCallback(() => {
     const { width, height } = boardSize.current;
     return screenToWorld(
@@ -557,7 +578,6 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
       Math.max(MIN_SCALE, Math.min(boardW / (maxX - minX + PAD * 2), boardH / (maxY - minY + PAD * 2)))
     );
 
-    // Centre the content box in the viewport at the new scale.
     const next = {
       x: boardW / 2 - ((minX + maxX) / 2) * scale,
       y: boardH / 2 - ((minY + maxY) / 2) * scale,
@@ -568,172 +588,366 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     translateY.value = withTiming(next.y, { duration: 240 });
   }, [displayNotes, groups, scaleValue, translateX, translateY]);
 
+  const handleZoomIn = useCallback(() => {
+    const { width: boardW, height: boardH } = boardSize.current;
+    if (!boardW || !boardH) return;
+    const currentScale = scaleValue.value;
+    const nextScale = Math.min(MAX_SCALE, currentScale * 1.25);
+    if (nextScale === currentScale) return;
+    const focalX = boardW / 2;
+    const focalY = boardH / 2;
+    const nextX = zoomAbout(focalX, translateX.value, currentScale, nextScale);
+    const nextY = zoomAbout(focalY, translateY.value, currentScale, nextScale);
+    scaleValue.value = withTiming(nextScale, { duration: 200 });
+    translateX.value = withTiming(nextX, { duration: 200 });
+    translateY.value = withTiming(nextY, { duration: 200 });
+  }, [scaleValue, translateX, translateY]);
+
+  const handleZoomOut = useCallback(() => {
+    const { width: boardW, height: boardH } = boardSize.current;
+    if (!boardW || !boardH) return;
+    const currentScale = scaleValue.value;
+    const nextScale = Math.max(MIN_SCALE, currentScale / 1.25);
+    if (nextScale === currentScale) return;
+    const focalX = boardW / 2;
+    const focalY = boardH / 2;
+    const nextX = zoomAbout(focalX, translateX.value, currentScale, nextScale);
+    const nextY = zoomAbout(focalY, translateY.value, currentScale, nextScale);
+    scaleValue.value = withTiming(nextScale, { duration: 200 });
+    translateX.value = withTiming(nextX, { duration: 200 });
+    translateY.value = withTiming(nextY, { duration: 200 });
+  }, [scaleValue, translateX, translateY]);
+
+  // ─── Selection Bar Handlers ───────────────────────────────────────────────
+  const handleGroupSelection = useCallback(() => {
+    const selectedNotes = displayNotes.filter((n) => selectedIds.includes(n.id));
+    if (selectedNotes.length === 0 || !onAddGroup) return;
+
+    const minX = Math.min(...selectedNotes.map((n) => n.x));
+    const minY = Math.min(...selectedNotes.map((n) => n.y));
+    const maxX = Math.max(...selectedNotes.map((n) => n.x + (n.width || 240)));
+    const maxY = Math.max(...selectedNotes.map((n) => n.y + (n.height || 200)));
+    const PAD = 24;
+
+    onAddGroup(minX - PAD, minY - PAD);
+    undoManager.current.push({
+      name: 'group selection',
+      undo: () => {
+        if (groups && groups.length > 0 && onDeleteGroup) {
+          onDeleteGroup(groups[groups.length - 1].id);
+        }
+      },
+      redo: () => {
+        onAddGroup(minX - PAD, minY - PAD);
+      },
+    });
+    syncUndoState();
+    applySelection([]);
+  }, [displayNotes, selectedIds, onAddGroup, groups, onDeleteGroup, syncUndoState, applySelection]);
+
+  const handleLinkSelection = useCallback(() => {
+    if (selectedIds.length !== 2 || !onSetNoteParent) return;
+    const [parentId, childId] = selectedIds;
+
+    if (wouldCycle(childId, parentId, parentOf)) {
+      Toast.show({
+        type: 'error',
+        text1: 'That would make a loop',
+        text2: 'A note cannot end up underneath one of its own sub-notes.',
+      });
+      return;
+    }
+
+    const child = displayNotes.find((n) => n.id === childId);
+    const prevParent = child?.parentId ?? null;
+    onSetNoteParent(childId, parentId);
+
+    undoManager.current.push({
+      name: 'link notes',
+      undo: () => onSetNoteParent(childId, prevParent),
+      redo: () => onSetNoteParent(childId, parentId),
+    });
+    syncUndoState();
+    applySelection([]);
+  }, [selectedIds, onSetNoteParent, parentOf, displayNotes, syncUndoState, applySelection]);
+
+  const handleUnlinkSelection = useCallback(() => {
+    if (!onSetNoteParent) return;
+    const unlinked: Array<{ id: string; prevParent: string }> = [];
+
+    selectedIds.forEach((id) => {
+      const note = displayNotes.find((n) => n.id === id);
+      if (note?.parentId) {
+        unlinked.push({ id, prevParent: note.parentId });
+        onSetNoteParent(id, null);
+      }
+    });
+
+    if (unlinked.length > 0) {
+      undoManager.current.push({
+        name: 'unlink notes',
+        undo: () => unlinked.forEach((u) => onSetNoteParent(u.id, u.prevParent)),
+        redo: () => unlinked.forEach((u) => onSetNoteParent(u.id, null)),
+      });
+      syncUndoState();
+    }
+  }, [onSetNoteParent, selectedIds, displayNotes, syncUndoState]);
+
+  const handleColorSelection = useCallback(
+    (color: string) => {
+      const prevColors = new Map<string, string>();
+      selectedIds.forEach((id) => {
+        const note = displayNotes.find((n) => n.id === id);
+        if (note?.color) prevColors.set(id, note.color);
+        handleUpdateColor(id, color);
+      });
+
+      undoManager.current.push({
+        name: 'update color',
+        undo: () => {
+          prevColors.forEach((c, id) => handleUpdateColor(id, c));
+        },
+        redo: () => {
+          selectedIds.forEach((id) => handleUpdateColor(id, color));
+        },
+      });
+      syncUndoState();
+    },
+    [selectedIds, displayNotes, handleUpdateColor, syncUndoState]
+  );
+
+  const handleTypeSelection = useCallback(
+    (type: NoteType) => {
+      const prevTypes = new Map<string, NoteType>();
+      selectedIds.forEach((id) => {
+        const note = displayNotes.find((n) => n.id === id);
+        if (note?.type) prevTypes.set(id, note.type);
+        handleUpdateType(id, type);
+      });
+
+      undoManager.current.push({
+        name: 'update type',
+        undo: () => {
+          prevTypes.forEach((t, id) => handleUpdateType(id, t));
+        },
+        redo: () => {
+          selectedIds.forEach((id) => handleUpdateType(id, type));
+        },
+      });
+      syncUndoState();
+    },
+    [selectedIds, displayNotes, handleUpdateType, syncUndoState]
+  );
+
+  const handleDuplicateSelection = useCallback(() => {
+    if (!onAddNote) return;
+    selectedIds.forEach((id) => {
+      const note = displayNotes.find((n) => n.id === id);
+      if (note) {
+        onAddNote(note.x + 24, note.y + 24);
+      }
+    });
+    applySelection([]);
+  }, [onAddNote, selectedIds, displayNotes, applySelection]);
+
+  const handleDeleteSelection = useCallback(() => {
+    const deletedNotes = displayNotes.filter((n) => selectedIds.includes(n.id));
+    selectedIds.forEach((id) => {
+      onDeleteNote?.(id);
+    });
+
+    applySelection([]);
+    undoManager.current.push({
+      name: 'delete notes',
+      undo: () => {
+        deletedNotes.forEach((n) => onAddNote?.(n.x, n.y));
+      },
+      redo: () => {
+        deletedNotes.forEach((n) => onDeleteNote?.(n.id));
+      },
+    });
+    syncUndoState();
+  }, [displayNotes, selectedIds, onDeleteNote, applySelection, onAddNote, syncUndoState]);
+
+  const hasParentedSelectedNote = selectedIds.some((id) =>
+    Boolean(displayNotes.find((n) => n.id === id)?.parentId)
+  );
+
   return (
     <View className="flex-1 bg-board">
       <SafeAreaView className="flex-1">
-      {/* Header */}
-      <View
-        className="z-30 mx-3 mt-2 flex-row items-center justify-between px-4 py-3"
-        style={clay({ color: colors.surface, radius: 24 })}
-      >
-        <TouchableOpacity
-          className="flex-1 flex-row items-center"
-          onPress={onOpenSpaces}
-          disabled={!onOpenSpaces}
-          activeOpacity={0.7}
+        {/* Header with Space Name, Undo, Redo, CreditChip, Settings */}
+        <View
+          className="z-30 mx-3 mt-2 flex-row items-center justify-between px-3 py-2 shadow-sm"
+          style={clay({ color: colors.surface, radius: 24 })}
         >
-          <View className="flex-1">
-            <Text className="text-[19px] font-bold text-ink">
-              {spaceName} {onOpenSpaces ? '▾' : ''}
-            </Text>
-            <Text className="mt-0.5 text-[11px] font-medium text-muted">
-              {toolMode === 'arrow'
-                ? linkSourceId
-                  ? 'Now tap the note that belongs under it'
-                  : 'Tap the main idea first'
-                : toolMode === 'write'
-                  ? 'Tap a note to write in it'
-                  : toolMode === 'select'
-                  ? `Tap notes to select · ${selectedIds.length} chosen`
-                  : 'Pinch to zoom · hold a note to move it'}
-            </Text>
-          </View>
-        </TouchableOpacity>
-        <CreditChip balance={creditBalance} onPress={onOpenCredits} />
-        {/* Tidy and recordings live in the canvas toolbar — they act on the
-            board, so they belong beside it rather than in the chrome. */}
-        {onOpenSettings && (
+          {/* Space Selector */}
           <TouchableOpacity
-            className="ml-2 h-9 w-9 items-center justify-center"
-            style={clay({ color: shade(colors.surface, -0.06), radius: 18, depth: 0.6 })}
-            onPress={onOpenSettings}
+            className="flex-1 flex-row items-center min-h-[44px]"
+            onPress={onOpenSpaces}
+            disabled={!onOpenSpaces}
+            activeOpacity={0.7}
           >
-            <Settings size={18} color={colors.ink} strokeWidth={2.5} />
+            <View className="flex-1">
+              <Text className="text-[17px] font-bold text-ink" numberOfLines={1}>
+                {spaceName} {onOpenSpaces ? '▾' : ''}
+              </Text>
+            </View>
           </TouchableOpacity>
-        )}
-      </View>
 
-      {/* Infinite pan/zoom board */}
-      <GestureDetector gesture={canvasGesture}>
-        <View className="flex-1 overflow-hidden" onLayout={onBoardLayout}>
-          {/* Inside the board, not behind the whole screen: the grid scales
-              about its own top-left, so it has to share an origin with the note
-              container or the two would slide apart as you pinch. */}
-          <CanvasBackground translateX={translateX} translateY={translateY} scale={scaleValue} />
-          <Animated.View
-            style={[
-              { width: '100%', height: '100%', transformOrigin: 'top left' },
-              canvasAnimatedStyle,
-            ]}
-          >
-            {/* Frames first: they are the backdrop the notes sit on. */}
-            {groups?.map((group) => (
-              <NoteGroupFrame
-                key={group.id}
-                group={group}
-                onRename={onRenameGroup}
-                onMoveStart={handleGroupDragStart}
-                onMoveEnd={handleMoveGroupEnd}
-                onResize={onResizeGroup}
-                onDelete={onDeleteGroup}
-                canvasScale={scaleValue}
-                linkMode={false}
-              />
-            ))}
-            <NoteConnectors 
-              notes={displayNotes} 
-              activeDragState={activeDragState} 
-              activeDragNotes={activeDragNotes} 
-            />
-            {displayNotes.map((note) => (
-              <StickyNoteItem
-                key={note.id}
-                note={note}
-                onUpdateColor={handleUpdateColor}
-                onDelete={onDeleteNote}
-                onDragStart={handleNoteDragStart}
-                onMove={handleMoveNote}
-                onMoveClusterEnd={handleMoveClusterEnd}
-                onPressNote={onPressNote}
-                canvasScale={scaleValue}
-                childCount={childCounts?.get(note.id)}
+          {/* Undo and Redo buttons (min 44x44pt) */}
+          <View className="flex-row items-center gap-1 mr-2">
+            <TouchableOpacity
+              onPress={handleUndo}
+              disabled={!canUndo}
+              className={`w-11 h-11 items-center justify-center rounded-xl ${
+                canUndo ? 'opacity-100' : 'opacity-30'
+              }`}
+              style={{ backgroundColor: shade(colors.surface, -0.04) }}
+              accessibilityLabel="Undo"
+              activeOpacity={0.7}
+            >
+              <Undo2 size={19} color={colors.ink} strokeWidth={2.4} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleRedo}
+              disabled={!canRedo}
+              className={`w-11 h-11 items-center justify-center rounded-xl ${
+                canRedo ? 'opacity-100' : 'opacity-30'
+              }`}
+              style={{ backgroundColor: shade(colors.surface, -0.04) }}
+              accessibilityLabel="Redo"
+              activeOpacity={0.7}
+            >
+              <Redo2 size={19} color={colors.ink} strokeWidth={2.4} />
+            </TouchableOpacity>
+          </View>
+
+          <CreditChip balance={creditBalance} onPress={onOpenCredits} />
+
+          {onOpenSettings && (
+            <TouchableOpacity
+              className="ml-2 h-11 w-11 items-center justify-center rounded-xl"
+              style={clay({ color: shade(colors.surface, -0.06), radius: 14, depth: 0.6 })}
+              onPress={onOpenSettings}
+              accessibilityLabel="Settings"
+            >
+              <Settings size={18} color={colors.ink} strokeWidth={2.5} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Infinite pan/zoom board */}
+        <GestureDetector gesture={canvasGesture}>
+          <View className="flex-1 overflow-hidden" onLayout={onBoardLayout}>
+            <CanvasBackground translateX={translateX} translateY={translateY} scale={scaleValue} />
+            <Animated.View
+              style={[
+                { width: '100%', height: '100%', transformOrigin: 'top left' },
+                canvasAnimatedStyle,
+              ]}
+            >
+              {/* Groups / Frames */}
+              {groups?.map((group) => (
+                <NoteGroupFrame
+                  key={group.id}
+                  group={group}
+                  onRename={onRenameGroup}
+                  onMoveStart={handleGroupDragStart}
+                  onMoveEnd={handleMoveGroupEnd}
+                  onResize={onResizeGroup}
+                  onDelete={onDeleteGroup}
+                  canvasScale={scaleValue}
+                  linkMode={false}
+                />
+              ))}
+              <NoteConnectors
+                notes={displayNotes}
                 activeDragState={activeDragState}
                 activeDragNotes={activeDragNotes}
-                selected={selectedIds.includes(note.id)}
-                linkRole={note.id === linkSourceId ? 'source' : null}
-                onTap={handleNoteTap}
-                onSaveContent={onSaveNoteContent}
-                editRequested={note.id === editingNoteId}
-                onEditRequestHandled={() => setEditingNoteId(null)}
               />
-            ))}
-          </Animated.View>
-        </View>
-      </GestureDetector>
+              {displayNotes.map((note) => (
+                <StickyNoteItem
+                  key={note.id}
+                  note={note}
+                  onUpdateColor={handleUpdateColor}
+                  onDelete={onDeleteNote}
+                  onDragStart={handleNoteDragStart}
+                  onMove={handleMoveNote}
+                  onMoveClusterEnd={handleMoveClusterEnd}
+                  onPressNote={onPressNote}
+                  canvasScale={scaleValue}
+                  childCount={childCounts?.get(note.id)}
+                  activeDragState={activeDragState}
+                  activeDragNotes={activeDragNotes}
+                  selected={selectedIds.includes(note.id)}
+                  linkRole={note.id === linkSourceId ? 'source' : null}
+                  onTap={handleNoteTap}
+                  onLongPress={handleNoteLongPress}
+                  onSaveContent={onSaveNoteContent}
+                  editRequested={note.id === editingNoteId}
+                  onEditRequestHandled={() => setEditingNoteId(null)}
+                />
+              ))}
+            </Animated.View>
+          </View>
+        </GestureDetector>
 
-      <CanvasToolbar
-        onAddNote={
-          onAddNote
-            ? () => {
-                const { x, y } = viewportCentre();
-                onAddNote(x - 95, y - 72);
-              }
-            : undefined
-        }
-        onAddGroup={
-          onAddGroup
-            ? () => {
-                const { x, y } = viewportCentre();
-                onAddGroup(x - 230, y - 180);
-              }
-            : undefined
-        }
-        toolMode={toolMode}
-        canConnect={Boolean(onSetNoteParent)}
-        onSetToolMode={changeMode}
-        onTidy={onTidy}
-        onFitToView={displayNotes.length ? handleFitToView : undefined}
-        // Recordings are an AI artefact; a Free board has none to list.
-        onOpenRecordings={aiEnabled ? onOpenRecordings : undefined}
-        showChildNotes={showChildNotes}
-        onToggleChildNotes={() => setShowChildNotes(!showChildNotes)}
-      />
-
-      {/*
-        The microphone only exists on a plan that includes it. Free keeps the
-        entire board — showing a mic that fails on tap teaches people the app is
-        broken rather than that the feature is paid.
-      */}
-      {aiEnabled ? (
-        <View className="absolute inset-x-0 bottom-[30px] z-40 items-center">
-          <TouchableOpacity
-            className="h-[74px] w-[74px] items-center justify-center"
-            style={[clayAccent(colors, 37), { shadowColor: colors.accent, shadowOpacity: 0.45 }]}
-            activeOpacity={0.85}
-            onPress={onStartRecord}
-          >
-            <View
-              className="absolute h-[92px] w-[92px] rounded-full"
-              style={{ backgroundColor: `${colors.accent}2E` }}
-            />
-            <Mic size={32} color="#FFF" strokeWidth={2.5} />
-          </TouchableOpacity>
-        </View>
-      ) : onUpgrade ? (
-        <View className="absolute inset-x-0 bottom-[30px] z-40 items-center px-8">
-          <TouchableOpacity
-            className="flex-row items-center px-5 py-3"
-            style={clay({ color: colors.surface, radius: 24, depth: 0.8 })}
-            activeOpacity={0.85}
-            onPress={onUpgrade}
-          >
-            <Sparkles size={16} color={colors.accent} strokeWidth={2.5} />
-            <Text className="ml-2 text-[13px] font-bold text-ink">
-              Turn talking into notes
-            </Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
+        {/* Bottom Toolbar & Selection Bar */}
+        <CanvasToolbar
+          onAddNote={
+            onAddNote
+              ? () => {
+                  const { x, y } = viewportCentre();
+                  onAddNote(x - 95, y - 72);
+                }
+              : undefined
+          }
+          onAddSubNote={
+            onAddNote && selectedIds.length === 1
+              ? () => {
+                  const parent = displayNotes.find((n) => n.id === selectedIds[0]);
+                  if (parent) {
+                    onAddNote(parent.x + 40, parent.y + (parent.height || 200) + 20);
+                  }
+                }
+              : undefined
+          }
+          onAddGroup={
+            onAddGroup
+              ? () => {
+                  const { x, y } = viewportCentre();
+                  onAddGroup(x - 230, y - 180);
+                }
+              : undefined
+          }
+          toolMode={toolMode}
+          canConnect={Boolean(onSetNoteParent)}
+          onSetToolMode={changeMode}
+          onTidy={onTidy}
+          onFitToView={displayNotes.length ? handleFitToView : undefined}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          onOpenRecordings={aiEnabled ? onOpenRecordings : undefined}
+          onStartRecord={aiEnabled ? onStartRecord : onUpgrade}
+          showChildNotes={showChildNotes}
+          onToggleChildNotes={() => setShowChildNotes(!showChildNotes)}
+          selectedNoteCount={selectedIds.length}
+          selectedGroupCount={0}
+          hasParentedNote={hasParentedSelectedNote}
+          arrowSourceId={linkSourceId}
+          onGroupSelection={handleGroupSelection}
+          onLinkSelection={handleLinkSelection}
+          onUnlinkSelection={handleUnlinkSelection}
+          onColorSelection={handleColorSelection}
+          onTypeSelection={handleTypeSelection}
+          onDuplicateSelection={handleDuplicateSelection}
+          onDeleteSelection={handleDeleteSelection}
+          onClearSelection={() => applySelection([])}
+          onCancelMode={() => changeMode('pan')}
+          lang={lang}
+        />
       </SafeAreaView>
     </View>
   );

@@ -16,7 +16,7 @@ import { creditsToRecordingLabel, creditsToTranscriptionLabel } from '../api/bil
  * user's accent exactly.
  *
  * Everything the user can press posts a message back over `ReactNativeWebView`;
- * the page itself never talks to Supabase, never sees a token, and cannot
+ * the page itself never talks to the API, never sees a token, and cannot
  * navigate anywhere.
  */
 

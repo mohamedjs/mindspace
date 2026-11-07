@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import type { AuthSession } from '../core/ports';
-import { supabaseContainer } from '../infrastructure/container';
+import { container } from '../infrastructure/container';
 
-const auth = supabaseContainer.auth;
+const auth = container.auth;
 
 interface AuthContextValue {
   user: AuthSession['user'] | null;

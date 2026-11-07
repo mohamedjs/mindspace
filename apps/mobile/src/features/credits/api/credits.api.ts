@@ -1,8 +1,8 @@
 import type { CreditBalance, LedgerEntry } from '../../../core/domain';
-import { supabaseContainer } from '../../../infrastructure/container';
+import { container } from '../../../infrastructure/container';
 
 export type { CreditBalance, LedgerEntry };
 
-export const fetchBalance = () => supabaseContainer.credits.getBalance();
+export const fetchBalance = () => container.credits.getBalance();
 export const fetchLedger = (limit = 50, offset = 0) =>
-  supabaseContainer.credits.listLedger(limit, offset);
+  container.credits.listLedger(limit, offset);

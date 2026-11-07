@@ -22,7 +22,9 @@ import {
   useMoveCluster,
   useSetNoteParent,
   useUpdateNoteContent,
+  useUpdateNoteType,
 } from '../features/sticky-notes/hooks/useNotes';
+import type { NoteType } from '../core/domain';
 import {
   useGroups,
   useCreateGroup,
@@ -101,6 +103,7 @@ export default function HomeScreen() {
   const { data: notes } = useNotes(spaceId);
   const { data: balance } = useBalance();
   const recolor = useUpdateNoteColor(spaceId);
+  const updateNoteTypeMutation = useUpdateNoteType();
   const moveNote = useMoveNote(spaceId);
   const moveCluster = useMoveCluster(spaceId);
   const removeNote = useDeleteNote(spaceId);
@@ -212,6 +215,11 @@ export default function HomeScreen() {
   const handleUpdateColor = useCallback(
     (noteId: string, color: string) => recolor.mutate({ noteId, color }),
     [recolor]
+  );
+
+  const handleUpdateType = useCallback(
+    (noteId: string, type: NoteType) => updateNoteTypeMutation.mutate({ noteId, type }),
+    [updateNoteTypeMutation]
   );
 
   const handleMoveNote = useCallback(
@@ -371,6 +379,7 @@ export default function HomeScreen() {
           onResizeGroup={handleResizeGroup}
           onDeleteGroup={handleDeleteGroup}
           onUpdateNoteColor={handleUpdateColor}
+          onUpdateNoteType={handleUpdateType}
           onDeleteNote={handleDeleteNote}
           onMoveNote={handleMoveNote}
           onMoveCluster={handleMoveCluster}

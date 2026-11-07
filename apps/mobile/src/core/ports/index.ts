@@ -23,7 +23,7 @@ import type {
 /**
  * What the application needs from the outside world, stated as contracts.
  *
- * No signature here mentions Supabase — no PostgrestError, no RealtimeChannel,
+ * No signature here mentions the backend database or transport — no provider error, no realtime channel,
  * no FunctionsHttpError. That is the whole point: an adapter can satisfy these
  * with Postgres, with a REST backend, or with an in-memory fake in a test, and
  * nothing above the line changes.
@@ -63,11 +63,24 @@ export interface NoteRepository {
 
 // ─── Spaces & groups ──────────────────────────────────────────────────────
 
+export interface MindMapEdge {
+  id: string;
+  from: string;
+  to: string;
+  type: string;
+}
+
+export interface MindMapData {
+  nodes: Note[];
+  edges: MindMapEdge[];
+}
+
 export interface SpaceRepository {
   list(): Promise<Space[]>;
   create(name: string, emoji?: string): Promise<Space>;
   rename(spaceId: string, name: string): Promise<void>;
   remove(spaceId: string): Promise<void>;
+  getMindMap(spaceId: string): Promise<MindMapData>;
 }
 
 export interface CreateGroupInput {
@@ -95,6 +108,7 @@ export interface RecordingRepository {
   markFailed(recordingId: string, error: string): Promise<void>;
   markCompleted(recordingId: string): Promise<void>;
   findTranscriptId(recordingId: string): Promise<string | null>;
+  finish(recordingId: string): Promise<void>;
   /** Current status and error, for seeding a subscription without waiting. */
   getStatus(recordingId: string): Promise<{ status: RecordingStatusValue; error: string | null } | null>;
 }

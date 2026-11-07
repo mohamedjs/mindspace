@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { RecordingStatus } from '../../../core/domain';
-import { supabaseContainer } from '../../../infrastructure/container';
+import { container } from '../../../infrastructure/container';
 
 export type { RecordingStatus };
 
@@ -23,14 +23,14 @@ export function useRecordingStatus(recordingId: string | null) {
     let cancelled = false;
 
     // Seed with the current value so we don't wait for the first change event.
-    supabaseContainer.recordings.getStatus(recordingId).then((current) => {
+    container.recordings.getStatus(recordingId).then((current) => {
       if (!cancelled && current) {
         setStatus(current.status);
         setError(current.error);
       }
     });
 
-    const unsubscribe = supabaseContainer.realtime.watchRecording(recordingId, (next) => {
+    const unsubscribe = container.realtime.watchRecording(recordingId, (next) => {
       setStatus(next.status);
       setError(next.error);
     });

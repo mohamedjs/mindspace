@@ -1,5 +1,4 @@
 import '../../global.css';
-import 'react-native-url-polyfill/auto';
 import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';

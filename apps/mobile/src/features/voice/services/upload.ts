@@ -1,4 +1,4 @@
-import { supabaseContainer } from '../../../infrastructure/container';
+import { container } from '../../../infrastructure/container';
 import { buildStoragePath, extensionFor } from './audioFormat';
 
 export { buildStoragePath, extensionFor };
@@ -18,4 +18,4 @@ export interface UploadArgs {
  * the app is doing.
  */
 export const uploadRecording = (args: UploadArgs): Promise<string> =>
-  supabaseContainer.storage.uploadRecording(args);
+  container.storage.uploadRecording(args);

@@ -5,20 +5,16 @@ import { join, relative, sep } from 'path';
  * The boundary that makes this architecture real.
  *
  * Ports and domain types describe intent; nothing stops a hook from importing
- * the Supabase client anyway and quietly re-coupling the app to one database.
+ * the API client directly and quietly re-coupling the app to implementation details.
  * This test is what stops it. Without an executable rule the separation decays
  * within a few features, and you find out during a migration instead of here.
- *
- * Scoped to src/** on purpose: supabase/functions/** is the server. Those
- * files talk to the database directly and correctly, and are not part of the
- * client's layering.
  */
 
 const SRC = join(__dirname, '..');
 const INFRASTRUCTURE = join(SRC, 'infrastructure');
 
-/** Only these may reach for the database driver. */
-const FORBIDDEN_IMPORTS = [/@supabase\/supabase-js/, /lib\/supabase\/client/];
+/** Only infrastructure may reach for the network client adapters. */
+const FORBIDDEN_IMPORTS = [/infrastructure\/api/];
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -49,7 +45,7 @@ describe('architecture boundary', () => {
     )
     .map((file) => relative(SRC, file));
 
-  it('keeps the database driver inside src/infrastructure', () => {
+  it('keeps the API adapter inside src/infrastructure', () => {
     expect(offenders).toEqual([]);
   });
 
@@ -60,7 +56,6 @@ describe('architecture boundary', () => {
       .filter((file) =>
         importsIn(readFileSync(file, 'utf8')).some(
           (spec) =>
-            spec.startsWith('@supabase') ||
             spec.startsWith('react') ||
             spec.startsWith('expo') ||
             spec.includes('/infrastructure/') ||

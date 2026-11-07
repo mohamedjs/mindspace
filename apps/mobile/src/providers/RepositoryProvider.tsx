@@ -1,8 +1,8 @@
 import React, { createContext, useContext } from 'react';
 import type { Repositories } from '../core/ports/container';
-import { supabaseContainer } from '../infrastructure/container';
+import { container } from '../infrastructure/container';
 
-const RepositoryContext = createContext<Repositories>(supabaseContainer);
+const RepositoryContext = createContext<Repositories>(container);
 
 /**
  * Makes the repositories reachable from hooks.
@@ -14,7 +14,7 @@ const RepositoryContext = createContext<Repositories>(supabaseContainer);
 export const RepositoryProvider: React.FC<{
   children: React.ReactNode;
   value?: Repositories;
-}> = ({ children, value = supabaseContainer }) => (
+}> = ({ children, value = container }) => (
   <RepositoryContext.Provider value={value}>{children}</RepositoryContext.Provider>
 );
 

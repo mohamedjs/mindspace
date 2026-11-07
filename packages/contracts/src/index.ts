@@ -645,4 +645,98 @@ export const recordingOutSchema = yup.object({
 
 export type RecordingOut = yup.InferType<typeof recordingOutSchema>;
 
+// ============================================================
+// AI Models & Preferences Contracts
+// ============================================================
+
+export const aiModelOutSchema = yup.object({
+  id: yup.string().required(),
+  provider: yup.string().required(),
+  model_id: yup.string().required(),
+  display_name: yup.string().required(),
+  kind: yup.string().required(),
+  credit_multiplier: yup.number().required(),
+  tier: yup.string().required(),
+  is_default: yup.boolean().required(),
+});
+
+export type AiModelOut = yup.InferType<typeof aiModelOutSchema>;
+
+export const modelPreferencesOutSchema = yup.object({
+  chat_model_id: yup.string().nullable().defined(),
+  transcribe_model_id: yup.string().nullable().defined(),
+});
+
+export type ModelPreferencesOut = yup.InferType<typeof modelPreferencesOutSchema>;
+
+export const updateModelPreferencesRequestSchema = yup.object({
+  kind: yup.mixed<'chat' | 'transcribe'>().oneOf(['chat', 'transcribe']).required('kind is required'),
+  model_row_id: yup.string().nullable().optional(),
+  modelRowId: yup.string().nullable().optional(),
+});
+
+export type UpdateModelPreferencesRequest = yup.InferType<typeof updateModelPreferencesRequestSchema>;
+
+// ============================================================
+// AI Actions & Extraction Contracts
+// ============================================================
+
+export const AI_ACTION_KINDS = [
+  'extract_thoughts',
+  'detect_relations',
+  'thought_evolution',
+  'weekly_digest',
+] as const;
+
+export type AiActionKind = (typeof AI_ACTION_KINDS)[number];
+
+export const AI_ACTION_STATUSES = [
+  'pending',
+  'proposed',
+  'accepted',
+  'partially_accepted',
+  'rejected',
+  'undone',
+  'failed',
+] as const;
+
+export type AiActionStatus = (typeof AI_ACTION_STATUSES)[number];
+
+export const aiExtractRequestSchema = yup.object({
+  transcript_id: yup.string().optional(),
+  transcriptId: yup.string().optional(),
+  space_id: yup.string().optional(),
+  spaceId: yup.string().optional(),
+  parent_note_id: yup.string().nullable().optional(),
+  parentNoteId: yup.string().nullable().optional(),
+});
+
+export type AiExtractRequest = yup.InferType<typeof aiExtractRequestSchema>;
+
+export const aiExtractResponseSchema = yup.object({
+  aiActionId: yup.string().required(),
+  noteIds: yup.array().of(yup.string().required()).required(),
+  creditsCharged: yup.number().required(),
+});
+
+export type AiExtractResponse = yup.InferType<typeof aiExtractResponseSchema>;
+
+export const aiNoteWriteRequestSchema = yup.object({
+  transcript_id: yup.string().optional(),
+  transcriptId: yup.string().optional(),
+  note_id: yup.string().optional(),
+  noteId: yup.string().optional(),
+});
+
+export type AiNoteWriteRequest = yup.InferType<typeof aiNoteWriteRequestSchema>;
+
+export const aiNoteWriteResponseSchema = yup.object({
+  noteId: yup.string().required(),
+  changed: yup.boolean().required(),
+  creditsCharged: yup.number().required(),
+});
+
+export type AiNoteWriteResponse = yup.InferType<typeof aiNoteWriteResponseSchema>;
+
+
 

@@ -10,5 +10,6 @@ export default defineConfig({
     globalSetup: ['src/test/globalSetup.ts'],
     env: { DATABASE_URL: databaseUrl.href },
     hookTimeout: 30_000,
+    fileParallelism: false,
   },
 });

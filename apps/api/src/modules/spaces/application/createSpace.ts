@@ -4,8 +4,8 @@ import type { SpaceSummary } from '../domain/entities.js';
 export class CreateSpaceUseCase {
   constructor(private repo: SpaceRepositoryPort) {}
 
-  async execute(userId: string, name: string, emoji?: string): Promise<SpaceSummary> {
+  async execute(userId: string, name: string, emoji?: string, trx?: unknown): Promise<SpaceSummary> {
     const trimmed = name.trim();
-    return this.repo.createSpace(userId, trimmed, emoji);
+    return this.repo.createSpace(userId, trimmed, emoji, trx);
   }
 }

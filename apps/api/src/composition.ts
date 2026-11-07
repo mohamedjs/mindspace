@@ -36,10 +36,18 @@ import {
   type PipelineWorker,
   type RecordingsModule,
 } from './modules/recordings/index.js';
+import {
+  createAiModule,
+  FakeAiChatProvider,
+  OpenAICompatibleChatProvider,
+  type AiChatProviderPort,
+  type AiModule,
+} from './modules/ai/index.js';
 
 export interface ComposeAppOptions {
   keyValidator?: KeyValidator;
   transcriber?: Transcriber;
+  chatProvider?: AiChatProviderPort;
   entitlements?: EntitlementsPort;
   extractor?: ExtractorPort;
   splitThresholdMs?: number;
@@ -64,6 +72,7 @@ export interface AppComposition {
   notesModule: NotesModule;
   transcriptionModule: TranscriptionModule;
   recordingsModule: RecordingsModule;
+  aiModule: AiModule;
   close: () => Promise<void>;
 }
 
@@ -76,6 +85,7 @@ export interface WorkerComposition {
   spacesModule: SpacesModule;
   transcriptionModule: TranscriptionModule;
   recordingsModule: RecordingsModule;
+  aiModule: AiModule;
   worker: PipelineWorker;
   close: () => Promise<void>;
 }
@@ -170,6 +180,45 @@ export async function composeApp(
     transcriber: defaultTranscriber,
   });
 
+  const defaultChatProvider =
+    options?.chatProvider ??
+    (config.NODE_ENV === 'test' ? new FakeAiChatProvider() : new OpenAICompatibleChatProvider());
+
+  const aiModule = createAiModule({
+    db,
+    requireUser,
+    spacePort: {
+      ensureOwned: async (spaceId: string, userId: string, trx?: unknown) => {
+        await spacesModule.ensureOwned(spaceId, userId, trx);
+      },
+      createSpace: async (userId: string, space: { name: string; emoji?: string }, trx?: unknown) => {
+        return spacesModule.createSpace(userId, space.name, space.emoji, trx);
+      },
+      bumpActivity: async (spaceId: string, noteDelta: number, trx?: unknown) => {
+        await spacesModule.bumpActivity(spaceId, noteDelta, trx);
+      },
+    },
+    keyResolver: {
+      resolveKey: (userId: string, provider: string, byokOnly: boolean) =>
+        byokModule.resolveKey(userId, provider, byokOnly),
+    },
+    creditsPort: {
+      reserve: (userId: string, amount: number, tx?: unknown) =>
+        creditsModule.reserve(userId, amount, tx),
+      settle: (
+        reservationId: string,
+        userId: string,
+        actual: number,
+        aiActionId: string | null,
+        tx: unknown
+      ) => creditsModule.settle(reservationId, userId, actual, aiActionId, tx),
+      release: (reservationId: string, userId?: string, tx?: unknown) =>
+        creditsModule.release(reservationId, userId, tx),
+    },
+    chatProvider: defaultChatProvider,
+    llmConcurrency: config.LLM_CONCURRENCY,
+  });
+
   const recordingsModule = createRecordingsModule({
     db,
     cache,
@@ -199,7 +248,12 @@ export async function composeApp(
         creditsModule.release(reservationId, userId, tx),
     },
     entitlements: options?.entitlements,
-    extractor: options?.extractor,
+    extractor:
+      options?.extractor !== undefined
+        ? options.extractor
+        : config.NODE_ENV === 'test'
+          ? (options?.chatProvider ? aiModule.extractor : undefined)
+          : aiModule.extractor,
     sttConcurrency: config.STT_CONCURRENCY,
     pipelineWorkers: config.PIPELINE_WORKERS,
     splitThresholdMs: options?.splitThresholdMs,
@@ -218,6 +272,7 @@ export async function composeApp(
   timelineModule.registerRoutes(server);
   notesModule.registerRoutes(server);
   recordingsModule.registerRoutes(server);
+  aiModule.registerRoutes(server);
 
   return {
     config,
@@ -233,6 +288,7 @@ export async function composeApp(
     notesModule,
     transcriptionModule,
     recordingsModule,
+    aiModule,
     close: async () => {
       await server.close();
       await closeCache(cache);
@@ -277,6 +333,44 @@ export async function composeWorker(
     transcriber: defaultTranscriber,
   });
 
+  const defaultChatProvider =
+    options?.chatProvider ??
+    (config.NODE_ENV === 'test' ? new FakeAiChatProvider() : new OpenAICompatibleChatProvider());
+
+  const aiModule = createAiModule({
+    db,
+    spacePort: {
+      ensureOwned: async (spaceId: string, userId: string, trx?: unknown) => {
+        await spacesModule.ensureOwned(spaceId, userId, trx);
+      },
+      createSpace: async (userId: string, space: { name: string; emoji?: string }, trx?: unknown) => {
+        return spacesModule.createSpace(userId, space.name, space.emoji, trx);
+      },
+      bumpActivity: async (spaceId: string, noteDelta: number, trx?: unknown) => {
+        await spacesModule.bumpActivity(spaceId, noteDelta, trx);
+      },
+    },
+    keyResolver: {
+      resolveKey: (userId: string, provider: string, byokOnly: boolean) =>
+        byokModule.resolveKey(userId, provider, byokOnly),
+    },
+    creditsPort: {
+      reserve: (userId: string, amount: number, tx?: unknown) =>
+        creditsModule.reserve(userId, amount, tx),
+      settle: (
+        reservationId: string,
+        userId: string,
+        actual: number,
+        aiActionId: string | null,
+        tx: unknown
+      ) => creditsModule.settle(reservationId, userId, actual, aiActionId, tx),
+      release: (reservationId: string, userId?: string, tx?: unknown) =>
+        creditsModule.release(reservationId, userId, tx),
+    },
+    chatProvider: defaultChatProvider,
+    llmConcurrency: config.LLM_CONCURRENCY,
+  });
+
   const recordingsModule = createRecordingsModule({
     db,
     cache,
@@ -305,7 +399,12 @@ export async function composeWorker(
         creditsModule.release(reservationId, userId, tx),
     },
     entitlements: options?.entitlements,
-    extractor: options?.extractor,
+    extractor:
+      options?.extractor !== undefined
+        ? options.extractor
+        : config.NODE_ENV === 'test'
+          ? (options?.chatProvider ? aiModule.extractor : undefined)
+          : aiModule.extractor,
     sttConcurrency: config.STT_CONCURRENCY,
     pipelineWorkers: config.PIPELINE_WORKERS,
     splitThresholdMs: options?.splitThresholdMs,
@@ -326,6 +425,7 @@ export async function composeWorker(
     spacesModule,
     transcriptionModule,
     recordingsModule,
+    aiModule,
     worker,
     close: async () => {
       await worker.stop();

@@ -32,6 +32,7 @@ export interface SpacesModuleDependencies {
 export interface SpacesModule {
   registerRoutes(app: FastifyInstance): void;
   createDefaultSpace(trxOrDb: unknown, userId: string): Promise<void>;
+  createSpace(userId: string, name: string, emoji?: string, trx?: unknown): Promise<SpaceSummary>;
   ensureOwned(spaceId: string, userId: string, trx?: unknown): Promise<Space>;
   bumpActivity(spaceId: string, noteDelta: number, trx?: unknown): Promise<void>;
   listSpaces(userId: string): Promise<SpaceSummary[]>;
@@ -61,6 +62,7 @@ export function createSpacesModule(depsOrDb: Database | SpacesModuleDependencies
       });
     },
     createDefaultSpace: (trx, userId) => createDefaultSpaceUseCase.execute(trx, userId),
+    createSpace: (userId, name, emoji, trx) => createSpaceUseCase.execute(userId, name, emoji, trx),
     ensureOwned: (spaceId, userId, trx) => ensureSpaceOwnedUseCase.execute(userId, spaceId, trx),
     bumpActivity: (spaceId, noteDelta, trx) => bumpSpaceActivityUseCase.execute(spaceId, noteDelta, trx),
     listSpaces: (userId) => listSpacesUseCase.execute(userId),

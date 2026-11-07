@@ -65,8 +65,9 @@ export class KyselySpaceRepository implements SpaceRepositoryPort {
     };
   }
 
-  async createSpace(userId: string, name: string, emoji = '💡'): Promise<SpaceSummary> {
-    const inserted = await this.db
+  async createSpace(userId: string, name: string, emoji = '💡', trx?: unknown): Promise<SpaceSummary> {
+    const client = (trx as Database) || this.db;
+    const inserted = await client
       .insertInto('spaces')
       .values({
         user_id: userId,

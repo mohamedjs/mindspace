@@ -1,0 +1,28 @@
+{
+  "name": "@mindspace/extension",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build && node scripts/package-zip.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@mindspace/contracts": "*",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.3.7",
+    "@types/node": "^22.13.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "archiver": "^7.0.1",
+    "fake-indexeddb": "^6.2.7",
+    "typescript": "^5.8.2",
+    "vite": "^7.3.7",
+    "vitest": "^5.1.0"
+  }
+}

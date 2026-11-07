@@ -10,7 +10,7 @@
 | 06 | Done, verified by Claude |
 | 07 | Done, verified by Claude |
 | 08 | Web builds and serves on the LAN; API path tested by Claude, UI not clicked through |
-| 09 | Not started |
+| 09 | Done by Gemini; tests, build and manifest checked by Claude, not tested in a real meeting |
 | 10 | Not started |
 | 11 | Not started |
 | 12 | Not started |

@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Mindspace Meeting Recorder",
+  "version": "1.0.0",
+  "description": "Record meetings in Chrome and generate structured notes and spaces in Mindspace",
+  "permissions": [
+    "tabCapture",
+    "offscreen",
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "http://localhost:8080/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Mindspace Meeting Recorder"
+  },
+  "background": {
+    "service_worker": "src/background.ts",
+    "type": "module"
+  }
+}

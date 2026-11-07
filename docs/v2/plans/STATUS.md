@@ -9,7 +9,7 @@
 | 05 | Done, verified by Claude |
 | 06 | Done, verified by Claude |
 | 07 | Done, verified by Claude |
-| 08 | In progress |
+| 08 | Partial: stopped at the 50-minute limit, not reviewed by Claude |
 | 09 | Not started |
 | 10 | Not started |
 | 11 | Not started |

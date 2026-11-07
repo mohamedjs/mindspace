@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
+    "api:dev": "npm run dev --workspace=@mindspace/api",
+    "check:api": "npm run check --workspace=@mindspace/api",
     "mobile": "npm run start   --workspace=@mindspace/mobile",
     "mobile:tunnel": "npm run tunnel  --workspace=@mindspace/mobile",
     "mobile:lan": "npm run lan     --workspace=@mindspace/mobile",

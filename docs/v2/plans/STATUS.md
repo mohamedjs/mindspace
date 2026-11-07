@@ -11,9 +11,9 @@
 | 07 | Done, verified by Claude |
 | 08 | Web builds and serves on the LAN; API path tested by Claude, UI not clicked through |
 | 09 | Done by Gemini; tests, build and manifest checked by Claude, not tested in a real meeting |
-| 10 | Not started |
-| 11 | Not started |
-| 12 | Not started |
+| 10 | Done by Gemini; typecheck checked by Claude, needs a device test |
+| 11 | Done by Gemini; build checked by Claude, content not reviewed |
+| 12 | Done by Gemini; prod Compose validated by Claude, not deployed |
 
 ## Continuing without Claude
 

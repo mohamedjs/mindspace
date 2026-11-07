@@ -104,6 +104,11 @@ services:
   dev:
     profiles: ["tools"]
     image: node:26-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     working_dir: /repo
     user: "${UID:-1000}:${GID:-1000}"
     environment:

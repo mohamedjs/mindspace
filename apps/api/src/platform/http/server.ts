@@ -95,6 +95,9 @@ export async function buildServer(deps: ServerDependencies): Promise<FastifyInst
     },
   });
 
+  app.decorate('db', deps.db);
+  app.decorate('config', deps.config);
+
   const corsOrigins = deps.config.CORS_ORIGINS.split(',').map((s) => s.trim());
   await app.register(cors, {
     origin: corsOrigins,

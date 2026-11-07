@@ -24,6 +24,7 @@ Binding: `docs/v2/ARCHITECTURE.md`, then `docs/v2/AUDIT.md`. Each plan's Accepta
 - Run everything through Compose: `docker compose run --rm dev <command>`. Do not install on the host.
 - Tests use the Compose Postgres and Redis. Each module gets an authorization test proving user B gets 404 on user A's rows.
 - Never read `.env` values outside development placeholders, and never connect to Supabase or any production system.
+- Tests use the `mindspace_test` database, rebuilt on every run. Atomic state changes must use conditional updates, and work done before throwing inside a transaction is rolled back.
 - Standard check for every backend phase: `docker compose run --rm dev npm run check -w @mindspace/api`, which runs typecheck, lint and tests.
 
 ## If Claude's limit runs out

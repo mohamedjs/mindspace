@@ -10,11 +10,22 @@ import { systemClock } from './platform/clock.js';
 import { logger } from './platform/logger.js';
 import { buildServer } from './platform/http/server.js';
 import { createRequireUser } from './platform/http/auth.js';
-import { createCreditsModule } from './modules/credits/index.js';
+import { createCreditsModule, type CreditsModule } from './modules/credits/index.js';
+import {
+  createByokModule,
+  FakeKeyValidator,
+  HttpKeyValidator,
+  type ByokModule,
+  type KeyValidator,
+} from './modules/byok/index.js';
 import { createSpacesModule, type SpacesModule } from './modules/spaces/index.js';
 import { createAuthModule, type AuthModule } from './modules/auth/index.js';
 import { createTimelineModule, type TimelineModule } from './modules/timeline/index.js';
 import { createNotesModule, type NotesModule } from './modules/notes/index.js';
+
+export interface ComposeAppOptions {
+  keyValidator?: KeyValidator;
+}
 
 export interface AppComposition {
   config: AppConfig;
@@ -22,6 +33,8 @@ export interface AppComposition {
   db: Database;
   cache: Cache;
   server: FastifyInstance;
+  creditsModule: CreditsModule;
+  byokModule: ByokModule;
   authModule: AuthModule;
   spacesModule: SpacesModule;
   timelineModule: TimelineModule;
@@ -29,7 +42,10 @@ export interface AppComposition {
   close: () => Promise<void>;
 }
 
-export async function composeApp(envOverrides?: Partial<AppConfig>): Promise<AppComposition> {
+export async function composeApp(
+  envOverrides?: Partial<AppConfig>,
+  options?: ComposeAppOptions
+): Promise<AppComposition> {
   const baseConfig = loadConfig();
   const config: AppConfig = { ...baseConfig, ...envOverrides };
 
@@ -46,7 +62,29 @@ export async function composeApp(envOverrides?: Partial<AppConfig>): Promise<App
 
   // Wire modules through composition root
   const requireUser = createRequireUser(config.JWT_SECRET);
-  const creditsModule = createCreditsModule(db);
+  const creditsModule = createCreditsModule({ db, requireUser });
+
+  const defaultKeyValidator =
+    options?.keyValidator ??
+    (config.NODE_ENV === 'test' ? new FakeKeyValidator() : new HttpKeyValidator());
+
+  const byokModule = createByokModule({
+    db,
+    masterKeyBase64: config.BYOK_MASTER_KEY,
+    requireUser,
+    keyValidator: defaultKeyValidator,
+    getPlatformKey: (provider: string) => {
+      const envName = `PLATFORM_${provider.toUpperCase()}_KEY`;
+      if (process.env[envName]) {
+        return process.env[envName];
+      }
+      if (provider === 'openrouter' && config.OPENROUTER_API_KEY) {
+        return config.OPENROUTER_API_KEY;
+      }
+      return undefined;
+    },
+  });
+
   const spacesModule = createSpacesModule({ db, requireUser });
 
   const authModule = createAuthModule({
@@ -88,6 +126,8 @@ export async function composeApp(envOverrides?: Partial<AppConfig>): Promise<App
 
   // Register presentation routes
   authModule.registerRoutes(server);
+  creditsModule.registerRoutes(server);
+  byokModule.registerRoutes(server);
   spacesModule.registerRoutes(server);
   timelineModule.registerRoutes(server);
   notesModule.registerRoutes(server);
@@ -98,6 +138,8 @@ export async function composeApp(envOverrides?: Partial<AppConfig>): Promise<App
     db,
     cache,
     server,
+    creditsModule,
+    byokModule,
     authModule,
     spacesModule,
     timelineModule,

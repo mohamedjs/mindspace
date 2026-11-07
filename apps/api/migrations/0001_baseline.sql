@@ -234,7 +234,7 @@ create table credit_reservations (
   status       text not null default 'held',
   ai_action_id uuid,
   created_at   timestamptz not null default now(),
-  expires_at   timestamptz not null default now() + interval '10 minutes'
+  expires_at   timestamptz not null default now() + interval '30 minutes'
 );
 create index ix_credit_reservations_status_expires on credit_reservations (status, expires_at);
 

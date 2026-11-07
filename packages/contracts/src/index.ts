@@ -460,3 +460,96 @@ export const ingestResponseSchema = yup.object({
 });
 
 export type IngestResponse = yup.InferType<typeof ingestResponseSchema>;
+
+// ============================================================
+// Credits Contracts
+// ============================================================
+
+export const LEDGER_REASONS = [
+  'signup_grant',
+  'monthly_refill',
+  'purchase',
+  'usage',
+  'refund',
+  'reversal',
+  'admin_adjust',
+] as const;
+
+export type LedgerReason = (typeof LEDGER_REASONS)[number];
+
+export const creditBalanceOutSchema = yup.object({
+  credits_balance: yup.number().integer().required(),
+  credits_reserved: yup.number().integer().required(),
+});
+
+export type CreditBalanceOut = yup.InferType<typeof creditBalanceOutSchema>;
+
+export const creditLedgerOutSchema = yup.object({
+  id: yup.number().integer().required(),
+  delta: yup.number().integer().required(),
+  balance_after: yup.number().integer().required(),
+  reason: yup.mixed<LedgerReason>().oneOf([...LEDGER_REASONS]).required(),
+  created_at: yup.string().required(),
+});
+
+export type CreditLedgerOut = yup.InferType<typeof creditLedgerOutSchema>;
+
+export const creditPackageOutSchema = yup.object({
+  id: yup.string().required(),
+  name: yup.string().required(),
+  price_egp: yup.number().integer().required(),
+  base_credits: yup.number().integer().required(),
+  bonus_pct: yup.number().integer().required(),
+  total_credits: yup.number().integer().required(),
+  is_featured: yup.boolean().required(),
+  store_product_id_ios: yup.string().nullable().defined(),
+  store_product_id_android: yup.string().nullable().defined(),
+  sort_order: yup.number().integer().required(),
+});
+
+export type CreditPackageOut = yup.InferType<typeof creditPackageOutSchema>;
+
+// ============================================================
+// BYOK Keys Contracts
+// ============================================================
+
+export const BYOK_PROVIDERS = ['openai', 'anthropic', 'google'] as const;
+export type ByokProvider = (typeof BYOK_PROVIDERS)[number];
+
+export const PROVIDER_IDS = [
+  'openrouter',
+  'openai',
+  'google',
+  'anthropic',
+  'nvidia',
+  'custom',
+] as const;
+export type ProviderId = (typeof PROVIDER_IDS)[number];
+
+export const userKeyOutSchema = yup.object({
+  id: yup.string().required(),
+  provider: yup.string().required(),
+  label: yup.string().nullable().defined(),
+  key_hint: yup.string().required(),
+  is_active: yup.boolean().required(),
+  last_error: yup.string().nullable().defined(),
+  created_at: yup.string().required(),
+});
+
+export type UserKeyOut = yup.InferType<typeof userKeyOutSchema>;
+
+export const saveKeyRequestSchema = yup.object({
+  provider: yup.mixed<ByokProvider>().oneOf([...BYOK_PROVIDERS]).required('provider is required'),
+  apiKey: yup.string().min(8, 'API key must be at least 8 characters').required('apiKey is required'),
+  label: yup.string().nullable().optional(),
+});
+
+export type SaveKeyRequest = yup.InferType<typeof saveKeyRequestSchema>;
+
+export const saveKeyResponseSchema = yup.object({
+  ok: yup.boolean().oneOf([true]).required(),
+  keyHint: yup.string().required(),
+});
+
+export type SaveKeyResponse = yup.InferType<typeof saveKeyResponseSchema>;
+

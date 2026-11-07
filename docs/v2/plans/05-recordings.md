@@ -25,3 +25,7 @@ Standard check, with a fake provider covering: 3 parts complete out of order and
 Extraction.
 
 ## Decisions
+- The `dev` image has no ffmpeg. Build `dev` from a small Dockerfile adding ffmpeg, so tests can use real audio. The worker image installs it too.
+- Claiming must be atomic, in one `UPDATE ... WHERE id = (SELECT ... FOR UPDATE SKIP LOCKED) RETURNING`. Reservations and settlement use the `credits` module through ports.
+- Never rethrow inside a transaction after work that must persist.
+- Paths are built only from server-generated ids and validated extensions, never from client text.

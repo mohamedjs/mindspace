@@ -8,6 +8,7 @@ Port sections 3, 4, 5, 13 and 16 of `docs/fastapi-migration/05-api-contract.md`,
 - Position changes must not write timeline events.
 - `POST /notes/move` updates all rows in one statement, after verifying all ids belong to the caller. Limit 500.
 - Cycle guard on parent changes.
+- Bulk routes for `docs/v2/TOOLBAR.md`, each limited to 500 ids, verifying all belong to the caller, in one transaction: `POST /notes/bulk-update` `{ids, color?, type?}`, `POST /notes/bulk-delete` `{ids}` with child promotion, `POST /notes/bulk-restore` `{ids}` for undo, `POST /notes/bulk-create` `{notes, relations}` for duplicate.
 - Add `GET /spaces/:id/mind-map` returning `{nodes, edges}` from live notes and relationships. Server-side tree building only; layout stays on the client.
 
 ## Acceptance checks

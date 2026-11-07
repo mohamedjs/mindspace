@@ -1,6 +1,6 @@
 import type { Note as StickyNoteData, NoteType } from '../../../core/domain';
 import type { CreateNoteInput, NoteMove } from '../../../core/ports';
-import { supabaseContainer } from '../../../infrastructure/container';
+import { container } from '../../../infrastructure/container';
 
 /**
  * Thin delegation to the notes repository.
@@ -11,7 +11,7 @@ import { supabaseContainer } from '../../../infrastructure/container';
  * so the dependency is injectable; these functions exist for the call sites
  * that already import them.
  */
-const notes = supabaseContainer.notes;
+const notes = container.notes;
 
 export const fetchNotes = (spaceId: string): Promise<StickyNoteData[]> => notes.listBySpace(spaceId);
 export const fetchNote = (noteId: string) => notes.findById(noteId);

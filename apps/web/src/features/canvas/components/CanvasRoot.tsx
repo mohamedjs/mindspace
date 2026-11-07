@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Mic, Settings, Menu, LogOut, Coins } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Settings, Menu, LogOut, Coins } from 'lucide-react';
 import { toast } from 'sonner';
-import { CreditChip } from '@/features/credits/components/CreditChip';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/shared/theme';
 import { CanvasBackground } from './CanvasBackground';
@@ -14,22 +13,13 @@ import { screenToWorld, wheelIntent, zoomAbout } from '../utils/coords';
 import { wouldCycle } from '../utils/graph';
 import { resolveShortcut } from '../utils/shortcuts';
 import type { NoteGroup } from '../api/groups.api';
-import { clay, clayAccent, shade } from '@/shared/theme/clay';
+import { clay, shade } from '@/shared/theme/clay';
 import { StickyNoteItem } from '@/features/sticky-notes/components/StickyNoteItem';
 import type { Note as StickyNoteData } from '@/core/domain';
-import { useSetNoteParent, useUpdateNoteContent } from '@/features/sticky-notes/hooks/useNotes';
-
-/** The toolbar's handlers, shared verbatim between the buttons and the keyboard shortcuts. */
-type ToolbarActions = {
-  onAddNote?: () => void;
-  onAddGroup?: () => void;
-  onTidy?: () => void;
-  onFitToView?: () => void;
-  onOpenRecordings?: () => void;
-  onToggleChildNotes: () => void;
-  onUndo?: () => void;
-  onRedo?: () => void;
-};
+import { useSetNoteParent, useUpdateNoteContent, useUpdateNoteType } from '@/features/sticky-notes/hooks/useNotes';
+import { UndoManager } from '../utils/undoStack';
+import type { NotesView } from '@/shared/theme';
+import type { NoteType } from '@/shared/constants/tokens';
 
 interface CanvasRootProps {
   spaceId?: string | null;
@@ -37,7 +27,11 @@ interface CanvasRootProps {
   creditBalance?: number;
   notes?: StickyNoteData[];
   groups?: NoteGroup[];
+  readOnly?: boolean;
+  activeView?: NotesView;
+  onSelectView?: (view: NotesView) => void;
   onUpdateNoteColor?: (noteId: string, color: string) => void;
+  onUpdateNoteType?: (noteId: string, type: NoteType) => void;
   onDeleteNote?: (noteId: string) => void;
   onMoveNote?: (noteId: string, x: number, y: number) => void;
   onMoveCluster?: (moves: { id: string; x: number; y: number }[]) => void;
@@ -49,7 +43,7 @@ interface CanvasRootProps {
   onTidy?: () => void;
   onPressNote?: (noteId: string, e?: React.PointerEvent) => void;
   onAddNote?: (x: number, y: number) => void;
-  onAddGroup?: (x: number, y: number) => void;
+  onAddGroup?: (x: number, y: number, width?: number, height?: number) => void;
   onRenameGroup?: (groupId: string, title: string) => void;
   onMoveGroup?: (groupId: string, x: number, y: number) => void;
   onResizeGroup?: (groupId: string, width: number, height: number) => void;
@@ -73,9 +67,13 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   spaceName = 'My MindSpace',
   creditBalance = 140,
   notes: propNotes,
+  groups,
+  readOnly = false,
+  activeView = 'canvas',
+  onSelectView,
   onUpdateNoteColor,
+  onUpdateNoteType,
   onDeleteNote,
-  onMoveNote,
   onMoveCluster,
   onStartRecord,
   onOpenCredits,
@@ -84,7 +82,6 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   onOpenRecordings,
   onTidy,
   onPressNote,
-  groups,
   onAddNote,
   onAddGroup,
   onRenameGroup,
@@ -101,15 +98,48 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   const displayNotes = isDemo ? localNotes : propNotes;
 
   const setParentMutation = useSetNoteParent(spaceId ?? null);
+  const updateTypeMutation = useUpdateNoteType(spaceId ?? null);
+
+  const undoManager = useRef(new UndoManager(50));
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  useEffect(() => {
+    undoManager.current.clear();
+    const timer = setTimeout(() => {
+      setCanUndo(false);
+      setCanRedo(false);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [spaceId]);
+
+  const handleUndo = useCallback(async () => {
+    if (undoManager.current.canUndo()) {
+      await undoManager.current.undo();
+      setCanUndo(undoManager.current.canUndo());
+      setCanRedo(undoManager.current.canRedo());
+    }
+  }, []);
+
+  const handleRedo = useCallback(async () => {
+    if (undoManager.current.canRedo()) {
+      await undoManager.current.redo();
+      setCanUndo(undoManager.current.canUndo());
+      setCanRedo(undoManager.current.canRedo());
+    }
+  }, []);
 
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const [scale, setScale] = useState(1);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   const translateRef = useRef(translate);
-  translateRef.current = translate;
   const scaleRef = useRef(scale);
-  scaleRef.current = scale;
+
+  useEffect(() => {
+    translateRef.current = translate;
+    scaleRef.current = scale;
+  }, [translate, scale]);
 
   const boardRef = useRef<HTMLDivElement>(null);
 
@@ -117,6 +147,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   const [activeDragDelta, setActiveDragDelta] = useState({ dx: 0, dy: 0 });
   const [activeDragClusterIds, setActiveDragClusterIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
 
   // Selection Box
   const [selectionBox, setSelectionBox] = useState<{
@@ -140,8 +171,9 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   const [connectorContextMenu, setConnectorContextMenu] = useState<{ childId: string; x: number; y: number } | null>(null);
 
   // Build parent lookup map for cycle checks
-  const parentOfMap = new Map<string, string | null>(
-    displayNotes.map((n) => [n.id, n.parentId ?? null])
+  const parentOfMap = useMemo(
+    () => new Map<string, string | null>(displayNotes.map((n) => [n.id, n.parentId ?? null])),
+    [displayNotes]
   );
 
   const isHoveredValid =
@@ -178,7 +210,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     descendantsMap.current = map;
   }, [displayNotes]);
 
-  const saveContentMutation = useUpdateNoteContent();
+  const saveContentMutation = useUpdateNoteContent(spaceId ?? null);
   const handleSaveNoteContent = useCallback(
     (noteId: string, fields: { title: string | null; content: string }) => {
       if (isDemo) {
@@ -203,21 +235,16 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     [isDemo, setParentMutation]
   );
 
-  const handleUpdateColor = (id: string, color: string) => {
-    if (onUpdateNoteColor) {
-      onUpdateNoteColor(id, color);
-    } else {
-      setLocalNotes((prev) => prev.map((item) => (item.id === id ? { ...item, color } : item)));
-    }
-  };
-
-  const handleMoveNote = (id: string, x: number, y: number) => {
-    if (onMoveNote && !isDemo) {
-      onMoveNote(id, x, y);
-    } else {
-      setLocalNotes((prev) => prev.map((item) => (item.id === id ? { ...item, x, y } : item)));
-    }
-  };
+  const handleUpdateColor = useCallback(
+    (id: string, color: string) => {
+      if (onUpdateNoteColor) {
+        onUpdateNoteColor(id, color);
+      } else {
+        setLocalNotes((prev) => prev.map((item) => (item.id === id ? { ...item, color } : item)));
+      }
+    },
+    [onUpdateNoteColor]
+  );
 
   /**
    * Everything that travels with `id`.
@@ -271,6 +298,11 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
       }
     }
 
+    const prevPositions = moves.map((m) => {
+      const orig = displayNotes.find((n) => n.id === m.id);
+      return { id: m.id, x: orig?.x ?? m.x, y: orig?.y ?? m.y };
+    });
+
     if (onMoveCluster && !isDemo) {
       onMoveCluster(moves);
     } else {
@@ -281,6 +313,34 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
         })
       );
     }
+
+    undoManager.current.push({
+      name: `move ${moves.length} notes`,
+      undo: () => {
+        if (onMoveCluster && !isDemo) onMoveCluster(prevPositions);
+        else {
+          setLocalNotes((prev) =>
+            prev.map((n) => {
+              const m = prevPositions.find((p) => p.id === n.id);
+              return m ? { ...n, x: m.x, y: m.y } : n;
+            })
+          );
+        }
+      },
+      redo: () => {
+        if (onMoveCluster && !isDemo) onMoveCluster(moves);
+        else {
+          setLocalNotes((prev) =>
+            prev.map((n) => {
+              const m = moves.find((p) => p.id === n.id);
+              return m ? { ...n, x: m.x, y: m.y } : n;
+            })
+          );
+        }
+      },
+    });
+    setCanUndo(true);
+    setCanRedo(false);
   };
 
   // Group drag handlers
@@ -430,19 +490,299 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     };
   }, [zoomTo]);
 
-  // Toolbar handlers, filled in on every render below so the keydown listener
-  // always calls exactly what the toolbar buttons call.
-  const toolbarActionsRef = useRef<ToolbarActions>({ onToggleChildNotes: () => {} });
+  // Viewport center helper
+  const viewportCentre = useCallback(() => {
+    const el = boardRef.current;
+    const w = el ? el.clientWidth : window.innerWidth;
+    const h = el ? el.clientHeight : window.innerHeight;
+    return screenToWorld(w / 2, h / 2, translateRef.current, scaleRef.current);
+  }, []);
+
+  // Fit to view
+  const handleFitToView = useCallback(() => {
+    const boxes = [
+      ...displayNotes.map((n) => ({
+        x: n.x,
+        y: n.y,
+        width: n.width ?? 250,
+        height: n.height ?? 190,
+      })),
+      ...(groups ?? []),
+    ];
+    const el = boardRef.current;
+    const boardW = el ? el.clientWidth : window.innerWidth;
+    const boardH = el ? el.clientHeight : window.innerHeight;
+
+    if (!boxes.length || !boardW || !boardH) return;
+
+    const minX = Math.min(...boxes.map((b) => b.x));
+    const minY = Math.min(...boxes.map((b) => b.y));
+    const maxX = Math.max(...boxes.map((b) => b.x + b.width));
+    const maxY = Math.max(...boxes.map((b) => b.y + b.height));
+
+    const PAD = 48;
+    const targetScale = Math.min(
+      MAX_SCALE,
+      Math.max(
+        MIN_SCALE,
+        Math.min(boardW / (maxX - minX + PAD * 2), boardH / (maxY - minY + PAD * 2))
+      )
+    );
+
+    const nextTranslate = {
+      x: boardW / 2 - ((minX + maxX) / 2) * targetScale,
+      y: boardH / 2 - ((minY + maxY) / 2) * targetScale,
+    };
+
+    setIsTransitioning(true);
+    setScale(targetScale);
+    setTranslate(nextTranslate);
+
+    setTimeout(() => {
+      setIsTransitioning(false);
+    }, 250);
+  }, [displayNotes, groups]);
+
+  const handleZoomIn = useCallback(() => {
+    const board = boardRef.current;
+    if (!board) return;
+    const rect = board.getBoundingClientRect();
+    zoomTo(scaleRef.current * 1.2, rect.width / 2, rect.height / 2);
+  }, [zoomTo]);
+
+  const handleZoomOut = useCallback(() => {
+    const board = boardRef.current;
+    if (!board) return;
+    const rect = board.getBoundingClientRect();
+    zoomTo(scaleRef.current / 1.2, rect.width / 2, rect.height / 2);
+  }, [zoomTo]);
+
+  const handleResetZoom = useCallback(() => {
+    setScale(1);
+    setTranslate({ x: 0, y: 0 });
+  }, []);
+
+  const handleAddNoteAtCenter = useCallback(() => {
+    if (readOnly || !onAddNote) return;
+    const { x, y } = viewportCentre();
+    onAddNote(Math.round(x - 95), Math.round(y - 72));
+  }, [readOnly, onAddNote, viewportCentre]);
+
+  const handleAddSubNote = useCallback(() => {
+    if (readOnly || selectedIds.length !== 1 || !onAddNote) return;
+    const parent = displayNotes.find((n) => n.id === selectedIds[0]);
+    if (!parent) return;
+    onAddNote(parent.x + 80, parent.y + 120);
+  }, [readOnly, selectedIds, displayNotes, onAddNote]);
+
+  const handleGroupSelection = useCallback(() => {
+    if (readOnly || !onAddGroup) return;
+    const selectedNotes = displayNotes.filter((n) => selectedIds.includes(n.id));
+    if (selectedNotes.length > 0) {
+      const minX = Math.min(...selectedNotes.map((n) => n.x));
+      const minY = Math.min(...selectedNotes.map((n) => n.y));
+      const maxX = Math.max(...selectedNotes.map((n) => n.x + 250));
+      const maxY = Math.max(...selectedNotes.map((n) => n.y + 190));
+      const gx = minX - 24;
+      const gy = minY - 24;
+      const gw = maxX - minX + 48;
+      const gh = maxY - minY + 48;
+      onAddGroup(gx, gy, gw, gh);
+      undoManager.current.push({
+        name: 'group selection',
+        undo: () => {
+          if (groups && groups.length > 0 && onDeleteGroup) {
+            onDeleteGroup(groups[groups.length - 1].id);
+          }
+        },
+        redo: () => {
+          onAddGroup(gx, gy, gw, gh);
+        },
+      });
+      setCanUndo(true);
+      setCanRedo(false);
+    } else {
+      const { x, y } = viewportCentre();
+      onAddGroup(Math.round(x - 150), Math.round(y - 120), 300, 240);
+    }
+  }, [readOnly, displayNotes, selectedIds, onAddGroup, viewportCentre, groups, onDeleteGroup]);
+
+  const handleUngroupSelection = useCallback(() => {
+    if (readOnly || !onDeleteGroup) return;
+    for (const gid of selectedGroupIds) {
+      onDeleteGroup(gid);
+    }
+    setSelectedGroupIds([]);
+  }, [readOnly, onDeleteGroup, selectedGroupIds]);
+
+  const handleLinkSelection = useCallback(() => {
+    if (readOnly || selectedIds.length !== 2) return;
+    const [parent, child] = selectedIds;
+    if (wouldCycle(child, parent, parentOfMap)) {
+      toast.error('Cannot link notes: would create a circular dependency');
+      return;
+    }
+    handleSetNoteParent(child, parent);
+    toast.success('Linked notes');
+  }, [readOnly, selectedIds, parentOfMap, handleSetNoteParent]);
+
+  const handleUnlinkSelection = useCallback(() => {
+    if (readOnly) return;
+    for (const id of selectedIds) {
+      const note = displayNotes.find((n) => n.id === id);
+      if (note?.parentId) {
+        handleSetNoteParent(id, null);
+      }
+    }
+    toast.success('Unlinked notes');
+  }, [readOnly, selectedIds, displayNotes, handleSetNoteParent]);
+
+  const handleColorSelection = useCallback((color: string) => {
+    if (readOnly) return;
+    const prevColors = new Map<string, string>();
+    for (const id of selectedIds) {
+      const note = displayNotes.find((n) => n.id === id);
+      if (note && note.color) {
+        prevColors.set(id, note.color);
+        handleUpdateColor(id, color);
+      }
+    }
+    undoManager.current.push({
+      name: 'update color',
+      undo: () => {
+        prevColors.forEach((c, id) => handleUpdateColor(id, c));
+      },
+      redo: () => {
+        for (const id of selectedIds) handleUpdateColor(id, color);
+      },
+    });
+    setCanUndo(true);
+    setCanRedo(false);
+  }, [readOnly, selectedIds, displayNotes, handleUpdateColor]);
+
+  const handleTypeSelection = useCallback((type: NoteType) => {
+    if (readOnly) return;
+    const prevTypes = new Map<string, NoteType>();
+    const applyType = (id: string, t: NoteType) => {
+      if (onUpdateNoteType) onUpdateNoteType(id, t);
+      else updateTypeMutation.mutate({ noteId: id, type: t });
+    };
+    for (const id of selectedIds) {
+      const note = displayNotes.find((n) => n.id === id);
+      if (note) {
+        prevTypes.set(id, note.type);
+        applyType(id, type);
+      }
+    }
+    undoManager.current.push({
+      name: 'update type',
+      undo: () => {
+        prevTypes.forEach((t, id) => applyType(id, t));
+      },
+      redo: () => {
+        for (const id of selectedIds) applyType(id, type);
+      },
+    });
+    setCanUndo(true);
+    setCanRedo(false);
+  }, [readOnly, selectedIds, displayNotes, onUpdateNoteType, updateTypeMutation]);
+
+  const handleDuplicateSelection = useCallback(() => {
+    if (readOnly || !onAddNote || selectedIds.length === 0) return;
+    const toDuplicate = displayNotes.filter((n) => selectedIds.includes(n.id));
+    for (const note of toDuplicate) {
+      onAddNote(note.x + 24, note.y + 24);
+    }
+    toast.success('Duplicated notes');
+  }, [readOnly, onAddNote, selectedIds, displayNotes]);
+
+  const handleDeleteSelection = useCallback(() => {
+    if (readOnly) return;
+    const toDeleteNotes = displayNotes.filter((n) => selectedIds.includes(n.id));
+    const toDeleteGroups = (groups ?? []).filter((g) => selectedGroupIds.includes(g.id));
+    if (!toDeleteNotes.length && !toDeleteGroups.length) return;
+
+    for (const n of toDeleteNotes) onDeleteNote?.(n.id);
+    for (const g of toDeleteGroups) onDeleteGroup?.(g.id);
+
+    setSelectedIds([]);
+    setSelectedGroupIds([]);
+
+    toast('Deleted notes', {
+      duration: 6000,
+      action: {
+        label: 'Undo',
+        onClick: () => handleUndo(),
+      },
+    });
+  }, [readOnly, displayNotes, groups, selectedIds, selectedGroupIds, onDeleteNote, onDeleteGroup, handleUndo]);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedIds([]);
+    setSelectedGroupIds([]);
+    if (toolMode !== 'pointer') {
+      setToolMode('pointer');
+    }
+  }, [toolMode]);
+
+  const handleTidySelection = useCallback(() => {
+    if (readOnly || selectedIds.length < 2 || !onTidy) return;
+    onTidy();
+  }, [readOnly, selectedIds.length, onTidy]);
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    if (readOnly) return;
+    const board = boardRef.current;
+    if (!board) return;
+    const rect = board.getBoundingClientRect();
+    const world = screenToWorld(
+      e.clientX - rect.left,
+      e.clientY - rect.top,
+      translateRef.current,
+      scaleRef.current
+    );
+    onAddNote?.(Math.round(world.x - 125), Math.round(world.y - 95));
+  }, [readOnly, onAddNote]);
+
+  const hasParentedNote = selectedIds.some((id) =>
+    Boolean(displayNotes.find((n) => n.id === id)?.parentId)
+  );
+
+  const visibleDisplayNotes = useMemo(() => {
+    const vpWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    const vpHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
+    const buffer = 200;
+    const minWx = (-buffer - translate.x) / scale;
+    const maxWx = (vpWidth + buffer - translate.x) / scale;
+    const minWy = (-buffer - translate.y) / scale;
+    const maxWy = (vpHeight + buffer - translate.y) / scale;
+
+    return displayNotes.filter((note) => {
+      if (
+        selectedIds.includes(note.id) ||
+        activeDragId === note.id ||
+        activeDragClusterIds.includes(note.id) ||
+        editingNoteId === note.id
+      ) {
+        return true;
+      }
+      return (
+        note.x + 320 >= minWx &&
+        note.x <= maxWx &&
+        note.y + 240 >= minWy &&
+        note.y <= maxWy
+      );
+    });
+  }, [displayNotes, translate, scale, selectedIds, activeDragId, activeDragClusterIds, editingNoteId]);
 
   // Keyboard navigation, shortcuts, Escape & Delete detaching
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
 
-      // Escape is the way out of write mode, so it has to work from inside the
-      // note editor too — it types nothing, so nothing is stolen by taking it.
+      // Escape clears selection / cancels mode
       if (e.key === 'Escape') {
-        setToolMode('pointer');
+        handleClearSelection();
         setArrowSourceId(null);
         setArrowPointerWorld(null);
         setHoveredTargetId(null);
@@ -451,9 +791,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
         return;
       }
 
-      // Every other key: never steal it from somewhere the user can type. The
-      // note editor is a TipTap contenteditable, not a TEXTAREA, so it needs
-      // the isContentEditable arm — without it, typing "5" spawned a note.
+      // Never steal keys while user is typing in inputs or contenteditable
       if (['INPUT', 'TEXTAREA'].includes(target?.tagName ?? '') || target?.isContentEditable) return;
 
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedConnectorChildId) {
@@ -473,45 +811,122 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
         targetTag: target?.tagName,
         isContentEditable: target?.isContentEditable,
       });
+
       if (action) {
-        const a = toolbarActionsRef.current;
         switch (action) {
-          case 'pan': setToolMode('pan'); break;
-          case 'pointer': setToolMode('pointer'); break;
-          case 'write': setToolMode((m) => (m === 'write' ? 'pointer' : 'write')); break;
-          case 'arrow': setToolMode('arrow'); break;
-          case 'addNote': a.onAddNote?.(); break;
-          case 'addGroup': a.onAddGroup?.(); break;
-          case 'tidy': a.onTidy?.(); break;
-          case 'fitToView': a.onFitToView?.(); break;
-          case 'recordings': a.onOpenRecordings?.(); break;
-          case 'toggleChildNotes': a.onToggleChildNotes(); break;
-          // Don't let the browser's own undo stack fire as well.
-          case 'undo': e.preventDefault(); a.onUndo?.(); break;
-          case 'redo': e.preventDefault(); a.onRedo?.(); break;
+          case 'pan':
+          case 'hand':
+            setToolMode('pan');
+            break;
+          case 'pointer':
+          case 'select':
+            setToolMode('pointer');
+            break;
+          case 'write':
+            setToolMode((m) => (m === 'write' ? 'pointer' : 'write'));
+            break;
+          case 'arrow':
+          case 'connect':
+            setToolMode('arrow');
+            break;
+          case 'create_voice':
+            onStartRecord?.();
+            break;
+          case 'addNote':
+          case 'create_note':
+            handleAddNoteAtCenter();
+            break;
+          case 'create_subnote':
+            handleAddSubNote();
+            break;
+          case 'addGroup':
+          case 'create_group':
+          case 'sel_group':
+            handleGroupSelection();
+            break;
+          case 'sel_ungroup':
+            handleUngroupSelection();
+            break;
+          case 'sel_link':
+            handleLinkSelection();
+            break;
+          case 'sel_unlink':
+            handleUnlinkSelection();
+            break;
+          case 'tidy':
+          case 'sel_tidy':
+            handleTidySelection();
+            break;
+          case 'view_tidy_all':
+            onTidy?.();
+            break;
+          case 'sel_duplicate':
+            handleDuplicateSelection();
+            break;
+          case 'sel_delete':
+            handleDeleteSelection();
+            break;
+          case 'sel_clear':
+            handleClearSelection();
+            break;
+          case 'undo':
+          case 'view_undo':
+            e.preventDefault();
+            handleUndo();
+            break;
+          case 'redo':
+          case 'view_redo':
+            e.preventDefault();
+            handleRedo();
+            break;
+          case 'fitToView':
+          case 'view_fit':
+            handleFitToView();
+            break;
+          case 'toggleChildNotes':
+          case 'view_subnotes':
+            setShowChildNotes(!showChildNotes);
+            break;
+          case 'view_zoom_in':
+            handleZoomIn();
+            break;
+          case 'view_zoom_out':
+            handleZoomOut();
+            break;
+          case 'view_zoom_reset':
+            handleResetZoom();
+            break;
         }
         return;
-      }
-
-      if (e.key === '+' || e.key === '=') {
-        const board = boardRef.current;
-        if (!board) return;
-        const rect = board.getBoundingClientRect();
-        zoomTo(scaleRef.current * 1.2, rect.width / 2, rect.height / 2);
-      } else if (e.key === '-') {
-        const board = boardRef.current;
-        if (!board) return;
-        const rect = board.getBoundingClientRect();
-        zoomTo(scaleRef.current / 1.2, rect.width / 2, rect.height / 2);
-      } else if (e.key === '0') {
-        setScale(1);
-        setTranslate({ x: 0, y: 0 });
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [zoomTo, selectedConnectorChildId, handleSetNoteParent]);
+  }, [
+    selectedConnectorChildId,
+    handleSetNoteParent,
+    handleClearSelection,
+    onStartRecord,
+    handleAddNoteAtCenter,
+    handleAddSubNote,
+    handleGroupSelection,
+    handleUngroupSelection,
+    handleLinkSelection,
+    handleUnlinkSelection,
+    handleTidySelection,
+    onTidy,
+    handleDuplicateSelection,
+    handleDeleteSelection,
+    handleUndo,
+    handleRedo,
+    handleFitToView,
+    setShowChildNotes,
+    showChildNotes,
+    handleZoomIn,
+    handleZoomOut,
+    handleResetZoom,
+  ]);
 
   // Pointer events for Canvas Pan & Arrow Tool
   const panPointerRef = useRef<{ startX: number; startY: number; startTx: number; startTy: number } | null>(null);
@@ -632,7 +1047,16 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
 
         if (sourceNote && targetNote) {
           const previousParentId = targetNote.parentId ?? null;
-          handleSetNoteParent(targetNote.id, sourceNote.id);
+          const targetId = targetNote.id;
+          const sourceId = sourceNote.id;
+          handleSetNoteParent(targetId, sourceId);
+          undoManager.current.push({
+            name: 'connect note',
+            undo: () => handleSetNoteParent(targetId, previousParentId),
+            redo: () => handleSetNoteParent(targetId, sourceId),
+          });
+          setCanUndo(true);
+          setCanRedo(false);
           setToolMode('pointer');
 
           if (!showChildNotes) {
@@ -677,59 +1101,6 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     } catch {}
   };
 
-  // Viewport center helper
-  const viewportCentre = useCallback(() => {
-    const el = boardRef.current;
-    const w = el ? el.clientWidth : window.innerWidth;
-    const h = el ? el.clientHeight : window.innerHeight;
-    return screenToWorld(w / 2, h / 2, translateRef.current, scaleRef.current);
-  }, []);
-
-  // Fit to view
-  const handleFitToView = useCallback(() => {
-    const boxes = [
-      ...displayNotes.map((n) => ({
-        x: n.x,
-        y: n.y,
-        width: n.width ?? 250,
-        height: n.height ?? 190,
-      })),
-      ...(groups ?? []),
-    ];
-    const el = boardRef.current;
-    const boardW = el ? el.clientWidth : window.innerWidth;
-    const boardH = el ? el.clientHeight : window.innerHeight;
-
-    if (!boxes.length || !boardW || !boardH) return;
-
-    const minX = Math.min(...boxes.map((b) => b.x));
-    const minY = Math.min(...boxes.map((b) => b.y));
-    const maxX = Math.max(...boxes.map((b) => b.x + b.width));
-    const maxY = Math.max(...boxes.map((b) => b.y + b.height));
-
-    const PAD = 48;
-    const targetScale = Math.min(
-      MAX_SCALE,
-      Math.max(
-        MIN_SCALE,
-        Math.min(boardW / (maxX - minX + PAD * 2), boardH / (maxY - minY + PAD * 2))
-      )
-    );
-
-    const nextTranslate = {
-      x: boardW / 2 - ((minX + maxX) / 2) * targetScale,
-      y: boardH / 2 - ((minY + maxY) / 2) * targetScale,
-    };
-
-    setIsTransitioning(true);
-    setScale(targetScale);
-    setTranslate(nextTranslate);
-
-    setTimeout(() => {
-      setIsTransitioning(false);
-    }, 250);
-  }, [displayNotes, groups]);
-
   // Compute rubberband line source center
   const sourceNote = displayNotes.find((n) => n.id === arrowSourceId);
   const sourceCenter = sourceNote
@@ -740,28 +1111,6 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
     : null;
 
   const userChar = user?.email?.[0]?.toUpperCase() || 'U';
-
-  const toolbarActions: ToolbarActions = {
-    onAddNote: onAddNote
-      ? () => {
-          const { x, y } = viewportCentre();
-          onAddNote(x - 95, y - 72);
-        }
-      : undefined,
-    onAddGroup: onAddGroup
-      ? () => {
-          const { x, y } = viewportCentre();
-          onAddGroup(x - 230, y - 180);
-        }
-      : undefined,
-    onTidy,
-    onFitToView: displayNotes.length ? handleFitToView : undefined,
-    onOpenRecordings,
-    onToggleChildNotes: () => setShowChildNotes(!showChildNotes),
-    onUndo: () => toast('Undo coming soon'),
-    onRedo: () => toast('Redo coming soon'),
-  };
-  toolbarActionsRef.current = toolbarActions;
 
   return (
     <div className="flex flex-col flex-1 h-screen w-screen overflow-hidden bg-board select-none">
@@ -847,6 +1196,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
+        onDoubleClick={handleDoubleClick}
       >
         <CanvasBackground translateX={translate.x} translateY={translate.y} scale={scale} />
 
@@ -937,7 +1287,7 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
           )}
 
           {/* Sticky Notes */}
-          {displayNotes.map((note) => {
+          {visibleDisplayNotes.map((note: StickyNoteData) => {
             let outline: 'accent' | 'warning' | null = null;
             if (hoveredTargetId === note.id) {
               outline = isHoveredValid ? 'accent' : 'warning';
@@ -1026,29 +1376,45 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
       <CanvasToolbar
         toolMode={toolMode}
         onSetToolMode={setToolMode}
+        spaceName={spaceName}
+        activeView={activeView}
+        onSelectView={onSelectView}
+        scale={scale}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onResetZoom={handleResetZoom}
+        onFitToView={handleFitToView}
+        onAddNote={handleAddNoteAtCenter}
+        onAddSubNote={handleAddSubNote}
+        onAddGroup={handleGroupSelection}
+        onTidy={handleTidySelection}
+        onTidyAll={onTidy}
+        onOpenRecordings={onOpenRecordings}
+        onOpenSpaces={onOpenSpaces}
+        onOpenSettings={onOpenSettings}
+        onOpenCredits={onOpenCredits}
+        creditBalance={creditBalance}
         showChildNotes={showChildNotes}
-        {...toolbarActions}
+        onToggleChildNotes={() => setShowChildNotes(!showChildNotes)}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        selectedNoteCount={selectedIds.length}
+        selectedGroupCount={selectedGroupIds.length}
+        hasParentedNote={hasParentedNote}
+        arrowSourceId={arrowSourceId}
+        onGroupSelection={handleGroupSelection}
+        onUngroupSelection={handleUngroupSelection}
+        onLinkSelection={handleLinkSelection}
+        onUnlinkSelection={handleUnlinkSelection}
+        onColorSelection={handleColorSelection}
+        onTypeSelection={handleTypeSelection}
+        onDuplicateSelection={handleDuplicateSelection}
+        onDeleteSelection={handleDeleteSelection}
+        onClearSelection={handleClearSelection}
+        onStartRecord={onStartRecord}
       />
-
-      {/* Floating Record FAB */}
-      <div className="fixed inset-x-0 bottom-8 z-40 flex items-center justify-center pointer-events-none">
-        <button
-          type="button"
-          className="relative h-[74px] w-[74px] flex items-center justify-center rounded-full pointer-events-auto cursor-pointer transition-transform hover:scale-105 active:scale-95 border-0"
-          style={{
-            ...clayAccent(colors, 37),
-            boxShadow: `0 8px 16px ${colors.accent}66`,
-          }}
-          onClick={onStartRecord}
-          aria-label="Record a new note"
-        >
-          <span
-            className="absolute h-[92px] w-[92px] rounded-full pointer-events-none"
-            style={{ backgroundColor: `${colors.accent}2E` }}
-          />
-          <Mic size={32} color="#FFF" strokeWidth={2.5} className="z-10" />
-        </button>
-      </div>
     </div>
   );
 };

@@ -19,10 +19,18 @@ export function useGroups(spaceId: string | null) {
 
 export function useCreateGroup(spaceId: string | null) {
   const qc = useQueryClient();
+  const key = queryKeys.groups.bySpace(spaceId ?? '');
+
   return useMutation({
-    mutationFn: (group: { title?: string | null; x: number; y: number }) =>
+    mutationFn: (group: { title?: string | null; x: number; y: number; width?: number; height?: number }) =>
       createGroup(spaceId!, group),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.groups.bySpace(spaceId ?? '') }),
+    onSuccess: (newGroup) => {
+      qc.setQueryData<NoteGroup[]>(key, (old) => {
+        if (!old) return [newGroup];
+        if (old.some((g) => g.id === newGroup.id)) return old;
+        return [...old, newGroup];
+      });
+    },
   });
 }
 
@@ -47,14 +55,23 @@ export function useUpdateGroup(spaceId: string | null) {
     onError: (_err, _vars, context) => {
       if (context?.previous) qc.setQueryData(key, context.previous);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: key }),
   });
 }
 
 export function useDeleteGroup(spaceId: string | null) {
   const qc = useQueryClient();
+  const key = queryKeys.groups.bySpace(spaceId ?? '');
+
   return useMutation({
     mutationFn: (groupId: string) => deleteGroup(groupId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.groups.bySpace(spaceId ?? '') }),
+    onMutate: async (groupId) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<NoteGroup[]>(key);
+      qc.setQueryData<NoteGroup[]>(key, (old) => (old ?? []).filter((g) => g.id !== groupId));
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) qc.setQueryData(key, context.previous);
+    },
   });
 }

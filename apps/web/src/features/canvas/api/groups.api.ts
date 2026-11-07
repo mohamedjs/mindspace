@@ -1,10 +1,10 @@
 import type { NoteGroup } from '../../../core/domain';
 import type { CreateGroupInput, GroupPatch } from '../../../core/ports';
-import { supabaseContainer } from '../../../infrastructure/container';
+import { container } from '../../../infrastructure/container';
 
 export type { NoteGroup };
 
-const groups = supabaseContainer.groups;
+const groups = container.groups;
 
 export const fetchGroups = (spaceId: string) => groups.listBySpace(spaceId);
 export const createGroup = (spaceId: string, group: CreateGroupInput) =>

@@ -1,37 +1,32 @@
 import type { Repositories } from '../core/ports/container';
-import { supabaseNoteRepository } from './supabase/noteRepository';
+import { apiNoteRepository } from './api/noteRepository';
 import {
-  supabaseAccountRepository,
-  supabaseBillingRepository,
-  supabaseCreditRepository,
-  supabaseGroupRepository,
-  supabaseKeyRepository,
-  supabaseModelRepository,
-  supabaseRecordingRepository,
-  supabaseSpaceRepository,
-} from './supabase/repositories';
-import { supabaseFunctions } from './supabase/functions';
-import { supabaseAuth, supabaseRealtime, supabaseStorage } from './supabase/platform';
+  apiAccountRepository,
+  apiBillingRepository,
+  apiCreditRepository,
+  apiGroupRepository,
+  apiKeyRepository,
+  apiModelRepository,
+  apiRecordingRepository,
+  apiSpaceRepository,
+} from './api/repositories';
+import { apiFunctions } from './api/functions';
+import { apiAuth } from './api/auth';
+import { apiRealtime } from './api/realtime';
+import { apiStorage } from './api/storage';
 
-/**
- * The one place that decides which implementations the app runs against.
- *
- * Swapping the backing store is a change to this file plus a sibling folder
- * next to ./supabase — nothing above the boundary is touched. A test can build
- * its own Repositories object out of fakes and never start a database.
- */
-export const supabaseContainer: Repositories = {
-  notes: supabaseNoteRepository,
-  spaces: supabaseSpaceRepository,
-  groups: supabaseGroupRepository,
-  recordings: supabaseRecordingRepository,
-  credits: supabaseCreditRepository,
-  models: supabaseModelRepository,
-  account: supabaseAccountRepository,
-  keys: supabaseKeyRepository,
-  billing: supabaseBillingRepository,
-  auth: supabaseAuth,
-  storage: supabaseStorage,
-  realtime: supabaseRealtime,
-  functions: supabaseFunctions,
+export const container: Repositories = {
+  notes: apiNoteRepository,
+  spaces: apiSpaceRepository,
+  groups: apiGroupRepository,
+  recordings: apiRecordingRepository,
+  credits: apiCreditRepository,
+  models: apiModelRepository,
+  account: apiAccountRepository,
+  keys: apiKeyRepository,
+  billing: apiBillingRepository,
+  auth: apiAuth,
+  storage: apiStorage,
+  realtime: apiRealtime,
+  functions: apiFunctions,
 };

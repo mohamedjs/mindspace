@@ -23,7 +23,7 @@ import {
 } from '@/features/canvas/hooks/useGroups';
 import { useBalance } from '@/features/credits/hooks/useCredits';
 import { useRecordingStatus } from '@/features/voice/hooks/useRecordingStatus';
-import { runThinkingPipeline } from '@/features/voice/services/pipeline';
+import { finishRecording } from '@/features/voice/api/recordings.api';
 import { describeFailure, describeStoredFailure } from '@/features/voice/services/pipelineErrors';
 import { CanvasRoot } from '@/features/canvas/components/CanvasRoot';
 import { NotesListView } from '@/features/notes-list/components/NotesListView';
@@ -31,7 +31,8 @@ import { SpacesSheet } from '@/features/canvas/components/SpacesSheet';
 import { RecordingsSheet } from '@/features/voice/components/RecordingsSheet';
 import { OutOfCreditsSheet } from '@/features/credits/components/OutOfCreditsSheet';
 import { useAuth } from '@/providers/AuthProvider';
-import { useTheme } from '@/shared/theme';
+import { useTheme, type NotesView } from '@/shared/theme';
+import { useMindMap } from '@/features/canvas/hooks/useMindMap';
 
 const STATUS_LABEL: Record<string, string> = {
   recorded: 'Saved on device…',
@@ -45,13 +46,25 @@ const STATUS_LABEL: Record<string, string> = {
 
 const LAST_SPACE_KEY = 'mindspace:lastSpaceId';
 
-export function HomeScreen({ spaceId }: { spaceId: string }) {
+export function HomeScreen({
+  spaceId,
+  initialView,
+}: {
+  spaceId: string;
+  initialView?: NotesView;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const recordingId = searchParams.get('recordingId');
   const qc = useQueryClient();
   const { user, isLoading: authLoading } = useAuth();
-  const { colors, showChildNotes, notesView } = useTheme();
+  const { colors, showChildNotes, notesView, setNotesView } = useTheme();
+
+  useEffect(() => {
+    if (initialView) {
+      setNotesView(initialView);
+    }
+  }, [initialView, setNotesView]);
 
   const [spacesSheetOpen, setSpacesSheetOpen] = useState(false);
   const [recordingsSheetOpen, setRecordingsSheetOpen] = useState(false);
@@ -79,6 +92,7 @@ export function HomeScreen({ spaceId }: { spaceId: string }) {
   }, [spaceId]);
 
   const { data: notes } = useNotes(spaceId);
+  const { data: mindMapData } = useMindMap(notesView === 'mindmap' ? spaceId : null);
   const { data: balance } = useBalance();
   const recolor = useUpdateNoteColor(spaceId);
   const moveNote = useMoveNote(spaceId);
@@ -135,7 +149,7 @@ export function HomeScreen({ spaceId }: { spaceId: string }) {
   });
 
   const retryPipeline = useMutation({
-    mutationFn: () => runThinkingPipeline(recordingId!, spaceId!),
+    mutationFn: () => finishRecording(recordingId!),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.notes.bySpace(spaceId!) });
       qc.invalidateQueries({ queryKey: queryKeys.credits.balance });
@@ -199,7 +213,8 @@ export function HomeScreen({ spaceId }: { spaceId: string }) {
   );
 
   const handleAddGroup = useCallback(
-    (x: number, y: number) => addGroup.mutate({ x, y }),
+    (x: number, y: number, width?: number, height?: number) =>
+      addGroup.mutate({ x, y, width, height }),
     [addGroup]
   );
 
@@ -259,13 +274,40 @@ export function HomeScreen({ spaceId }: { spaceId: string }) {
           onOpenSettings={() => router.push('/settings')}
           onOpenRecordings={() => setRecordingsSheetOpen(true)}
         />
+      ) : notesView === 'mindmap' ? (
+        <CanvasRoot
+          spaceId={spaceId}
+          spaceName={activeSpace?.name ?? 'My MindSpace'}
+          creditBalance={available}
+          notes={mindMapData?.nodes ?? []}
+          groups={[]}
+          childCounts={childCounts}
+          readOnly={true}
+          activeView="mindmap"
+          onSelectView={(v) => {
+            setNotesView(v);
+            if (v === 'canvas') router.push(`/space/${spaceId}`);
+          }}
+          onOpenCredits={() => router.push('/credits')}
+          onOpenSpaces={() => setSpacesSheetOpen(true)}
+          onOpenSettings={() => router.push('/settings')}
+          onOpenRecordings={() => setRecordingsSheetOpen(true)}
+          onPressNote={openNote}
+        />
       ) : (
         <CanvasRoot
+          spaceId={spaceId}
           spaceName={activeSpace?.name ?? 'My MindSpace'}
           creditBalance={available}
           notes={visibleNotes}
           groups={groups}
           childCounts={childCounts}
+          readOnly={false}
+          activeView="canvas"
+          onSelectView={(v) => {
+            setNotesView(v);
+            if (v === 'mindmap') router.push(`/space/${spaceId}/mind-map`);
+          }}
           onAddNote={handleAddNote}
           onAddGroup={handleAddGroup}
           onRenameGroup={handleRenameGroup}

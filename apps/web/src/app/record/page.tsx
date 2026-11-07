@@ -4,7 +4,7 @@ import React, { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { RecordScreen } from '@/features/voice/components/RecordScreen';
 import { uploadRecording } from '@/features/voice/services/upload';
-import { runThinkingPipeline } from '@/features/voice/services/pipeline';
+import { finishRecording } from '@/features/voice/api/recordings.api';
 import { useAuth } from '@/providers/AuthProvider';
 import { toast } from 'sonner';
 
@@ -30,9 +30,9 @@ function RecordPageContent() {
         recordingId,
       });
 
-      // 2. Trigger pipeline async
-      runThinkingPipeline(recordingId, spaceId).catch((err: unknown) => {
-        console.error('[RecordPage] pipeline error:', err);
+      // 2. Finish recording on server to start pipeline
+      await finishRecording(recordingId).catch((err: unknown) => {
+        console.error('[RecordPage] finish recording error:', err);
       });
 
       router.replace(`/?recordingId=${recordingId}`);

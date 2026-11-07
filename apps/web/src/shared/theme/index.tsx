@@ -18,7 +18,7 @@ export const NOTE_SIZE_CONFIG: Record<NoteSize, { width: number; height: number;
   large: { width: 320, height: 240, clampClass: 'line-clamp-8', textClass: 'text-sm leading-6 font-medium' },
 };
 
-export type NotesView = 'canvas' | 'list';
+export type NotesView = 'canvas' | 'mindmap' | 'list' | 'calendar';
 
 export interface Palette {
   canvas: string;
@@ -124,7 +124,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [notesView, setNotesViewState] = useState<NotesView>(() => {
     if (typeof window === 'undefined') return 'canvas';
     const saved = localStorage.getItem(NOTES_VIEW_KEY);
-    return (saved === 'canvas' || saved === 'list') ? saved : 'canvas';
+    return (saved === 'canvas' || saved === 'mindmap' || saved === 'list' || saved === 'calendar') ? saved : 'canvas';
   });
 
   const [noteSize, setNoteSizeState] = useState<NoteSize>(() => {

@@ -1,9 +1,10 @@
 import type { Profile } from '../../../core/domain';
-import { supabaseContainer } from '../../../infrastructure/container';
+import { container } from '../../../infrastructure/container';
 
 export type { Profile };
 
-export const fetchProfile = () => supabaseContainer.account.getProfile();
+export const fetchProfile = () => container.account.getProfile();
 export const updateDisplayName = (name: string) =>
-  supabaseContainer.account.updateDisplayName(name);
-export const deleteOwnAccount = () => supabaseContainer.account.deleteAccount();
+  container.account.updateDisplayName(name);
+export const deleteOwnAccount = () => container.account.deleteAccount();
+

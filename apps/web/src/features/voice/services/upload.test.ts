@@ -24,7 +24,7 @@ describe('recording upload naming', () => {
   it('builds a path whose extension the transcribe function can parse back out', () => {
     const path = buildStoragePath('user-1', 'space-1', 'rec-1', 'webm');
     expect(path).toBe('user-1/space-1/rec-1.webm');
-    // This is exactly how supabase/functions/transcribe derives `format`.
+    // This is exactly how the transcribe pipeline derives `format`.
     expect(path.split('.').pop()).toBe('webm');
   });
 });

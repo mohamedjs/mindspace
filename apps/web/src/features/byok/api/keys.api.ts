@@ -1,9 +1,10 @@
 import type { UserKey } from '../../../core/domain';
 import type { SaveKeyInput } from '../../../core/ports';
-import { supabaseContainer } from '../../../infrastructure/container';
+import { container } from '../../../infrastructure/container';
 
 export type { UserKey };
 
-export const fetchUserKeys = () => supabaseContainer.keys.list();
-export const saveUserKey = (args: SaveKeyInput) => supabaseContainer.keys.save(args);
-export const deleteUserKey = (keyId: string) => supabaseContainer.keys.remove(keyId);
+export const fetchUserKeys = () => container.keys.list();
+export const saveUserKey = (args: SaveKeyInput) => container.keys.save(args);
+export const deleteUserKey = (keyId: string) => container.keys.remove(keyId);
+

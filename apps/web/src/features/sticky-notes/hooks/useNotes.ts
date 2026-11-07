@@ -25,6 +25,14 @@ export function useNotes(spaceId: string | null) {
   });
 }
 
+export function useNote(noteId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.notes.detail(noteId ?? ''),
+    queryFn: () => fetchNote(noteId!),
+    enabled: Boolean(noteId),
+  });
+}
+
 export function useUpdateNoteColor(spaceId: string | null) {
   const qc = useQueryClient();
   const key = queryKeys.notes.bySpace(spaceId ?? '');
@@ -33,19 +41,18 @@ export function useUpdateNoteColor(spaceId: string | null) {
     mutationFn: ({ noteId, color }: { noteId: string; color: string }) =>
       updateNoteColor(noteId, color),
 
-    // Recolouring should feel instant — paint it locally, roll back on failure.
     onMutate: async ({ noteId, color }) => {
       await qc.cancelQueries({ queryKey: key });
       await qc.cancelQueries({ queryKey: queryKeys.notes.detail(noteId) });
-      
+
       const previousList = qc.getQueryData<StickyNoteData[]>(key);
       const previousDetail = qc.getQueryData<StickyNoteData>(queryKeys.notes.detail(noteId));
 
       qc.setQueryData<StickyNoteData[]>(key, (old) =>
         (old ?? []).map((note) => (note.id === noteId ? { ...note, color } : note))
       );
-      
-      qc.setQueryData<StickyNoteData>(queryKeys.notes.detail(noteId), (old) => 
+
+      qc.setQueryData<StickyNoteData>(queryKeys.notes.detail(noteId), (old) =>
         old ? { ...old, color } : old
       );
 
@@ -54,9 +61,6 @@ export function useUpdateNoteColor(spaceId: string | null) {
     onError: (_err, { noteId }, context) => {
       if (context?.previousList) qc.setQueryData(key, context.previousList);
       if (context?.previousDetail) qc.setQueryData(queryKeys.notes.detail(noteId), context.previousDetail);
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['notes'] });
     },
   });
 }
@@ -68,59 +72,58 @@ export function useMoveNote(spaceId: string | null) {
   return useMutation({
     mutationFn: ({ noteId, x, y }: { noteId: string; x: number; y: number }) =>
       updateNotePosition(noteId, x, y),
-    onSettled: () => qc.invalidateQueries({ queryKey: key }),
+    onMutate: async ({ noteId, x, y }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previousNotes = qc.getQueryData<StickyNoteData[]>(key);
+
+      qc.setQueryData<StickyNoteData[]>(key, (old) =>
+        (old ?? []).map((note) => (note.id === noteId ? { ...note, x, y } : note))
+      );
+
+      return { previousNotes };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousNotes) qc.setQueryData(key, context.previousNotes);
+    },
   });
 }
 
 export function useCreateNote(spaceId: string | null) {
   const qc = useQueryClient();
+  const key = queryKeys.notes.bySpace(spaceId ?? '');
 
   return useMutation({
     mutationFn: (note: { content: string; x: number; y: number; parentId?: string | null }) =>
       createNote(spaceId!, note),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: queryKeys.notes.bySpace(spaceId ?? '') }),
+    onSuccess: (newNote) => {
+      qc.setQueryData<StickyNoteData[]>(key, (old) => {
+        if (!old) return [newNote];
+        if (old.some((n) => n.id === newNote.id)) return old;
+        return [...old, newNote];
+      });
+    },
   });
 }
 
 export function useDeleteNote(spaceId: string | null) {
   const qc = useQueryClient();
+  const key = queryKeys.notes.bySpace(spaceId ?? '');
 
   return useMutation({
     mutationFn: (noteId: string) => deleteNote(noteId),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: queryKeys.notes.bySpace(spaceId ?? '') }),
-  });
-}
+    onMutate: async (noteId) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previousNotes = qc.getQueryData<StickyNoteData[]>(key);
 
-/**
- * Re-flows only the top-level ideas into the 4-column grid, in their current
- * order — a tidy is predictable rather than a reshuffle. Sub-notes aren't
- * regridded (they're connected to their parent by a line, not a slot); they
- * instead shift by the same delta as their ancestor's move, so a cluster
- * stays visually attached instead of the connector line stretching across
- * the board. A few propagation passes cover nesting deeper than one level.
- */
-function tidyWithClusters(notes: StickyNoteData[]): StickyNoteData[] {
-  const topLevel = notes.filter((n) => !n.parentId);
-  const tidiedTopLevel = tidyLayout(topLevel);
+      qc.setQueryData<StickyNoteData[]>(key, (old) =>
+        (old ?? []).filter((note) => note.id !== noteId)
+      );
 
-  const deltaById = new Map<string, { dx: number; dy: number }>();
-  tidiedTopLevel.forEach((n, i) =>
-    deltaById.set(n.id, { dx: n.x - topLevel[i].x, dy: n.y - topLevel[i].y })
-  );
-
-  for (let pass = 0; pass < 3; pass++) {
-    for (const note of notes) {
-      if (note.parentId && !deltaById.has(note.id) && deltaById.has(note.parentId)) {
-        deltaById.set(note.id, deltaById.get(note.parentId)!);
-      }
-    }
-  }
-
-  return notes.map((note) => {
-    const delta = deltaById.get(note.id);
-    return delta ? { ...note, x: note.x + delta.dx, y: note.y + delta.dy } : note;
+      return { previousNotes };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousNotes) qc.setQueryData(key, context.previousNotes);
+    },
   });
 }
 
@@ -130,26 +133,33 @@ export function useTidyNotes(spaceId: string | null) {
 
   return useMutation({
     mutationFn: async (notes: StickyNoteData[]) => {
-      const tidied = tidyWithClusters(notes);
-      await bulkMoveNotes(tidied.map(({ id, x, y }) => ({ id, x, y })));
-      return tidied;
+      const moves = tidyLayout(notes);
+      if (!moves.length) return [];
+      await bulkMoveNotes(moves);
+      return moves;
     },
-    // Snap immediately — waiting on a round trip makes the button feel broken.
     onMutate: async (notes) => {
       await qc.cancelQueries({ queryKey: key });
-      const previous = qc.getQueryData<StickyNoteData[]>(key);
-      qc.setQueryData<StickyNoteData[]>(key, tidyWithClusters(notes));
-      return { previous };
-    },
+      const previousNotes = qc.getQueryData<StickyNoteData[]>(key);
 
-    onError: (_err, _vars, context) => {
-      if (context?.previous) qc.setQueryData(key, context.previous);
+      const moves = tidyLayout(notes);
+      const moveMap = new Map(moves.map((m) => [m.id, m]));
+
+      qc.setQueryData<StickyNoteData[]>(key, (old) =>
+        (old ?? []).map((note) => {
+          const move = moveMap.get(note.id);
+          return move ? { ...note, x: move.x, y: move.y } : note;
+        })
+      );
+
+      return { previousNotes };
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: key }),
+    onError: (_err, _vars, context) => {
+      if (context?.previousNotes) qc.setQueryData(key, context.previousNotes);
+    },
   });
 }
 
-/** Update multiple notes positions at once when moving a cluster. */
 export function useMoveCluster(spaceId: string | null) {
   const qc = useQueryClient();
   const key = queryKeys.notes.bySpace(spaceId ?? '');
@@ -158,7 +168,8 @@ export function useMoveCluster(spaceId: string | null) {
     mutationFn: (moves: { id: string; x: number; y: number }[]) => bulkMoveNotes(moves),
     onMutate: async (moves) => {
       await qc.cancelQueries({ queryKey: key });
-      const previous = qc.getQueryData<StickyNoteData[]>(key);
+      const previousNotes = qc.getQueryData<StickyNoteData[]>(key);
+
       const moveMap = new Map(moves.map((m) => [m.id, m]));
       qc.setQueryData<StickyNoteData[]>(key, (old) =>
         (old ?? []).map((note) => {
@@ -166,27 +177,41 @@ export function useMoveCluster(spaceId: string | null) {
           return move ? { ...note, x: move.x, y: move.y } : note;
         })
       );
-      return { previous };
+
+      return { previousNotes };
     },
     onError: (_err, _vars, context) => {
-      if (context?.previous) qc.setQueryData(key, context.previous);
+      if (context?.previousNotes) qc.setQueryData(key, context.previousNotes);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: key }),
   });
 }
 
-/** Fetch a single note by id. */
-export function useNote(noteId: string | null) {
-  return useQuery({
-    queryKey: queryKeys.notes.detail(noteId ?? ''),
-    queryFn: () => fetchNote(noteId!),
-    enabled: Boolean(noteId),
-  });
-}
-
-/** Update a note's title and body text. */
-export function useUpdateNoteContent() {
+export function useSetNoteParent(spaceId: string | null) {
   const qc = useQueryClient();
+  const key = queryKeys.notes.bySpace(spaceId ?? '');
+
+  return useMutation({
+    mutationFn: ({ noteId, parentId }: { noteId: string; parentId: string | null }) =>
+      updateNoteParent(noteId, parentId),
+    onMutate: async ({ noteId, parentId }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previousNotes = qc.getQueryData<StickyNoteData[]>(key);
+
+      qc.setQueryData<StickyNoteData[]>(key, (old) =>
+        (old ?? []).map((n) => (n.id === noteId ? { ...n, parentId } : n))
+      );
+
+      return { previousNotes };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousNotes) qc.setQueryData(key, context.previousNotes);
+    },
+  });
+}
+
+export function useUpdateNoteContent(spaceId: string | null) {
+  const qc = useQueryClient();
+  const key = queryKeys.notes.bySpace(spaceId ?? '');
 
   return useMutation({
     mutationFn: ({
@@ -198,54 +223,43 @@ export function useUpdateNoteContent() {
       title?: string | null;
       content: string;
     }) => updateNoteContent(noteId, { title, content }),
-    onSuccess: () => {
-      // Invalidate both the single-note and the parent space list caches
-      // so the canvas sees the updated text immediately on back-nav.
-      qc.invalidateQueries({ queryKey: ['notes'] });
+    onMutate: async ({ noteId, title, content }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previousNotes = qc.getQueryData<StickyNoteData[]>(key);
+
+      qc.setQueryData<StickyNoteData[]>(key, (old) =>
+        (old ?? []).map((n) =>
+          n.id === noteId ? { ...n, title: title !== undefined ? title : n.title, content } : n
+        )
+      );
+
+      return { previousNotes };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousNotes) qc.setQueryData(key, context.previousNotes);
     },
   });
 }
 
-/** Update a note's type tag. */
-export function useUpdateNoteType() {
-  const qc = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ noteId, type }: { noteId: string; type: NoteType }) =>
-      updateNoteType(noteId, type),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['notes'] });
-    },
-  });
-}
-
-/** Re-parent a note or detach it with parentId = null. */
-export function useSetNoteParent(spaceId: string | null) {
+export function useUpdateNoteType(spaceId: string | null) {
   const qc = useQueryClient();
   const key = queryKeys.notes.bySpace(spaceId ?? '');
 
   return useMutation({
-    mutationFn: ({ noteId, parentId }: { noteId: string; parentId: string | null }) =>
-      updateNoteParent(noteId, parentId),
-    onMutate: async ({ noteId, parentId }) => {
+    mutationFn: ({ noteId, type }: { noteId: string; type: NoteType }) =>
+      updateNoteType(noteId, type),
+    onMutate: async ({ noteId, type }) => {
       await qc.cancelQueries({ queryKey: key });
-      const previous = qc.getQueryData<StickyNoteData[]>(key);
+      const previousNotes = qc.getQueryData<StickyNoteData[]>(key);
 
-      if (previous) {
-        qc.setQueryData<StickyNoteData[]>(
-          key,
-          previous.map((n) => (n.id === noteId ? { ...n, parentId } : n))
-        );
-      }
+      qc.setQueryData<StickyNoteData[]>(key, (old) =>
+        (old ?? []).map((n) => (n.id === noteId ? { ...n, type } : n))
+      );
 
-      return { previous };
+      return { previousNotes };
     },
     onError: (_err, _vars, context) => {
-      if (context?.previous) qc.setQueryData(key, context.previous);
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['notes'] });
+      if (context?.previousNotes) qc.setQueryData(key, context.previousNotes);
     },
   });
 }
-

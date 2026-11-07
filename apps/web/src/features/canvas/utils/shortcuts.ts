@@ -1,24 +1,41 @@
 /**
  * Keyboard shortcut resolution for the canvas toolbar.
- *
- * Pure: takes the interesting bits of a KeyboardEvent, returns an action name
- * (or null). CanvasRoot's single global keydown handler switches on the result,
- * so what is tested here is what ships.
- *
- * Note: `0` (reset zoom), `+`/`-` (zoom) and Escape/Delete are handled directly
- * in CanvasRoot and deliberately not resolved here.
+ * Single source of truth is CANVAS_TOOLS from @mindspace/contracts.
  */
 
 export type ShortcutAction =
-  | 'pan'
-  | 'pointer'
+  | 'select'
+  | 'hand'
+  | 'connect'
   | 'write'
+  | 'create_voice'
+  | 'create_note'
+  | 'create_subnote'
+  | 'create_group'
+  | 'sel_group'
+  | 'sel_ungroup'
+  | 'sel_link'
+  | 'sel_unlink'
+  | 'sel_tidy'
+  | 'sel_duplicate'
+  | 'sel_delete'
+  | 'sel_clear'
+  | 'view_undo'
+  | 'view_redo'
+  | 'view_fit'
+  | 'view_tidy_all'
+  | 'view_subnotes'
+  | 'view_zoom_in'
+  | 'view_zoom_out'
+  | 'view_zoom_reset'
+  // Synonyms for backwards compatibility in CanvasRoot
+  | 'pointer'
+  | 'pan'
   | 'arrow'
   | 'addNote'
   | 'addGroup'
   | 'tidy'
   | 'fitToView'
-  | 'recordings'
   | 'toggleChildNotes'
   | 'undo'
   | 'redo';
@@ -35,18 +52,6 @@ export interface ShortcutEventLike {
   isContentEditable?: boolean;
 }
 
-const DIGIT_ACTIONS: Record<string, ShortcutAction> = {
-  '1': 'pan',
-  '2': 'pointer',
-  '3': 'write',
-  '4': 'arrow',
-  '5': 'addNote',
-  '6': 'addGroup',
-  '7': 'tidy',
-  '8': 'fitToView',
-  '9': 'recordings',
-};
-
 const TYPING_TAGS = ['INPUT', 'TEXTAREA'];
 
 export function resolveShortcut(e: ShortcutEventLike): ShortcutAction | null {
@@ -55,18 +60,64 @@ export function resolveShortcut(e: ShortcutEventLike): ShortcutAction | null {
   if (TYPING_TAGS.includes((e.targetTag ?? '').toUpperCase())) return null;
 
   const mod = Boolean(e.ctrlKey || e.metaKey);
+  const keyLower = e.key.toLowerCase();
 
-  // Undo/redo are the deliberate modifier exception.
-  if (mod && !e.altKey && e.key.toLowerCase() === 'z') {
-    return e.shiftKey ? 'redo' : 'undo';
+  // Undo & Redo (Ctrl+Z, Ctrl+Shift+Z, Cmd+Z, Cmd+Shift+Z)
+  if (mod && !e.altKey && keyLower === 'z') {
+    return e.shiftKey ? 'view_redo' : 'view_undo';
   }
 
-  // Ctrl+1 is a browser tab switch, Alt+n is a menu — not a tool.
+  // Duplicate (Ctrl+D, Cmd+D)
+  if (mod && !e.altKey && keyLower === 'd') {
+    return 'sel_duplicate';
+  }
+
+  // Any other modifier combo is not a canvas tool shortcut
   if (mod || e.altKey) return null;
 
-  const digit = DIGIT_ACTIONS[e.key];
-  if (digit) return digit;
-  if (e.key.toLowerCase() === 'h') return 'toggleChildNotes';
+  // Escape & Delete
+  if (e.key === 'Escape' || e.key === 'Esc') return 'sel_clear';
+  if (e.key === 'Delete' || e.key === 'Backspace') return 'sel_delete';
 
-  return null;
+  // Zoom keys
+  if (e.key === '+' || e.key === '=') return 'view_zoom_in';
+  if (e.key === '-') return 'view_zoom_out';
+  if (e.key === '0') return 'view_zoom_reset';
+
+  // Shift combinations
+  if (e.shiftKey) {
+    if (keyLower === 'n') return 'create_subnote';
+    if (keyLower === 'g') return 'sel_ungroup';
+    if (keyLower === 'l') return 'sel_unlink';
+    if (keyLower === 't') return 'view_tidy_all';
+    return null;
+  }
+
+  // Plain letter shortcuts
+  switch (keyLower) {
+    case 'v':
+      return 'select';
+    case 'h':
+      return 'hand';
+    case 'c':
+      return 'connect';
+    case 'w':
+      return 'write';
+    case 'r':
+      return 'create_voice';
+    case 'n':
+      return 'create_note';
+    case 'g':
+      return 'sel_group';
+    case 'l':
+      return 'sel_link';
+    case 't':
+      return 'sel_tidy';
+    case 'f':
+      return 'view_fit';
+    case 's':
+      return 'view_subnotes';
+    default:
+      return null;
+  }
 }

@@ -101,6 +101,20 @@ services:
       retries: 10
       start_period: 3s
 
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    depends_on:
+      api:
+        condition: service_healthy
+
   dev:
     profiles: ["tools"]
     build:

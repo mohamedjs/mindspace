@@ -45,12 +45,11 @@ interface StickyNoteItemProps {
   onEditRequestHandled?: () => void;
 }
 
-export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
+export const StickyNoteItem = React.memo<StickyNoteItemProps>(function StickyNoteItem({
   note,
   onUpdateColor,
   onMove,
   onMoveClusterEnd,
-  onDelete,
   onDragStart,
   onPressNote,
   canvasScale = 1,
@@ -71,7 +70,7 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
   onSaveContent,
   editRequested,
   onEditRequestHandled,
-}) => {
+}) {
   const [colorPickerVisible, setColorPickerVisible] = useState(false);
 
   /**
@@ -321,7 +320,11 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              editing ? saveEdit() : beginEdit();
+              if (editing) {
+                saveEdit();
+              } else {
+                beginEdit();
+              }
             }}
             aria-label={editing ? 'Save note' : 'Write in this note'}
             title={editing ? 'Save note' : 'Write in this note'}
@@ -427,4 +430,4 @@ export const StickyNoteItem: React.FC<StickyNoteItemProps> = ({
       />
     </div>
   );
-};
+});

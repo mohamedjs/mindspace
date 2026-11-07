@@ -20,6 +20,7 @@ Binding: `docs/v2/ARCHITECTURE.md`, then `docs/v2/AUDIT.md`. Each plan's Accepta
 
 ## Rules for every phase
 - UI work on the canvas follows `docs/v2/TOOLBAR.md`.
+- Never launch or attach to a browser, and never use Chrome profiles in the home directory. Verify UI with unit tests and builds only. Never leave background tasks running at the end of a turn.
 - Follow the module layout and dependency rules. Port behaviour from `supabase/functions/`, and fix each `AUDIT.md` finding as you port. Never copy a listed bug.
 - Run everything through Compose: `docker compose run --rm dev <command>`. Do not install on the host.
 - Tests use the Compose Postgres and Redis. Each module gets an authorization test proving user B gets 404 on user A's rows.

@@ -9,6 +9,7 @@ import { clay, shade } from '@/shared/theme/clay';
 import { readableTextOn, luminance } from '@/shared/theme/color';
 import { noteColors, type NoteType } from '@/shared/constants/tokens';
 import { placeChild } from '@/features/ai/services/layout';
+import { queryKeys } from '@/lib/query-client/keys';
 import {
   useNote,
   useNotes,
@@ -81,9 +82,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   const { data: note, isLoading } = useNote(noteId);
   const effectiveSpaceId = note?.spaceId ?? spaceId ?? null;
 
-  const updateContent = useUpdateNoteContent();
+  const updateContent = useUpdateNoteContent(effectiveSpaceId);
   const updateColor = useUpdateNoteColor(effectiveSpaceId);
-  const updateType = useUpdateNoteType();
+  const updateType = useUpdateNoteType(effectiveSpaceId);
   const deleteNote = useDeleteNote(effectiveSpaceId);
   const createSubNote = useCreateNote(effectiveSpaceId);
   const { data: spaceNotes } = useNotes(effectiveSpaceId);
@@ -105,13 +106,15 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
   useEffect(() => {
     if (recordingStatus !== 'completed' && recordingStatus !== 'failed') return;
-    qc.invalidateQueries({ queryKey: ['notes'] });
+    if (effectiveSpaceId) {
+      qc.invalidateQueries({ queryKey: queryKeys.notes.bySpace(effectiveSpaceId) });
+    }
     if (recordingStatus === 'failed') {
       toast.error('Could not turn that into sub-notes', {
         description: 'Your audio is safe. Try recording again.',
       });
     }
-  }, [recordingStatus, qc]);
+  }, [recordingStatus, qc, effectiveSpaceId]);
 
   useEffect(() => {
     if (note) {

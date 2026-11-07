@@ -2,6 +2,7 @@ export const queryKeys = {
   spaces: {
     all: ['spaces'] as const,
     detail: (id: string) => ['spaces', id] as const,
+    mindMap: (id: string) => ['spaces', id, 'mind-map'] as const,
   },
   notes: {
     bySpace: (spaceId: string) => ['notes', spaceId] as const,

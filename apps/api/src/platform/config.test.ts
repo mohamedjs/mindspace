@@ -48,4 +48,17 @@ describe('Platform Config', () => {
 
     expect(() => loadConfig(prodEnv)).toThrowError(/all-zero placeholder key in production/);
   });
+
+  it('refuses to start in production when ALLOW_TEST_PAY is true', () => {
+    const prodEnv = {
+      ...validBaseEnv,
+      NODE_ENV: 'production',
+      ALLOW_TEST_PAY: 'true',
+      JWT_SECRET: 'a-genuine-production-jwt-secret-string-32-chars',
+      OPENROUTER_API_KEY: 'sk-or-v1-genuine-production-key-here',
+      BYOK_MASTER_KEY: Buffer.alloc(32, 7).toString('base64'),
+    };
+
+    expect(() => loadConfig(prodEnv)).toThrowError(/ALLOW_TEST_PAY=true cannot be enabled when NODE_ENV is production/);
+  });
 });

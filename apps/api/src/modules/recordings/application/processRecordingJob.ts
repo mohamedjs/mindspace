@@ -122,7 +122,13 @@ export class ProcessRecordingJobUseCase {
         return;
       }
 
-      // 1. Load parts and ffprobe every part for real duration
+      // 1. Check plan AI entitlement before probing/processing
+      const userEntitlements = await this.entitlements.getEntitlements(recording.userId);
+      if (!userEntitlements.aiEnabled) {
+        throw new AiNotInPlanError();
+      }
+
+      // 2. Load parts and ffprobe every part for real duration
       let parts = await this.recordingRepo.listParts(recording.id, recording.userId);
       if (parts.length === 0) {
         throw new RecordingNotUploadedError();
@@ -146,11 +152,7 @@ export class ProcessRecordingJobUseCase {
         totalDurationMs
       );
 
-      // 2. Check plan entitlements and cap
-      const userEntitlements = await this.entitlements.getEntitlements(recording.userId);
-      if (!userEntitlements.aiEnabled) {
-        throw new AiNotInPlanError();
-      }
+      // 3. Enforce recording duration cap from plan entitlements
       if (
         userEntitlements.maxRecordingMinutes !== null &&
         totalDurationMs > userEntitlements.maxRecordingMinutes * 60_000
@@ -469,5 +471,23 @@ export class ProcessRecordingJobUseCase {
     }
 
     return { requeued, failed };
+  }
+
+  async sweepUnfinishedRecordings(
+    maxAgeMs = 24 * 60 * 60 * 1000,
+    tx?: unknown
+  ): Promise<{ sweptRecordings: number; deletedParts: number }> {
+    const stale = await this.recordingRepo.findUnfinishedRecordingsOlderThan(maxAgeMs, tx);
+    let sweptRecordings = 0;
+    let deletedParts = 0;
+
+    for (const rec of stale) {
+      await this.blobStore.deleteRecordingFiles(rec.userId, rec.id).catch(() => {});
+      const deleted = await this.recordingRepo.deleteRecordingParts(rec.id, rec.userId, tx);
+      sweptRecordings++;
+      deletedParts += deleted;
+    }
+
+    return { sweptRecordings, deletedParts };
   }
 }

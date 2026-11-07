@@ -1,11 +1,30 @@
+import type { Cache } from '../../../platform/cache.js';
 import type { Database } from '../../../platform/db.js';
 import type { AiModel, ModelKind, ModelPreferences } from '../domain/entities.js';
 import type { AiModelRepositoryPort } from '../domain/ports.js';
 
+export const MODELS_CACHE_KEY = 'cache:models';
+export const MODELS_CACHE_TTL_SECONDS = 300; // 5 minutes
+
 export class KyselyAiModelRepository implements AiModelRepositoryPort {
-  constructor(private readonly db: Database) {}
+  constructor(
+    private readonly db: Database,
+    private readonly cache?: Cache | null
+  ) {}
 
   async listModels(): Promise<AiModel[]> {
+    if (this.cache) {
+      try {
+        const cached = await this.cache.get(MODELS_CACHE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached) as any[];
+          return parsed.map((row) => this.toEntity(row));
+        }
+      } catch {
+        // Fall through to Postgres when Redis is down
+      }
+    }
+
     const rows = await this.db
       .selectFrom('ai_models')
       .selectAll()
@@ -14,7 +33,22 @@ export class KyselyAiModelRepository implements AiModelRepositoryPort {
       .orderBy('sort_order', 'asc')
       .execute();
 
-    return rows.map(this.toEntity);
+    const entities = rows.map((row) => this.toEntity(row));
+
+    if (this.cache) {
+      try {
+        await this.cache.set(
+          MODELS_CACHE_KEY,
+          JSON.stringify(entities),
+          'EX',
+          MODELS_CACHE_TTL_SECONDS
+        );
+      } catch {
+        // Fall through silently when Redis is down
+      }
+    }
+
+    return entities;
   }
 
   async getModelById(id: string): Promise<AiModel | null> {

@@ -126,6 +126,22 @@ describe('AI Extraction and Note Writing (Phase 06)', () => {
     });
     expect(spacesRes.statusCode).toBe(200);
     const spaces = spacesRes.json();
+
+    // Activate 'plus' plan so recording pipeline AI extraction is enabled for AI tests
+    await app.db
+      .insertInto('subscriptions')
+      .values({
+        user_id: userId,
+        plan_id: 'plus',
+        status: 'active',
+        channel: 'test_pay',
+        external_ref: `ai_test_${userId}`,
+        current_period_start: new Date(),
+        current_period_end: new Date(Date.now() + 30 * 86_400_000),
+      })
+      .execute();
+    await app.billingModule.entitlements.invalidateUser(userId);
+
     return { userId, token, spaceId: spaces[0].id as string };
   }
 

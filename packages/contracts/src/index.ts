@@ -738,5 +738,71 @@ export const aiNoteWriteResponseSchema = yup.object({
 
 export type AiNoteWriteResponse = yup.InferType<typeof aiNoteWriteResponseSchema>;
 
+// ============================================================
+// Billing & Entitlements Contracts
+// ============================================================
+
+export const PAYMENT_CHANNELS = ['google_pay', 'apple_pay', 'instapay', 'test_pay'] as const;
+export type PaymentChannel = (typeof PAYMENT_CHANNELS)[number];
+
+export const SUBSCRIPTION_STATUSES = ['pending', 'active', 'cancelled', 'expired'] as const;
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+
+export const subscriptionPlanOutSchema = yup.object({
+  id: yup.string().required(),
+  name: yup.string().required(),
+  tagline: yup.string().nullable().defined(),
+  price_egp: yup.number().integer().required(),
+  total_credits: yup.number().integer().required(),
+  bonus_pct: yup.number().integer().required(),
+  is_featured: yup.boolean().required(),
+  max_recording_minutes: yup.number().integer().required(),
+  is_byok: yup.boolean().required(),
+  ai_enabled: yup.boolean().required(),
+});
+
+export type SubscriptionPlanOut = yup.InferType<typeof subscriptionPlanOutSchema>;
+
+export const activeSubscriptionOutSchema = yup.object({
+  id: yup.string().required(),
+  plan_id: yup.string().required(),
+  status: yup.mixed<SubscriptionStatus>().oneOf([...SUBSCRIPTION_STATUSES]).required(),
+  channel: yup.mixed<PaymentChannel>().oneOf([...PAYMENT_CHANNELS]).required(),
+  current_period_end: yup.string().nullable().defined(),
+});
+
+export type ActiveSubscriptionOut = yup.InferType<typeof activeSubscriptionOutSchema>;
+
+export const paymentProviderOutSchema = yup.object({
+  channel: yup.mixed<PaymentChannel>().oneOf([...PAYMENT_CHANNELS]).required(),
+  displayName: yup.string().required(),
+  isConfigured: yup.boolean().required(),
+});
+
+export type PaymentProviderOut = yup.InferType<typeof paymentProviderOutSchema>;
+
+export const listProvidersResponseSchema = yup.object({
+  providers: yup.array().of(paymentProviderOutSchema).required(),
+});
+
+export type ListProvidersResponse = yup.InferType<typeof listProvidersResponseSchema>;
+
+export const startSubscriptionRequestSchema = yup.object({
+  planId: yup.string().optional(),
+  plan_id: yup.string().optional(),
+  channel: yup.string().nullable().optional(),
+});
+
+export type StartSubscriptionRequest = yup.InferType<typeof startSubscriptionRequestSchema>;
+
+export const confirmSubscriptionRequestSchema = yup.object({
+  subscriptionId: yup.string().optional(),
+  subscription_id: yup.string().optional(),
+  receipt: yup.mixed().optional(),
+});
+
+export type ConfirmSubscriptionRequest = yup.InferType<typeof confirmSubscriptionRequestSchema>;
+
+
 
 

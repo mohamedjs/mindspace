@@ -31,6 +31,7 @@ export interface BlobStorePort {
     idx: number;
     stream: Readable;
     maxBytes?: number;
+    quotaMaxBytes?: number;
   }): Promise<{
     blobKey: string;
     ext: AllowedAudioExtension;
@@ -39,6 +40,10 @@ export interface BlobStorePort {
   createReadStream(key: string): Readable;
   delete(key: string): Promise<void>;
   deleteRecordingFiles(userId: string, recordingId: string): Promise<void>;
+  getUserStoredBytes?(
+    userId: string,
+    exclude?: { recordingId: string; idx: number }
+  ): Promise<number>;
   exists(key: string): Promise<boolean>;
 }
 
@@ -175,4 +180,9 @@ export interface RecordingRepositoryPort {
   findStaleClaimedRecordings(idleMs: number): Promise<Recording[]>;
   requeueStaleRecording(recordingId: string, userId: string): Promise<void>;
   failStaleRecording(recordingId: string, userId: string, error: string): Promise<void>;
+  findUnfinishedRecordingsOlderThan(
+    maxAgeMs: number,
+    tx?: unknown
+  ): Promise<Array<{ id: string; userId: string }>>;
+  deleteRecordingParts(recordingId: string, userId: string, tx?: unknown): Promise<number>;
 }

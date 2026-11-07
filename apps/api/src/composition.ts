@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { AppConfig } from './platform/config.js';
-import { loadConfig } from './platform/config.js';
+import { checkProductionSecrets, loadConfig } from './platform/config.js';
 import type { Database } from './platform/db.js';
 import { createDb, closeDb } from './platform/db.js';
 import type { Cache } from './platform/cache.js';
@@ -43,12 +43,23 @@ import {
   type AiChatProviderPort,
   type AiModule,
 } from './modules/ai/index.js';
+import {
+  createBillingModule,
+  type ConfirmStepHookPort,
+  type EntitlementsOptions,
+  type PaymentProviderRegistryPort,
+} from './modules/billing/index.js';
+
+export type BillingModule = ReturnType<typeof createBillingModule>;
 
 export interface ComposeAppOptions {
   keyValidator?: KeyValidator;
   transcriber?: Transcriber;
   chatProvider?: AiChatProviderPort;
   entitlements?: EntitlementsPort;
+  entitlementsOptions?: EntitlementsOptions;
+  paymentProviders?: PaymentProviderRegistryPort;
+  confirmStepHook?: ConfirmStepHookPort | null;
   extractor?: ExtractorPort;
   splitThresholdMs?: number;
   maxAttempts?: number;
@@ -65,6 +76,7 @@ export interface AppComposition {
   cache: Cache;
   server: FastifyInstance;
   creditsModule: CreditsModule;
+  billingModule: BillingModule;
   byokModule: ByokModule;
   authModule: AuthModule;
   spacesModule: SpacesModule;
@@ -81,6 +93,7 @@ export interface WorkerComposition {
   db: Database;
   cache: Cache;
   creditsModule: CreditsModule;
+  billingModule: BillingModule;
   byokModule: ByokModule;
   spacesModule: SpacesModule;
   transcriptionModule: TranscriptionModule;
@@ -96,6 +109,7 @@ export async function composeApp(
 ): Promise<AppComposition> {
   const baseConfig = loadConfig();
   const config: AppConfig = { ...baseConfig, ...envOverrides };
+  checkProductionSecrets(config);
 
   const clock = systemClock;
   const db = createDb(config);
@@ -111,6 +125,21 @@ export async function composeApp(
   // Wire modules through composition root
   const requireUser = createRequireUser(config.JWT_SECRET);
   const creditsModule = createCreditsModule({ db, requireUser });
+
+  const billingModule = createBillingModule({
+    db,
+    config,
+    cache,
+    clock,
+    requireAuth: requireUser,
+    credits: {
+      grant: (userId, amount, reason, tx, opts) =>
+        creditsModule.grant(userId, amount, reason, tx, opts),
+    },
+    entitlementsOptions: options?.entitlementsOptions,
+    providers: options?.paymentProviders,
+    confirmStepHook: options?.confirmStepHook,
+  });
 
   const defaultKeyValidator =
     options?.keyValidator ??
@@ -186,6 +215,7 @@ export async function composeApp(
 
   const aiModule = createAiModule({
     db,
+    cache,
     requireUser,
     spacePort: {
       ensureOwned: async (spaceId: string, userId: string, trx?: unknown) => {
@@ -247,7 +277,7 @@ export async function composeApp(
       release: (reservationId: string, userId?: string, tx?: unknown) =>
         creditsModule.release(reservationId, userId, tx),
     },
-    entitlements: options?.entitlements,
+    entitlements: options?.entitlements ?? billingModule.entitlements,
     extractor:
       options?.extractor !== undefined
         ? options.extractor
@@ -262,11 +292,18 @@ export async function composeApp(
     sseHeartbeatMs: options?.sseHeartbeatMs,
     ssePollIntervalMs: options?.ssePollIntervalMs,
     maxPartBytes: options?.maxPartBytes,
+    maintenance: {
+      monthlyRefill: (tx) => creditsModule.monthlyFreeRefill(tx),
+      sweepExpiredReservations: (tx) => creditsModule.sweepExpiredReservations(tx),
+      expireSubscriptions: (now, tx) =>
+        billingModule.expireSubscriptionsUseCase.execute(now, tx),
+    },
   });
 
   // Register presentation routes
   authModule.registerRoutes(server);
   creditsModule.registerRoutes(server);
+  await billingModule.registerRoutes(server);
   byokModule.registerRoutes(server);
   spacesModule.registerRoutes(server);
   timelineModule.registerRoutes(server);
@@ -281,6 +318,7 @@ export async function composeApp(
     cache,
     server,
     creditsModule,
+    billingModule,
     byokModule,
     authModule,
     spacesModule,
@@ -303,11 +341,24 @@ export async function composeWorker(
 ): Promise<WorkerComposition> {
   const baseConfig = loadConfig();
   const config: AppConfig = { ...baseConfig, ...envOverrides };
+  checkProductionSecrets(config);
 
   const db = createDb(config);
   const cache = createCache(config);
 
   const creditsModule = createCreditsModule({ db });
+  const billingModule = createBillingModule({
+    db,
+    config,
+    cache,
+    credits: {
+      grant: (userId, amount, reason, tx, opts) =>
+        creditsModule.grant(userId, amount, reason, tx, opts),
+    },
+    entitlementsOptions: options?.entitlementsOptions,
+    providers: options?.paymentProviders,
+    confirmStepHook: options?.confirmStepHook,
+  });
   const byokModule = createByokModule({
     db,
     masterKeyBase64: config.BYOK_MASTER_KEY,
@@ -339,6 +390,7 @@ export async function composeWorker(
 
   const aiModule = createAiModule({
     db,
+    cache,
     spacePort: {
       ensureOwned: async (spaceId: string, userId: string, trx?: unknown) => {
         await spacesModule.ensureOwned(spaceId, userId, trx);
@@ -398,7 +450,7 @@ export async function composeWorker(
       release: (reservationId: string, userId?: string, tx?: unknown) =>
         creditsModule.release(reservationId, userId, tx),
     },
-    entitlements: options?.entitlements,
+    entitlements: options?.entitlements ?? billingModule.entitlements,
     extractor:
       options?.extractor !== undefined
         ? options.extractor
@@ -410,6 +462,12 @@ export async function composeWorker(
     splitThresholdMs: options?.splitThresholdMs,
     maxAttempts: options?.maxAttempts,
     idleSweepMs: options?.idleSweepMs,
+    maintenance: {
+      monthlyRefill: (tx) => creditsModule.monthlyFreeRefill(tx),
+      sweepExpiredReservations: (tx) => creditsModule.sweepExpiredReservations(tx),
+      expireSubscriptions: (now, tx) =>
+        billingModule.expireSubscriptionsUseCase.execute(now, tx),
+    },
   });
 
   const worker = recordingsModule.createWorker({
@@ -421,6 +479,7 @@ export async function composeWorker(
     db,
     cache,
     creditsModule,
+    billingModule,
     byokModule,
     spacesModule,
     transcriptionModule,

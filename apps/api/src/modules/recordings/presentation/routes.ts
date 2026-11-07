@@ -12,7 +12,10 @@ import {
 import { AppError } from '../../../platform/http/errors.js';
 import type { RecordingStatus, RecordingStatusEvent } from '../domain/entities.js';
 import {
+  AiNotInPlanError,
+  AudioPartIndexExceededError,
   AudioPartTooLargeError,
+  AudioStorageQuotaExceededError,
   InvalidAudioContainerError,
   NoteNotFoundForRecordingError,
   RecordingNotFoundError,
@@ -195,6 +198,12 @@ export function registerRecordingRoutes(
           if (err instanceof RecordingNotFoundError) {
             throw new AppError('recording_not_found', 404, 'Recording not found');
           }
+          if (err instanceof AudioPartIndexExceededError) {
+            throw new AppError(err.code, 400, err.message);
+          }
+          if (err instanceof AudioStorageQuotaExceededError) {
+            throw new AppError(err.code, 413, err.message);
+          }
           if (err instanceof InvalidAudioContainerError) {
             throw new AppError('invalid_audio_format', 400, err.message);
           }
@@ -219,6 +228,9 @@ export function registerRecordingRoutes(
     } catch (err) {
       if (err instanceof RecordingNotFoundError) {
         throw new AppError('recording_not_found', 404, 'Recording not found');
+      }
+      if (err instanceof AiNotInPlanError) {
+        throw new AppError(err.code, 403, err.message);
       }
       throw err;
     }

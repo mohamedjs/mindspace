@@ -612,6 +612,53 @@ export class KyselyRecordingRepository implements RecordingRepositoryPort {
       .where('user_id', '=', userId)
       .execute();
   }
+
+  async findUnfinishedRecordingsOlderThan(
+    maxAgeMs: number,
+    tx?: unknown
+  ): Promise<Array<{ id: string; userId: string }>> {
+    const exec = (tx as Database | undefined) ?? this.db;
+    const res = await sql<{ id: string; user_id: string }>`
+      SELECT DISTINCT r.id, r.user_id
+        FROM public.recordings r
+        LEFT JOIN public.recording_parts rp
+          ON rp.recording_id = r.id AND rp.user_id = r.user_id
+       WHERE r.status IN ('recorded', 'uploading')
+         AND r.created_at <= now() - (${maxAgeMs} * interval '1 millisecond')
+         AND (rp.id IS NOT NULL OR r.storage_path IS NOT NULL OR r.local_only = false)
+    `.execute(exec);
+
+    return res.rows.map((r) => ({
+      id: String(r.id),
+      userId: String(r.user_id),
+    }));
+  }
+
+  async deleteRecordingParts(
+    recordingId: string,
+    userId: string,
+    tx?: unknown
+  ): Promise<number> {
+    const exec = (tx as Database | undefined) ?? this.db;
+    const delRes = await exec
+      .deleteFrom('recording_parts')
+      .where('recording_id', '=', recordingId)
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+
+    await exec
+      .updateTable('recordings')
+      .set({
+        local_only: true,
+        storage_path: null,
+        size_bytes: null,
+      })
+      .where('id', '=', recordingId)
+      .where('user_id', '=', userId)
+      .execute();
+
+    return Number(delRes.numDeletedRows ?? 0);
+  }
 }
 
 export class KyselyNoteOwnershipChecker implements NoteOwnershipPort {

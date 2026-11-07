@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type { Cache } from '../../platform/cache.js';
 import type { Database } from '../../platform/db.js';
 import type { RequireUserHook } from '../../platform/http/auth.js';
 import type {
@@ -47,6 +48,7 @@ export * from './presentation/index.js';
 
 export interface AiModuleDependencies {
   db: Database;
+  cache?: Cache | null;
   requireUser?: RequireUserHook;
   spacePort: AiSpacePort;
   keyResolver: AiKeyResolverPort;
@@ -72,7 +74,7 @@ export interface AiModule {
 }
 
 export function createAiModule(deps: AiModuleDependencies): AiModule {
-  const modelRepo = new KyselyAiModelRepository(deps.db);
+  const modelRepo = new KyselyAiModelRepository(deps.db, deps.cache);
   const actionRepo = new KyselyAiActionRepository(deps.db);
   const notePort = new KyselyAiNoteAdapter(deps.db);
   const relationshipPort = new KyselyAiRelationshipAdapter(deps.db);

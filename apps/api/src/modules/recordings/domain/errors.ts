@@ -33,6 +33,22 @@ export class AudioPartTooLargeError extends Error {
   }
 }
 
+export class AudioPartIndexExceededError extends Error {
+  public readonly code = 'part_index_exceeded';
+  constructor(maxIdx: number) {
+    super(`Audio part index must be less than ${maxIdx} for current plan`);
+    this.name = 'AudioPartIndexExceededError';
+  }
+}
+
+export class AudioStorageQuotaExceededError extends Error {
+  public readonly code = 'audio_quota_exceeded';
+  constructor(message = 'User stored audio quota exceeded') {
+    super(message);
+    this.name = 'AudioStorageQuotaExceededError';
+  }
+}
+
 export class RecordingNotUploadedError extends Error {
   constructor(message = 'Recording has no uploaded audio parts') {
     super(message);

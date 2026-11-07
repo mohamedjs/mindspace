@@ -1,5 +1,5 @@
 import { createReadStream, createWriteStream } from 'node:fs';
-import { access, mkdir, readdir, rename, rm } from 'node:fs/promises';
+import { access, mkdir, readdir, rename, rm, stat } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { Readable } from 'node:stream';
@@ -22,6 +22,13 @@ export class BlobTooLargeError extends Error {
   constructor(maxBytes: number) {
     super(`Audio part exceeds maximum size of ${maxBytes} bytes`);
     this.name = 'BlobTooLargeError';
+  }
+}
+
+export class BlobQuotaExceededError extends Error {
+  constructor(maxQuotaBytes: number) {
+    super(`User stored audio quota of ${maxQuotaBytes} bytes exceeded`);
+    this.name = 'BlobQuotaExceededError';
   }
 }
 
@@ -125,6 +132,7 @@ export interface SavePartInput {
   idx: number;
   stream: Readable;
   maxBytes?: number;
+  quotaMaxBytes?: number;
 }
 
 export interface SavePartResult {
@@ -140,6 +148,10 @@ export interface BlobStore {
   createReadStream(key: string): Readable;
   delete(key: string): Promise<void>;
   deleteRecordingFiles(userId: string, recordingId: string): Promise<void>;
+  getUserStoredBytes(
+    userId: string,
+    exclude?: { recordingId: string; idx: number }
+  ): Promise<number>;
   exists(key: string): Promise<boolean>;
 }
 
@@ -192,7 +204,14 @@ export class DiskBlobStore implements BlobStore {
   }
 
   async savePartFromStream(input: SavePartInput): Promise<SavePartResult> {
-    const { userId, recordingId, idx, stream, maxBytes = DEFAULT_MAX_PART_BYTES } = input;
+    const {
+      userId,
+      recordingId,
+      idx,
+      stream,
+      maxBytes = DEFAULT_MAX_PART_BYTES,
+      quotaMaxBytes,
+    } = input;
     if (!UUID_REGEX.test(userId) || !UUID_REGEX.test(recordingId)) {
       throw new Error('Invalid identifiers for audio upload');
     }
@@ -243,6 +262,9 @@ export class DiskBlobStore implements BlobStore {
         totalBytes += chunk.length;
         if (totalBytes > maxBytes) {
           throw new BlobTooLargeError(maxBytes);
+        }
+        if (quotaMaxBytes !== undefined && totalBytes > quotaMaxBytes) {
+          throw new BlobQuotaExceededError(quotaMaxBytes);
         }
 
         if (!detectedExt) {
@@ -335,6 +357,44 @@ export class DiskBlobStore implements BlobStore {
       throw new Error('Path traversal rejected');
     }
     await rm(dirPath, { recursive: true, force: true });
+  }
+
+  async getUserStoredBytes(
+    userId: string,
+    exclude?: { recordingId: string; idx: number }
+  ): Promise<number> {
+    if (!UUID_REGEX.test(userId)) {
+      return 0;
+    }
+    const userDir = resolve(this.baseDir, userId);
+    if (!userDir.startsWith(this.baseDir + sep)) {
+      return 0;
+    }
+
+    const recDirs = await readdir(userDir).catch(() => [] as string[]);
+    let total = 0;
+
+    for (const recId of recDirs) {
+      if (!UUID_REGEX.test(recId)) continue;
+      const recDir = join(userDir, recId);
+      const files = await readdir(recDir).catch(() => [] as string[]);
+      for (const fileName of files) {
+        if (fileName.includes('.tmp.')) continue;
+        if (
+          exclude &&
+          exclude.recordingId === recId &&
+          fileName.startsWith(`${exclude.idx}.`)
+        ) {
+          continue;
+        }
+        const st = await stat(join(recDir, fileName)).catch(() => null);
+        if (st && st.isFile()) {
+          total += st.size;
+        }
+      }
+    }
+
+    return total;
   }
 
   async exists(key: string): Promise<boolean> {

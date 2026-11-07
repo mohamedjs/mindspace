@@ -36,6 +36,7 @@ import {
   NoopExtractorAdapter,
   PipelineWorker,
   RedisRecordingEventsAdapter,
+  type WorkerMaintenanceCallbacks,
 } from './infrastructure/index.js';
 import { registerRecordingRoutes } from './presentation/routes.js';
 
@@ -68,6 +69,7 @@ export interface RecordingsModuleDependencies {
   sseHeartbeatMs?: number;
   ssePollIntervalMs?: number;
   maxPartBytes?: number;
+  maintenance?: WorkerMaintenanceCallbacks;
 }
 
 export interface RecordingsModule {
@@ -76,6 +78,7 @@ export interface RecordingsModule {
     pollIntervalMs?: number;
     sweepIntervalMs?: number;
     maxConcurrentJobs?: number;
+    maintenance?: WorkerMaintenanceCallbacks;
   }): PipelineWorker;
   jobUseCase: ProcessRecordingJobUseCase;
   eventsPort: RecordingEventsPort;
@@ -116,8 +119,16 @@ export function createRecordingsModule(deps: RecordingsModuleDependencies): Reco
     deps.spaceOwnership,
     noteOwnership
   );
-  const uploadRecordingPartUseCase = new UploadRecordingPartUseCase(recordingRepo, blobStore);
-  const finishRecordingUseCase = new FinishRecordingUseCase(recordingRepo, eventsPort);
+  const uploadRecordingPartUseCase = new UploadRecordingPartUseCase(
+    recordingRepo,
+    blobStore,
+    proxyEntitlements
+  );
+  const finishRecordingUseCase = new FinishRecordingUseCase(
+    recordingRepo,
+    eventsPort,
+    proxyEntitlements
+  );
   const listRecordingsUseCase = new ListRecordingsUseCase(recordingRepo, deps.spaceOwnership);
   const getRecordingStatusUseCase = new GetRecordingStatusUseCase(recordingRepo);
   const getTranscriptIdUseCase = new GetTranscriptIdUseCase(recordingRepo);
@@ -164,8 +175,10 @@ export function createRecordingsModule(deps: RecordingsModuleDependencies): Reco
     },
     createWorker: (options) =>
       new PipelineWorker({
+        db: deps.db,
         jobUseCase,
         eventsPort,
+        maintenance: options?.maintenance ?? deps.maintenance,
         maxConcurrentJobs: options?.maxConcurrentJobs ?? deps.pipelineWorkers ?? 32,
         pollIntervalMs: options?.pollIntervalMs ?? 2_000,
         sweepIntervalMs: options?.sweepIntervalMs ?? 30_000,

@@ -8,8 +8,8 @@
 | 04 | Done, verified by Claude |
 | 05 | Done, verified by Claude |
 | 06 | Done, verified by Claude |
-| 07 | In progress |
-| 08 | Not started |
+| 07 | Done, verified by Claude |
+| 08 | In progress |
 | 09 | Not started |
 | 10 | Not started |
 | 11 | Not started |

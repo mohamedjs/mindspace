@@ -129,8 +129,11 @@ export interface ResolvedProviderKey {
 }
 
 export interface UserEntitlements {
+  planId?: string;
   aiEnabled: boolean;
+  isByok?: boolean;
   maxRecordingMinutes: number | null;
+  maxStoredAudioBytes?: number | null;
   isFreePlan?: boolean;
 }
 

@@ -11,6 +11,7 @@ export interface AppConfig {
   CORS_ORIGINS: string;
   AUDIO_DIR: string;
   OPENROUTER_API_KEY: string;
+  ALLOW_TEST_PAY?: boolean;
   STT_CONCURRENCY?: number;
   LLM_CONCURRENCY?: number;
   PIPELINE_WORKERS?: number;
@@ -44,6 +45,7 @@ const configSchema = yup.object({
   CORS_ORIGINS: yup.string().required('CORS_ORIGINS is required'),
   AUDIO_DIR: yup.string().required('AUDIO_DIR is required').default('/data/audio'),
   OPENROUTER_API_KEY: yup.string().required('OPENROUTER_API_KEY is required'),
+  ALLOW_TEST_PAY: yup.boolean().default(false),
   STT_CONCURRENCY: yup.number().integer().positive().default(16),
   LLM_CONCURRENCY: yup.number().integer().positive().default(16),
   PIPELINE_WORKERS: yup.number().integer().positive().default(32),
@@ -58,8 +60,14 @@ const PLACEHOLDER_PATTERNS = [
   /super-secret/i,
 ];
 
-function checkProductionSecrets(config: AppConfig): void {
+export function checkProductionSecrets(config: AppConfig): void {
   if (config.NODE_ENV !== 'production') return;
+
+  if (config.ALLOW_TEST_PAY) {
+    throw new Error(
+      'Production startup failed: ALLOW_TEST_PAY=true cannot be enabled when NODE_ENV is production'
+    );
+  }
 
   const checks: { key: keyof AppConfig; val: string }[] = [
     { key: 'JWT_SECRET', val: config.JWT_SECRET },

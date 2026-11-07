@@ -7,7 +7,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ZBMldbJESFkteg78AlvXtj6GpHgg5YvhHahDVULFFni0H3JSJWtrHfT7SGE23z0
+\restrict t935310mUhf50wWc2iQix0OjWAaBGYkS4KbbSXkJwp9Gf7fXmG4QFrpB4CHRhgg
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -676,26 +676,26 @@ COPY public.ai_actions (id, user_id, space_id, kind, status, recording_id, trans
 --
 
 COPY public.ai_models (id, provider, model_id, display_name, kind, input_price_m, output_price_m, price_per_min, credit_multiplier, is_default, byok_only, tier, enabled, notes, sort_order, price_synced_at) FROM stdin;
-de7cecef-0432-436d-9579-77eeabcbe6d2	openrouter	deepseek/deepseek-v4-flash	DeepSeek V4 Flash	chat	0.1400	0.2800	\N	1.00	t	f	free	t	\N	10	\N
-490cba29-d8d6-424a-bbd8-55ca6377143e	openrouter	qwen/qwen3.7-flash	Qwen 3.7 Flash	chat	0.0300	0.1300	\N	0.50	f	f	free	t	\N	20	\N
-6bc5cc07-3ee9-487b-87d3-306354186fa5	openrouter	google/gemini-3.1-flash-lite-preview	Gemini 3.1 Flash Lite	chat	0.2500	1.5000	\N	1.50	f	f	free	t	\N	30	\N
-a187c97b-abb3-4793-9fbf-62bf11729cf3	openrouter	moonshotai/kimi-k2.5	Kimi K2.5	chat	0.5700	2.8500	\N	3.00	f	f	paid	t	\N	40	\N
-f7116ef0-8f67-45d8-adad-8ca16af4cd87	openrouter	z-ai/glm-5	GLM-5	chat	0.9500	2.5500	\N	3.00	f	f	paid	t	\N	50	\N
-f2d2617a-9032-4e29-af1e-4325a2394a07	openrouter	google/gemini-2.5-flash	Gemini 2.5 Flash	transcribe	\N	\N	0.00100	1.00	t	f	free	t	\N	10	\N
-ec7abcd1-13e5-4ea7-8248-d9a0d61a7b7b	openrouter	google/gemini-2.5-flash-lite	Gemini 2.5 Flash Lite (cheapest)	transcribe	\N	\N	0.00030	0.50	f	f	free	t	\N	20	\N
-4fc84faf-13eb-4eb5-8014-e9305986da87	openrouter	google/gemini-3.1-flash-lite-preview	Gemini 3.1 Flash Lite	transcribe	\N	\N	0.00050	0.70	f	f	free	t	\N	30	\N
-f724b929-5e22-442c-95b9-75d6f23f9745	openrouter	google/gemini-3-flash-preview	Gemini 3 Flash	transcribe	\N	\N	0.00100	1.00	f	f	free	t	\N	40	\N
-85c58504-4037-4273-844c-29a428a52c27	openrouter	google/gemini-2.5-pro	Gemini 2.5 Pro (most accurate)	transcribe	\N	\N	0.00130	1.50	f	f	paid	t	\N	50	\N
-22c686be-5f76-4015-be48-e21896fc94b6	anthropic	claude-opus-5	Claude Opus 5 (your key)	chat	5.0000	25.0000	\N	1.00	f	t	paid	t	\N	200	\N
-8527f915-3f6f-4328-a477-b45651bb0b04	anthropic	claude-sonnet-5	Claude Sonnet 5 (your key)	chat	3.0000	15.0000	\N	1.00	f	t	paid	t	\N	210	\N
-6cc49e77-4e88-434a-8dee-75fec56d8c1c	anthropic	claude-haiku-4-5	Claude Haiku 4.5 (your key)	chat	1.0000	5.0000	\N	1.00	f	t	paid	t	\N	220	\N
-40f56c2f-721e-4d8d-9225-e527762d2db2	openai	gpt-5.2	GPT-5.2 (your key)	chat	1.2500	10.0000	\N	1.00	f	t	paid	t	\N	230	\N
-0b955592-8e9a-4212-ba07-f96a6139bb04	openai	gpt-5.2-mini	GPT-5.2 mini (your key)	chat	0.2500	2.0000	\N	1.00	f	t	paid	t	\N	240	\N
-1dda72b7-27dc-4ca7-acfb-73a619c7e1b0	google	gemini-3-pro	Gemini 3 Pro (your key)	chat	1.2500	10.0000	\N	1.00	f	t	paid	t	\N	250	\N
-733fd094-7fa2-45f6-8af2-59668979c383	google	gemini-3-flash	Gemini 3 Flash (your key)	chat	0.3000	2.5000	\N	1.00	f	t	paid	t	\N	260	\N
-c55cb91d-6283-473d-abe4-7c802bac2c57	openai	whisper-1	Whisper (your key)	transcribe	\N	\N	0.00600	1.00	f	t	paid	f	\N	200	\N
-ea0f617e-a274-4f2c-911a-9094c62896bc	openai	gpt-4o-mini-transcribe	GPT-4o mini STT (your key)	transcribe	\N	\N	0.00300	1.00	f	t	paid	f	\N	210	\N
-0e830987-7f44-4f7b-848e-44ab2362d8f8	google	gemini-3-flash	Gemini 3 Flash (your key)	transcribe	\N	\N	0.00200	1.00	f	t	paid	f	\N	220	\N
+8701428f-965b-4b7b-917e-5ec6e4ff8f5c	openrouter	deepseek/deepseek-v4-flash	DeepSeek V4 Flash	chat	0.1400	0.2800	\N	1.00	t	f	free	t	\N	10	\N
+46a77a9e-974d-4cb1-bb0c-ab0c2725ba5b	openrouter	qwen/qwen3.7-flash	Qwen 3.7 Flash	chat	0.0300	0.1300	\N	0.50	f	f	free	t	\N	20	\N
+bf0d6f4b-016b-4fc9-a969-a0ccfc041794	openrouter	google/gemini-3.1-flash-lite-preview	Gemini 3.1 Flash Lite	chat	0.2500	1.5000	\N	1.50	f	f	free	t	\N	30	\N
+b4fc2867-8e51-4881-a8fc-0f492054d3a3	openrouter	moonshotai/kimi-k2.5	Kimi K2.5	chat	0.5700	2.8500	\N	3.00	f	f	paid	t	\N	40	\N
+06fdf5b9-43e3-4e92-b255-fa0131f929ce	openrouter	z-ai/glm-5	GLM-5	chat	0.9500	2.5500	\N	3.00	f	f	paid	t	\N	50	\N
+f1654c9c-cb74-4e13-afcc-f0393afc36c8	openrouter	google/gemini-2.5-flash	Gemini 2.5 Flash	transcribe	\N	\N	0.00100	1.00	t	f	free	t	\N	10	\N
+24dcdb07-cd6e-463b-be27-5ca8782181af	openrouter	google/gemini-2.5-flash-lite	Gemini 2.5 Flash Lite (cheapest)	transcribe	\N	\N	0.00030	0.50	f	f	free	t	\N	20	\N
+61a57e2f-ea97-424e-a9f8-4b7258d4442a	openrouter	google/gemini-3.1-flash-lite-preview	Gemini 3.1 Flash Lite	transcribe	\N	\N	0.00050	0.70	f	f	free	t	\N	30	\N
+c66a31fc-0da2-4007-b2a8-629a8fe4be91	openrouter	google/gemini-3-flash-preview	Gemini 3 Flash	transcribe	\N	\N	0.00100	1.00	f	f	free	t	\N	40	\N
+39130bba-74b8-4a1f-82df-ed397a9532d6	openrouter	google/gemini-2.5-pro	Gemini 2.5 Pro (most accurate)	transcribe	\N	\N	0.00130	1.50	f	f	paid	t	\N	50	\N
+384dc01a-b8c8-4d92-9e91-57fccb9b3278	anthropic	claude-opus-5	Claude Opus 5 (your key)	chat	5.0000	25.0000	\N	1.00	f	t	paid	t	\N	200	\N
+ed553e01-8667-4296-a95b-1d95dcf1ed43	anthropic	claude-sonnet-5	Claude Sonnet 5 (your key)	chat	3.0000	15.0000	\N	1.00	f	t	paid	t	\N	210	\N
+948821ba-ab00-4dcc-8d4e-99b1d18383da	anthropic	claude-haiku-4-5	Claude Haiku 4.5 (your key)	chat	1.0000	5.0000	\N	1.00	f	t	paid	t	\N	220	\N
+ac4c69fb-6f6b-48cc-8044-73c7d076d7d3	openai	gpt-5.2	GPT-5.2 (your key)	chat	1.2500	10.0000	\N	1.00	f	t	paid	t	\N	230	\N
+29e69e44-d5dc-441f-be3f-69097d7dc90e	openai	gpt-5.2-mini	GPT-5.2 mini (your key)	chat	0.2500	2.0000	\N	1.00	f	t	paid	t	\N	240	\N
+2e8093a7-42bf-4932-9549-c16ead24a491	google	gemini-3-pro	Gemini 3 Pro (your key)	chat	1.2500	10.0000	\N	1.00	f	t	paid	t	\N	250	\N
+ab49b4c8-3b50-4339-912b-14aaeac31589	google	gemini-3-flash	Gemini 3 Flash (your key)	chat	0.3000	2.5000	\N	1.00	f	t	paid	t	\N	260	\N
+52733514-dbb8-48ad-9402-0d7fabbeec45	openai	whisper-1	Whisper (your key)	transcribe	\N	\N	0.00600	1.00	f	t	paid	f	\N	200	\N
+aae9d661-0776-4f51-ac28-f18651ae4265	openai	gpt-4o-mini-transcribe	GPT-4o mini STT (your key)	transcribe	\N	\N	0.00300	1.00	f	t	paid	f	\N	210	\N
+49242009-ce05-44a4-ad94-5e14f1a5ef8c	google	gemini-3-flash	Gemini 3 Flash (your key)	transcribe	\N	\N	0.00200	1.00	f	t	paid	f	\N	220	\N
 \.
 
 
@@ -1622,5 +1622,5 @@ ALTER TABLE ONLY public.user_ai_keys
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ZBMldbJESFkteg78AlvXtj6GpHgg5YvhHahDVULFFni0H3JSJWtrHfT7SGE23z0
+\unrestrict t935310mUhf50wWc2iQix0OjWAaBGYkS4KbbSXkJwp9Gf7fXmG4QFrpB4CHRhgg
 

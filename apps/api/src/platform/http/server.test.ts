@@ -144,4 +144,126 @@ describe('HTTP Server', () => {
     expect(res.json()).toEqual({ error: 'not_found', message: 'Not found' });
     await server.close();
   });
+
+  it('sets production-grade security headers on all responses', async () => {
+    const prodConfig = { ...dummyConfig, NODE_ENV: 'production' as const };
+    const server = await buildServer({
+      config: prodConfig,
+      db: createHealthyDb(),
+      cache: { ping: async () => 'PONG' } as unknown as Cache,
+    });
+
+    const res = await server.inject({ method: 'GET', url: '/health' });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['x-frame-options']).toBe('DENY');
+    expect(res.headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+    expect(res.headers['x-xss-protection']).toBe('0');
+    expect(res.headers['content-security-policy']).toBe("default-src 'none'; frame-ancestors 'none'");
+    expect(res.headers['permissions-policy']).toBe('camera=(), microphone=(), geolocation=()');
+    expect(res.headers['strict-transport-security']).toBe('max-age=31536000; includeSubDomains');
+    await server.close();
+  });
+
+  describe('CORS checks', () => {
+    it('allows requests from configured origin with credentials', async () => {
+      const server = await buildServer({
+        config: dummyConfig,
+        db: createHealthyDb(),
+        cache: { ping: async () => 'PONG' } as unknown as Cache,
+      });
+
+      const res = await server.inject({
+        method: 'GET',
+        url: '/health',
+        headers: {
+          origin: 'http://localhost:3000',
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
+      expect(res.headers['access-control-allow-credentials']).toBe('true');
+      await server.close();
+    });
+
+    it('omits allow-origin header for unauthorized origins', async () => {
+      const server = await buildServer({
+        config: dummyConfig,
+        db: createHealthyDb(),
+        cache: { ping: async () => 'PONG' } as unknown as Cache,
+      });
+
+      const res = await server.inject({
+        method: 'GET',
+        url: '/health',
+        headers: {
+          origin: 'https://malicious-site.example.com',
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['access-control-allow-origin']).toBeUndefined();
+      await server.close();
+    });
+
+    it('handles CORS preflight OPTIONS requests for allowed origin', async () => {
+      const server = await buildServer({
+        config: dummyConfig,
+        db: createHealthyDb(),
+        cache: { ping: async () => 'PONG' } as unknown as Cache,
+      });
+
+      const res = await server.inject({
+        method: 'OPTIONS',
+        url: '/health',
+        headers: {
+          origin: 'http://localhost:3000',
+          'access-control-request-method': 'POST',
+        },
+      });
+
+      expect(res.statusCode).toBe(204);
+      expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
+      expect(res.headers['access-control-allow-methods']).toContain('POST');
+      await server.close();
+    });
+  });
+
+  describe('Route-level rate limits', () => {
+    it('enforces route-specific rate limits and returns 429 envelope', async () => {
+      const server = await buildServer({
+        config: dummyConfig,
+        db: createHealthyDb(),
+        cache: { ping: async () => 'PONG', status: 'ready' } as unknown as Cache,
+      });
+
+      server.get(
+        '/strict-limited',
+        {
+          config: {
+            rateLimit: {
+              max: 2,
+              timeWindow: 60000,
+            },
+          },
+        },
+        async () => ({ ok: true })
+      );
+
+      // Request 1: ok
+      const res1 = await server.inject({ method: 'GET', url: '/strict-limited' });
+      expect(res1.statusCode).toBe(200);
+
+      // Request 2: ok
+      const res2 = await server.inject({ method: 'GET', url: '/strict-limited' });
+      expect(res2.statusCode).toBe(200);
+
+      // Request 3: rate limited
+      const res3 = await server.inject({ method: 'GET', url: '/strict-limited' });
+      expect(res3.statusCode).toBe(429);
+      expect(res3.json().error).toBe('too_many_requests');
+      await server.close();
+    });
+  });
 });

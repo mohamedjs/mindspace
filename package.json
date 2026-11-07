@@ -31,6 +31,7 @@
     "tunnel:all": "concurrently -n web,tunnel,mobile -c cyan,green,magenta \"npm:web\" \"npx --yes localtunnel --port 3000\" \"npm:mobile:tunnel\""
   },
   "devDependencies": {
+    "autocannon": "^9.0.0",
     "concurrently": "^10.0.5"
   }
 }

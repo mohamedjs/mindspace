@@ -1,0 +1,35 @@
+# MindSpace v2 Production Caddyfile
+# Automatic HTTPS with unbuffered SSE streaming
+
+{$API_DOMAIN:api.localhost} {
+  reverse_proxy api:8080 {
+    flush_interval -1
+  }
+
+  header {
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  }
+}
+
+{$DOMAIN:localhost} {
+  @api path /api/* /health* /auth/* /spaces* /notes* /timeline* /recordings* /ai* /keys* /billing* /credits*
+  handle @api {
+    reverse_proxy api:8080 {
+      flush_interval -1
+    }
+  }
+
+  handle {
+    reverse_proxy web:3000
+  }
+
+  header {
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  }
+}

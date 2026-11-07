@@ -102,16 +102,38 @@ export async function buildServer(deps: ServerDependencies): Promise<FastifyInst
   await app.register(cors, {
     origin: corsOrigins,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+    exposedHeaders: ['Content-Range', 'X-Total-Count', 'X-Request-ID'],
   });
 
   await app.register(cookie);
 
+  // Security headers on all responses
+  app.addHook('onSend', async (_request, reply) => {
+    reply.header('x-content-type-options', 'nosniff');
+    reply.header('x-frame-options', 'DENY');
+    reply.header('referrer-policy', 'strict-origin-when-cross-origin');
+    reply.header('x-xss-protection', '0');
+    reply.header('content-security-policy', "default-src 'none'; frame-ancestors 'none'");
+    reply.header('permissions-policy', 'camera=(), microphone=(), geolocation=()');
+    if (deps.config.NODE_ENV === 'production') {
+      reply.header('strict-transport-security', 'max-age=31536000; includeSubDomains');
+    }
+  });
+
   await app.register(rateLimit, {
-    max: 1000,
+    max: (deps.config as any).RATE_LIMIT_MAX ?? 1000,
     timeWindow: 60000,
     store: FallbackRateLimitStore as any,
     redis: deps.cache,
     skipOnError: true,
+    keyGenerator: (req) => {
+      const user = (req as any).user?.id;
+      const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+      const route = req.routeOptions?.url || req.raw.url?.split('?')[0] || 'global';
+      return `rl:${route}:${user || ip}`;
+    },
   });
 
   app.setNotFoundHandler((_request, reply) => {

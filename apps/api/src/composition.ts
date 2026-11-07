@@ -11,8 +11,10 @@ import { logger } from './platform/logger.js';
 import { buildServer } from './platform/http/server.js';
 import { createRequireUser } from './platform/http/auth.js';
 import { createCreditsModule } from './modules/credits/index.js';
-import { createSpacesModule } from './modules/spaces/index.js';
+import { createSpacesModule, type SpacesModule } from './modules/spaces/index.js';
 import { createAuthModule, type AuthModule } from './modules/auth/index.js';
+import { createTimelineModule, type TimelineModule } from './modules/timeline/index.js';
+import { createNotesModule, type NotesModule } from './modules/notes/index.js';
 
 export interface AppComposition {
   config: AppConfig;
@@ -21,6 +23,9 @@ export interface AppComposition {
   cache: Cache;
   server: FastifyInstance;
   authModule: AuthModule;
+  spacesModule: SpacesModule;
+  timelineModule: TimelineModule;
+  notesModule: NotesModule;
   close: () => Promise<void>;
 }
 
@@ -42,7 +47,8 @@ export async function composeApp(envOverrides?: Partial<AppConfig>): Promise<App
   // Wire modules through composition root
   const requireUser = createRequireUser(config.JWT_SECRET);
   const creditsModule = createCreditsModule(db);
-  const spacesModule = createSpacesModule(db);
+  const spacesModule = createSpacesModule({ db, requireUser });
+
   const authModule = createAuthModule({
     db,
     config,
@@ -52,8 +58,39 @@ export async function composeApp(envOverrides?: Partial<AppConfig>): Promise<App
     requireUser,
   });
 
+  const timelineModule = createTimelineModule({
+    db,
+    requireUser,
+    spaceChecker: {
+      ensureOwned: async (spaceId: string, userId: string) => {
+        await spacesModule.ensureOwned(spaceId, userId);
+      },
+    },
+  });
+
+  const notesModule = createNotesModule({
+    db,
+    requireUser,
+    spacePort: {
+      ensureOwned: async (spaceId: string, userId: string, trx?: unknown) => {
+        await spacesModule.ensureOwned(spaceId, userId, trx);
+      },
+      bumpActivity: async (spaceId: string, noteDelta: number, trx?: unknown) => {
+        await spacesModule.bumpActivity(spaceId, noteDelta, trx);
+      },
+    },
+    timelinePort: {
+      recordEvent: async (event, trx) => {
+        await timelineModule.recordEvent(event, trx);
+      },
+    },
+  });
+
   // Register presentation routes
   authModule.registerRoutes(server);
+  spacesModule.registerRoutes(server);
+  timelineModule.registerRoutes(server);
+  notesModule.registerRoutes(server);
 
   return {
     config,
@@ -62,6 +99,9 @@ export async function composeApp(envOverrides?: Partial<AppConfig>): Promise<App
     cache,
     server,
     authModule,
+    spacesModule,
+    timelineModule,
+    notesModule,
     close: async () => {
       await server.close();
       await closeCache(cache);

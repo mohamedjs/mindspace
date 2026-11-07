@@ -11,6 +11,9 @@ export interface AppConfig {
   CORS_ORIGINS: string;
   AUDIO_DIR: string;
   OPENROUTER_API_KEY: string;
+  STT_CONCURRENCY?: number;
+  LLM_CONCURRENCY?: number;
+  PIPELINE_WORKERS?: number;
 }
 
 const configSchema = yup.object({
@@ -41,6 +44,9 @@ const configSchema = yup.object({
   CORS_ORIGINS: yup.string().required('CORS_ORIGINS is required'),
   AUDIO_DIR: yup.string().required('AUDIO_DIR is required').default('/data/audio'),
   OPENROUTER_API_KEY: yup.string().required('OPENROUTER_API_KEY is required'),
+  STT_CONCURRENCY: yup.number().integer().positive().default(16),
+  LLM_CONCURRENCY: yup.number().integer().positive().default(16),
+  PIPELINE_WORKERS: yup.number().integer().positive().default(32),
 });
 
 const PLACEHOLDER_PATTERNS = [

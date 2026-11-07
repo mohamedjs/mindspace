@@ -1,0 +1,5 @@
+FROM node:26-alpine
+
+RUN apk add --no-cache ffmpeg python3 make g++ \
+  && mkdir -p /data/audio \
+  && chmod 777 /data/audio

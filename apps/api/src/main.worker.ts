@@ -1,12 +1,21 @@
 import { writeFileSync, unlinkSync, existsSync } from 'node:fs';
-import { loadConfig } from './platform/config.js';
+import { composeWorker } from './composition.js';
 import { logger } from './platform/logger.js';
 
 const HEALTH_FILE = '/tmp/worker-healthy';
 
 async function main() {
-  const config = loadConfig();
-  logger.info({ nodeEnv: config.NODE_ENV }, 'MindSpace Worker process started');
+  const composed = await composeWorker();
+  await composed.worker.start();
+
+  logger.info(
+    {
+      nodeEnv: composed.config.NODE_ENV,
+      pipelineWorkers: composed.config.PIPELINE_WORKERS,
+      sttConcurrency: composed.config.STT_CONCURRENCY,
+    },
+    'MindSpace Worker process started'
+  );
 
   // Mark worker as healthy for docker healthcheck
   writeFileSync(HEALTH_FILE, new Date().toISOString(), 'utf8');
@@ -27,6 +36,12 @@ async function main() {
     logger.info({ signal }, `Worker received ${signal}, shutting down gracefully...`);
 
     clearInterval(heartbeatTimer);
+    try {
+      await composed.close();
+    } catch (err) {
+      logger.error(err, 'Error stopping worker composition');
+    }
+
     if (existsSync(HEALTH_FILE)) {
       try {
         unlinkSync(HEALTH_FILE);

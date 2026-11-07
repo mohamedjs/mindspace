@@ -103,7 +103,9 @@ services:
 
   dev:
     profiles: ["tools"]
-    image: node:26-alpine
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
     depends_on:
       postgres:
         condition: service_healthy

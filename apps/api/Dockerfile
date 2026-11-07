@@ -20,7 +20,7 @@ FROM node:26-alpine AS runner
 
 WORKDIR /app
 
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl ffmpeg
 
 COPY package.json package-lock.json* ./
 COPY packages/contracts/package.json ./packages/contracts/

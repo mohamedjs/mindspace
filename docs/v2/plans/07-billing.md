@@ -15,3 +15,4 @@ Port `subscribe-start`, `subscribe-confirm`, `payments/`, and section 11 of the 
 Standard check: failure injected at each confirm step leaves a retryable state with no lost or doubled credits; a free-plan user gets `ai_not_in_plan`; TestPay is refused in production; two workers run one refill.
 
 ## Decisions
+- Disk abuse: phase 05 caps each part at 25 MiB but not the number of parts. Reject `idx` at or above `ceil(maxRecordingMinutes / 5) + 2` on upload, enforce a per-user stored-audio quota from entitlements, and add a sweep deleting parts of recordings never finished within 24 hours. Test each.

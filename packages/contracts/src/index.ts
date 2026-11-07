@@ -553,3 +553,96 @@ export const saveKeyResponseSchema = yup.object({
 
 export type SaveKeyResponse = yup.InferType<typeof saveKeyResponseSchema>;
 
+// ============================================================
+// Recordings Contracts
+// ============================================================
+
+export const RECORDING_STATUSES = [
+  'recorded',
+  'uploading',
+  'queued',
+  'splitting',
+  'transcribing',
+  'transcribed',
+  'extracting',
+  'completed',
+  'failed',
+] as const;
+
+export type RecordingStatus = (typeof RECORDING_STATUSES)[number];
+
+export const RECORDING_KINDS = ['note', 'meeting'] as const;
+export type RecordingKind = (typeof RECORDING_KINDS)[number];
+
+export const ALLOWED_AUDIO_EXTENSIONS = ['webm', 'm4a', 'mp4', 'mp3', 'wav', 'ogg'] as const;
+export type AllowedAudioExtension = (typeof ALLOWED_AUDIO_EXTENSIONS)[number];
+
+export const createRecordingRequestSchema = yup.object({
+  kind: yup
+    .mixed<RecordingKind>()
+    .oneOf([...RECORDING_KINDS])
+    .optional()
+    .default('note'),
+  process_mode: yup.string().nullable().optional().default('extract'),
+  processMode: yup.string().nullable().optional(),
+  target_note_id: yup.string().nullable().optional(),
+  targetNoteId: yup.string().nullable().optional(),
+  parent_note_id: yup.string().nullable().optional(),
+  parentNoteId: yup.string().nullable().optional(),
+  duration_ms: yup.number().integer().min(0).optional(),
+});
+
+export type CreateRecordingRequest = yup.InferType<typeof createRecordingRequestSchema>;
+
+export const markRecordingFailedRequestSchema = yup.object({
+  error: yup.string().required('error is required'),
+});
+
+export type MarkRecordingFailedRequest = yup.InferType<typeof markRecordingFailedRequestSchema>;
+
+export const recordingStatusOutSchema = yup.object({
+  status: yup.mixed<RecordingStatus>().oneOf([...RECORDING_STATUSES]).required(),
+  error: yup.string().nullable().defined(),
+});
+
+export type RecordingStatusOut = yup.InferType<typeof recordingStatusOutSchema>;
+
+export const recordingTranscriptIdOutSchema = yup.object({
+  transcript_id: yup.string().nullable().defined(),
+});
+
+export type RecordingTranscriptIdOut = yup.InferType<typeof recordingTranscriptIdOutSchema>;
+
+export const recordingOutSchema = yup.object({
+  id: yup.string().required(),
+  status: yup.mixed<RecordingStatus>().oneOf([...RECORDING_STATUSES]).required(),
+  error: yup.string().nullable().defined(),
+  duration_ms: yup.number().integer().required(),
+  created_at: yup.string().required(),
+  storage_path: yup.string().nullable().defined(),
+  transcripts: yup
+    .array()
+    .of(
+      yup.object({
+        text: yup.string().required(),
+      })
+    )
+    .required(),
+  sticky_notes: yup
+    .array()
+    .of(
+      yup.object({
+        id: yup.string().required(),
+        title: yup.string().nullable().defined(),
+        content: yup.string().required(),
+        type: yup.string().required(),
+        color: yup.string().nullable().defined(),
+        deleted_at: yup.string().nullable().defined(),
+      })
+    )
+    .required(),
+});
+
+export type RecordingOut = yup.InferType<typeof recordingOutSchema>;
+
+

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — MindSpace</title>
+  <meta name="description" content="MindSpace Privacy Policy. Truthful disclosure regarding audio capture, third-party AI providers, meeting recording and data protection.">
+  <link rel="stylesheet" href="./src/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%236366f1'/><circle cx='50' cy='50' r='24' fill='white'/></svg>">
+</head>
+<body>
+
+  <!-- Site Header -->
+  <header class="site-header">
+    <div class="container nav-container">
+      <a href="index.html" class="brand-link" aria-label="MindSpace Home">
+        <span class="brand-icon">✦</span>
+        <span>MindSpace</span>
+      </a>
+
+      <div class="nav-actions">
+        <button type="button" class="lang-toggle-btn" aria-label="Toggle language">العربية</button>
+        <a href="index.html" class="btn btn-secondary">
+          <span>← Back to Home</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="section legal-page">
+    <div class="container">
+      <!-- Legal Draft Banner -->
+      <div class="legal-draft-banner" role="alert">
+        <span style="font-size: 1.25rem;">⚠️</span>
+        <div>
+          <strong class="legal-en">DRAFT — PENDING FORMAL LEGAL REVIEW</strong>
+          <strong class="legal-ar" style="display: none;">مسودة — قيد المراجعة القانونية الرسمية</strong>
+          <p class="legal-en" style="font-size: 0.85rem; margin-top: 0.25rem; color: #fde68a;">
+            This document reflects the truthful technical and architectural behavior of the MindSpace application and services. It is currently a draft subject to final legal review.
+          </p>
+          <p class="legal-ar" style="display: none; font-size: 0.85rem; margin-top: 0.25rem; color: #fde68a;">
+            هذه الوثيقة تعكس بصدق السلوك التقني والمعماري الفعلي لتطبيق وخدمات مايند سبيس، وهي مسودة تخضع للمراجعة القانونية النهائية.
+          </p>
+        </div>
+      </div>
+
+      <!-- English Version -->
+      <article class="legal-body legal-en">
+        <header class="legal-header">
+          <span class="section-tag">Privacy Policy</span>
+          <h1>Privacy Policy</h1>
+          <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.5rem;">Last updated: November 2026 • Status: Draft (Pending Legal Review)</p>
+        </header>
+
+        <section>
+          <h2>1. Introduction</h2>
+          <p>
+            MindSpace ("we", "our", or "the platform") is a voice-first thinking application designed to turn spoken thoughts into structured notes and visual mind-maps. We believe in strict transparency and minimal data retention. This Privacy Policy truthfully details how your audio recordings, text notes, credentials, and meeting data are collected, processed, and safeguarded.
+          </p>
+        </section>
+
+        <section>
+          <h2>2. Audio Recording, Local Buffering & Storage</h2>
+          <p>
+            Audio is captured strictly and solely when you explicitly tap the record button in the application or activate recording in the Chrome extension. We do not engage in background listening, ambient monitoring, or hotword activation.
+          </p>
+          <ul>
+            <li><strong>Local Chunking:</strong> In Meeting Mode, audio is recorded in independent 5-minute segments using <code>MediaRecorder</code> and stored temporarily in browser <code>IndexedDB</code>. If your browser or tab closes unexpectedly, un-uploaded parts persist locally until connection resumes.</li>
+            <li><strong>Transmission & Server Ingestion:</strong> Audio chunks are transmitted over encrypted TLS/HTTPS directly to our ingestion endpoints. Server-side, the exact audio duration is measured by probing the file directly (never trusting client metadata).</li>
+            <li><strong>Retention:</strong> Audio files are retained on protected server volumes only for the duration required to complete transcription and verify processing integrity, after which they are permanently deleted or managed according to your explicit account settings.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>3. Third-Party AI Providers & Data Processing</h2>
+          <p>
+            To transform voice into structured sticky notes, MindSpace utilizes vetted AI service providers:
+          </p>
+          <ul>
+            <li><strong>Speech-to-Text (Voice Transcription):</strong> Audio recordings are transcribed using platform speech-to-text endpoints via OpenRouter and Google Gemini models. Audio data sent to these endpoints is processed strictly for transcription and is not retained by third-party model providers to train foundational models.</li>
+            <li><strong>Idea Extraction & Rewriting:</strong> Text transcripts are processed by large language models to extract distinct thoughts and produce readable card titles and bodies. On default platform plans, this runs through OpenRouter-hosted models (such as DeepSeek V4 Flash, Qwen 3.7 Flash, or Gemini 3.1 Flash Lite).</li>
+            <li><strong>Bring Your Own AI (BYOK):</strong> Users on the "Your AI" plan supply their own API keys for OpenAI, Anthropic, or Google. For these users, all text extraction and note-writing requests are routed directly to their own provider account. We take zero credits for text processing on BYOK.</li>
+            <li><strong>BYOK Key Security:</strong> Your third-party API keys are encrypted at rest on the server using AES-256-GCM. Keys are never transmitted back to client applications or browsers; only the last four characters are displayed as an administrative hint.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>4. Meeting Mode & Mandatory Participant Consent</h2>
+          <p>
+            The MindSpace Chrome MV3 extension allows users to record online meetings (including Google Meet, Zoom web, and Microsoft Teams web) by capturing tab audio mixed with the user's microphone.
+          </p>
+          <p>
+            <strong>Mandatory Legal Consent Notice:</strong> Wiretapping, recording, or intercepting communications without the knowledge and consent of all participating parties is strictly unlawful under Egyptian Law No. 175 of 2018 (Anti-Cyber and Information Technology Crimes Law) as well as international privacy frameworks (including GDPR, CCPA, and two-party consent statutes).
+          </p>
+          <p>
+            Before recording commences, MindSpace requires you to accept a binding consent notice acknowledging that:
+          </p>
+          <ul>
+            <li>You have clearly notified every participant in the meeting that the session is being recorded.</li>
+            <li>You have obtained all legally required consents from each participant prior to initiating capture.</li>
+            <li>You assume full legal responsibility for compliance with all applicable local recording and wiretapping laws.</li>
+          </ul>
+          <p>
+            During recording, a prominent visual badge in the extension toolbar displays the elapsed recording duration.
+          </p>
+        </section>
+
+        <section>
+          <h2>5. Account Control, Database Security & Real Deletion</h2>
+          <ul>
+            <li><strong>Row-Level Security (RLS):</strong> User data (spaces, notes, recordings, credits, and ledger entries) is isolated at the PostgreSQL database engine level using strict <code>user_id</code> filtering. Application code cannot query across account boundaries.</li>
+            <li><strong>Local Due-Date Reminders:</strong> Dates and deadlines recognized in your notes are scheduled locally on your physical device. Your personal calendar and schedule are not shared with external advertising or tracking platforms.</li>
+            <li><strong>Real Account Deletion:</strong> If you select "Delete Account" in Settings, our system performs an irreversible, hard database deletion of every space, sticky note, sub-note, recording part, and credit ledger entry associated with your user ID. We do not use soft-deletion retention flags.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>6. No Third-Party Advertising or Tracking</h2>
+          <p>
+            MindSpace does not sell, monetize, or lease your personal information, notes, or audio recordings. Our website and web application do not employ third-party advertising cookies, external surveillance trackers, or data broker pixels.
+          </p>
+        </section>
+
+        <section>
+          <h2>7. Contact & Inquiries</h2>
+          <p>
+            For privacy inquiries, audit questions, or technical verification regarding data handling, please contact us at <code>privacy@mindspace.app</code> or review our open architecture documentation.
+          </p>
+        </section>
+      </article>
+
+      <!-- Arabic Version -->
+      <article class="legal-body legal-ar" style="display: none;">
+        <header class="legal-header">
+          <span class="section-tag">سياسة الخصوصية</span>
+          <h1>سياسة الخصوصية</h1>
+          <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 0.5rem;">آخر تحديث: نوفمبر 2026 • الحالة: مسودة (قيد المراجعة القانونية)</p>
+        </header>
+
+        <section>
+          <h2>1. مقدمة</h2>
+          <p>
+            تطبيق مايند سبيس ("نحن"، أو "المنصة") هو تطبيق صوتي لتنظيم الأفكار، مصمم لتحويل الأفكار المنطوقة إلى كروت مرتبة وخرائط تفكير بصرية. نحن نؤمن بالشفافية المطلقة والحد الأدنى من حفظ البيانات. توضح هذه السياسة بصدق كيفية جمع، ومعالجة، وحماية تسجيلاتك الصوتية، وملاحظاتك المكتوبة، وبيانات اجتماعاتك.
+          </p>
+        </section>
+
+        <section>
+          <h2>2. التسجيل الصوتي، التخزين المؤقت، والحفظ</h2>
+          <p>
+            يتم تسجيل الصوت فقط وحصرياً عندما تضغط بنفسك على زر التسجيل في التطبيق أو عبر إضافة المتصفح. لا نقوم بأي تنصت خفي أو تسجيل في الخلفية أو استماع للكلمات المفتاحية.
+          </p>
+          <ul>
+            <li><strong>التقسيم المحلي:</strong> في وضع الاجتماعات، يتم تسجيل الصوت في أجزاء مستقلة كل 5 دقائق باستخدام <code>MediaRecorder</code> ويتم حفظها محلياً في <code>IndexedDB</code> داخل متصفحك. إذا أغلق المتصفح بشكل غير متوقع، تظل المقاطع محفوظة محلياً حتى استعادة الاتصال ورفعها بأمان.</li>
+            <li><strong>النقل المشفر والتحقق:</strong> تُنقل المقاطع الصوتية عبر اتصالات TLS/HTTPS مشفرة بالكامل إلى خوادمنا، ويتم قياس مدة الصوت الحقيقية مباشرة من الملف على السيرفر بدون الاعتماد على بيانات العميل.</li>
+            <li><strong>فترة الحفظ:</strong> يتم الاحتفاظ بالتسجيلات الصوتية على خوادم محمية طوال الفترة الضرورية فقط لإتمام التفريغ والتحقق من صحة المعالجة، ويتم حذفها نهائياً بعد ذلك أو وفق إعدادات حسابك.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>3. مزودو الذكاء الاصطناعي الخارجيون ومعالجة البيانات</h2>
+          <p>
+            لتحويل الصوت إلى كروت منظمة، يعتمد مايند سبيس على مزودي خدمات موثوقين:
+          </p>
+          <ul>
+            <li><strong>تحويل الصوت لكلام (التفريغ الصوتي):</strong> يتم تفريغ التسجيلات عبر خوادم OpenRouter ونماذج Google Gemini. تُعالج البيانات الصوتية فقط لغرض التفريغ النصي ولا تُستخدم في تدريب النماذج العامة.</li>
+            <li><strong>استخراج الأفكار وإعادة الصياغة:</strong> تُعالج النصوص عبر نماذج لغوية لاستخراج الأفكار المستقلة وصياغتها في كروت واضحة. في الباقات الافتراضية، يتم هذا عبر نماذج معتمدة (مثل DeepSeek V4 Flash، و Qwen 3.7 Flash، و Gemini 3.1 Flash Lite).</li>
+            <li><strong>مفتاحك معاك (BYOK):</strong> في باقة "ذكاؤك الخاص"، يدخل المستخدم مفتاح الـ API الخاص به من OpenAI أو Anthropic أو Google. يتم إرسال نصوص الأفكار مباشرة إلى حسابه لدى المزود بدون أي رسوم كريديت للتفكير من مايند سبيس.</li>
+            <li><strong>أمان مفاتيح الـ API:</strong> تُخزن المفاتيح وتُشفر على السيرفر باستخدام تشفير AES-256-GCM. ولا يتم إرجاع المفاتيح إطلاقاً إلى المتصفح أو التطبيق، ويُعرض فقط آخر 4 خانات للتذكير.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>4. وضع الاجتماعات والموافقة القانونية الإلزامية للمشاركين</h2>
+          <p>
+            تتيح إضافة كروم (Chrome MV3) تسجيل الاجتماعات الافتراضية (Google Meet، Zoom، Microsoft Teams) من خلال التقاط صوت التاب مدمجاً مع صوت الميكروفون.
+          </p>
+          <p>
+            <strong>تنبيه قانوني ملزم بشأن الموافقة:</strong> تسجيل المحادثات أو التقاط الصوت دون علم وموافقة جميع المشاركين يعد مخالفة صريحة وفقاً لأحكام القانون المصري رقم 175 لسنة 2018 (قانون مكافحة جرائم تقنية المعلومات) والتشريعات الدولية المنظمة للتنصت والخصوصية.
+          </p>
+          <p>
+            قبل بدء أي تسجيل في وضع الاجتماعات، يُلزم مايند سبيس المستخدم بقبول إشعار موافقة صريح يقر فيه بما يلي:
+          </p>
+          <ul>
+            <li>إبلاغ جميع الحاضرين في الاجتماع بوضوح بأن الجلسة قيد التسجيل.</li>
+            <li>الحصول على موافقة قانونية صريحة من كل مشارك قبل بدء التسجيل.</li>
+            <li>تحمل المستخدم المسؤولية القانونية الكاملة عن الالتزام بالقوانين المحلية المعمول بها.</li>
+          </ul>
+          <p>
+            أثناء التسجيل، يظهر مؤشر أحمر واضح في شريط المتصفح يوضح مدة التسجيل الجاري بصورة دائمة.
+          </p>
+        </section>
+
+        <section>
+          <h2>5. أمان قاعدة البيانات وحذف الحساب الحقيقي</h2>
+          <ul>
+            <li><strong>عزل البيانات (Row-Level Security):</strong> بيانات المستخدمين (المساحات، الكروت، التسجيلات، سجل المعاملات) معزولة تماماً داخل قاعدة بيانات PostgreSQL؛ يستحيل على حساب الاطلاع على بيانات حساب آخر.</li>
+            <li><strong>التنبيهات المحلية:</strong> المواعيد النهائية المستخرجة من أفكارك تُجدول محلياً على جهازك الشخصي ولا يتم إرسالها لجهات خارجية.</li>
+            <li><strong>الحذف النهائي الحقيقي:</strong> عند اختيار "حذف الحساب"، يقوم النظام بحذف جذري فوري لجميع المساحات والكروت والتسجيلات والملفات دون الاحتفاظ بنسخ مخفية (No soft delete).</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>6. انعدام الإعلانات وأدوات التعقب</h2>
+          <p>
+            لا يقوم مايند سبيس ببيع أو تأجير بياناتك أو نصوصك أو ملفاتك الصوتية لأي طرف ثالث. موقعنا وتطبيقاتنا لا تستخدم كوكيز إعلانية خارجية أو أدوات تعقب وسماسرة بيانات.
+          </p>
+        </section>
+
+        <section>
+          <h2>7. التواصل والاستفسارات</h2>
+          <p>
+            لأي استفسارات قانونية أو تقنية تتعلق بالخصوصية، يسعدنا تواصلكم عبر البريد: <code>privacy@mindspace.app</code>.
+          </p>
+        </section>
+      </article>
+    </div>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <div class="container footer-bottom">
+      <p>© MindSpace. <span class="draft-notice">Draft document pending legal review</span></p>
+      <a href="terms.html">Terms of Service →</a>
+    </div>
+  </footer>
+
+  <script type="module" src="./src/legal.ts"></script>
+</body>
+</html>

@@ -63,6 +63,7 @@ function sendAuthResponse(
       secure: config.NODE_ENV !== 'development',
       sameSite: 'lax',
       path: '/',
+      ...(config.COOKIE_DOMAIN ? { domain: config.COOKIE_DOMAIN } : {}),
       maxAge: 30 * 24 * 60 * 60, // 30 days in seconds
     });
   }
@@ -171,6 +172,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRoutesDepende
         200
       );
     } catch (err) {
+      if (err instanceof InvalidTokenError || err instanceof TokenExpiredError) {
+        // A dead cookie would otherwise keep the web app's route guard believing there is a session.
+        reply.clearCookie('refresh_token', {
+          path: '/',
+          ...(deps.config.COOKIE_DOMAIN ? { domain: deps.config.COOKIE_DOMAIN } : {}),
+        });
+      }
       if (err instanceof InvalidTokenError) {
         throw new AppError('invalid_token', 401, err.message);
       }
@@ -190,7 +198,10 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRoutesDepende
       await deps.signOutUseCase.execute(rawToken);
     }
 
-    reply.clearCookie('refresh_token', { path: '/' });
+    reply.clearCookie('refresh_token', {
+      path: '/',
+      ...(deps.config.COOKIE_DOMAIN ? { domain: deps.config.COOKIE_DOMAIN } : {}),
+    });
     return reply.status(204).send();
   });
 
@@ -275,7 +286,10 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRoutesDepende
     const userId = currentUserId(req);
     await deps.deleteAccountUseCase.execute(userId);
 
-    reply.clearCookie('refresh_token', { path: '/' });
+    reply.clearCookie('refresh_token', {
+      path: '/',
+      ...(deps.config.COOKIE_DOMAIN ? { domain: deps.config.COOKIE_DOMAIN } : {}),
+    });
     return reply.status(204).send();
   });
 }

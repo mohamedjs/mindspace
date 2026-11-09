@@ -22,6 +22,7 @@ import {
 import { useTheme, type NotesView } from '@/shared/theme';
 import { shade } from '@/shared/theme/clay';
 import { CreditChip } from '@/features/credits/components/CreditChip';
+import { AppHeader } from '@/components/AppHeader';
 
 interface CanvasViewBarProps {
   spaceName: string;
@@ -83,53 +84,47 @@ export const CanvasViewBar: React.FC<CanvasViewBarProps> = ({
   ];
 
   if (isMobile) {
-    return (
-      <header
-        className="fixed top-0 inset-x-0 h-14 z-30 px-3 flex items-center justify-between pointer-events-none"
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-2 pointer-events-auto">
-          <button
-            type="button"
-            onClick={onOpenSpaces}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-sm text-xs font-semibold"
-            style={{ backgroundColor: colors.surface, borderColor: colors.line, color: colors.ink }}
-          >
-            <Folder size={14} color={colors.accent} />
-            <span className="truncate max-w-[120px]">{spaceName}</span>
-          </button>
-        </div>
+    const undoRedoActions = (
+      <div className="flex items-center gap-1.5 pointer-events-auto">
+        <button
+          type="button"
+          onClick={onUndo}
+          disabled={!canUndo}
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border transition-transform active:scale-95 disabled:opacity-40 cursor-pointer"
+          style={{ backgroundColor: colors.surface, borderColor: colors.line }}
+          aria-label="Undo"
+        >
+          <Undo2 size={18} color={colors.ink} />
+        </button>
+        <button
+          type="button"
+          onClick={onRedo}
+          disabled={!canRedo}
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl border transition-transform active:scale-95 disabled:opacity-40 cursor-pointer"
+          style={{ backgroundColor: colors.surface, borderColor: colors.line }}
+          aria-label="Redo"
+        >
+          <Redo2 size={18} color={colors.ink} />
+        </button>
+      </div>
+    );
 
-        <div className="flex items-center gap-1.5 pointer-events-auto">
-          <button
-            type="button"
-            onClick={onUndo}
-            disabled={!canUndo}
-            className="h-9 w-9 flex items-center justify-center rounded-xl border transition-transform active:scale-95 disabled:opacity-40"
-            style={{ backgroundColor: colors.surface, borderColor: colors.line }}
-            aria-label="Undo"
-          >
-            <Undo2 size={16} color={colors.ink} />
-          </button>
-          <button
-            type="button"
-            onClick={onRedo}
-            disabled={!canRedo}
-            className="h-9 w-9 flex items-center justify-center rounded-xl border transition-transform active:scale-95 disabled:opacity-40"
-            style={{ backgroundColor: colors.surface, borderColor: colors.line }}
-            aria-label="Redo"
-          >
-            <Redo2 size={16} color={colors.ink} />
-          </button>
-          <CreditChip balance={creditBalance} onPress={onOpenCredits} />
-        </div>
-      </header>
+    return (
+      <div className="fixed top-0 inset-x-0 z-30 pointer-events-auto">
+        <AppHeader
+          title={spaceName}
+          showBack={true}
+          actions={undoRedoActions}
+          showMenu={true}
+          onOpenSpaces={onOpenSpaces}
+        />
+      </div>
     );
   }
 
   return (
     <header
-      className="fixed top-3 inset-x-4 h-12 z-30 flex items-center justify-between pointer-events-none"
+      className="hidden lg:flex fixed top-3 inset-x-4 h-12 z-30 items-center justify-between pointer-events-none"
       onPointerDown={(e) => e.stopPropagation()}
     >
       {/* Left: Space Name & View Tabs */}

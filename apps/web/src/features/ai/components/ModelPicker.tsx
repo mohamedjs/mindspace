@@ -38,7 +38,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
   return (
     <div className="mb-6">
       <div className="mb-1 flex flex-row items-center justify-between">
-        <span className="text-xs uppercase font-bold text-muted">{title}</span>
+        <span className="text-sm uppercase font-bold text-muted">{title}</span>
         {saving && (
           <div
             className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
@@ -46,16 +46,16 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
           />
         )}
       </div>
-      <p className="mb-3 text-xs text-muted">{subtitle}</p>
+      <p className="mb-3 text-sm text-muted">{subtitle}</p>
 
       {!models && (
-        <div className="py-3 text-center text-xs text-muted animate-pulse">Loading models…</div>
+        <div className="py-3 text-center text-sm text-muted animate-pulse">Loading models…</div>
       )}
 
       {models && (
         <button
           type="button"
-          className="mb-2.5 w-full flex flex-row items-center justify-between px-4 py-3.5 cursor-pointer border-0 text-left transition-all"
+          className="mb-2.5 w-full min-h-[48px] flex flex-row items-center justify-between px-4 py-3.5 cursor-pointer border-0 text-left transition-all"
           style={clay({ color: shade(colors.surface, -0.05), radius: 18, depth: 0.5, pressed: expanded })}
           onClick={() => setExpanded((v) => !v)}
         >
@@ -79,7 +79,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             <button
               key={model.id}
               type="button"
-              className="mb-2.5 w-full flex flex-row items-center px-4 py-3.5 cursor-pointer border-0 text-left transition-all disabled:opacity-50"
+              className="mb-2.5 w-full min-h-[48px] flex flex-row items-center px-4 py-3.5 cursor-pointer border-0 text-left transition-all disabled:opacity-50"
               style={clay({
                 color: isSelected
                   ? shade(colors.accent, scheme === 'dark' ? -0.75 : 0.8)
@@ -95,7 +95,7 @@ export const ModelPicker: React.FC<ModelPickerProps> = ({
             >
               <div className="flex-1 min-w-0">
                 <div className="text-base font-semibold text-ink">{model.displayName}</div>
-                <div className="mt-0.5 text-xs text-muted">
+                <div className="mt-0.5 text-sm text-muted">
                   {model.modelId} · {costLabel(model.creditMultiplier)}
                   {model.tier === 'paid' ? ' · paid' : ''}
                 </div>

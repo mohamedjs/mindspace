@@ -104,9 +104,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
   // fragile (a cold-start deep link can arrive without it).
   const effectiveSpaceId = note?.spaceId ?? spaceId ?? null;
 
-  const updateContent = useUpdateNoteContent();
+  const updateContent = useUpdateNoteContent(effectiveSpaceId);
   const updateColor = useUpdateNoteColor(effectiveSpaceId);
-  const updateType = useUpdateNoteType();
+  const updateType = useUpdateNoteType(effectiveSpaceId);
   const setNoteParent = useSetNoteParent(effectiveSpaceId ?? null);
   // Free has no voice pipeline, so neither microphone belongs on the screen.
   const { aiEnabled } = useEntitlements();
@@ -141,7 +141,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
 
   useEffect(() => {
     if (recordingStatus !== 'completed' && recordingStatus !== 'failed') return;
-    qc.invalidateQueries({ queryKey: ['notes'] });
+    if (effectiveSpaceId) {
+      qc.invalidateQueries({ queryKey: ['notes', effectiveSpaceId] });
+    }
+    qc.invalidateQueries({ queryKey: ['note', noteId] });
     if (recordingStatus === 'failed') {
       Toast.show({
         type: 'error',
@@ -150,7 +153,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       });
     }
     router.setParams({ recordingId: undefined });
-  }, [recordingStatus, qc, router]);
+  }, [recordingStatus, qc, router, effectiveSpaceId, noteId]);
 
   // Seed state from fetched data
   useEffect(() => {

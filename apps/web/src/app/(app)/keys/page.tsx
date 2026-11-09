@@ -8,7 +8,7 @@ import { useDeleteUserKey, useSaveUserKey, useUserKeys } from '@/features/byok/h
 import type { UserKey } from '@/features/byok/api/keys.api';
 import { useTheme } from '@/shared/theme';
 import { clay, clayAccent, shade } from '@/shared/theme/clay';
-import { ChevronLeft } from 'lucide-react';
+import { AppHeader } from '@/components/AppHeader';
 
 const PROVIDERS = [
   { id: 'openai', label: 'OpenAI · GPT' },
@@ -35,11 +35,11 @@ function KeyRow({ item, onDelete }: { item: UserKey; onDelete: (id: string) => v
               onDelete(item.id);
             }
           }}
-          className="cursor-pointer border-0 bg-transparent"
+          className="cursor-pointer border-0 bg-transparent min-h-[44px] flex items-center"
         >
           <div
             style={clay({ color: shade(colors.surface, -0.05), radius: 8, pressed: true })}
-            className="px-3 py-1.5"
+            className="px-3 py-2 min-h-[44px] flex items-center justify-center"
           >
             <span className="text-sm font-semibold" style={{ color: '#E53935' }}>
               Remove
@@ -47,11 +47,11 @@ function KeyRow({ item, onDelete }: { item: UserKey; onDelete: (id: string) => v
           </div>
         </button>
       </div>
-      <div className="mt-2 text-xs font-medium text-muted">
+      <div className="mt-2 text-sm font-medium text-muted">
         {item.keyHint}
       </div>
       {!item.isActive && (
-        <div className="mt-2 text-xs font-semibold text-warning">
+        <div className="mt-2 text-sm font-semibold text-warning">
           Provider rejected this key{item.lastError ? `: ${item.lastError}` : ''} — replace it below.
         </div>
       )}
@@ -99,24 +99,14 @@ export default function KeysPage() {
 
   return (
     <div className="flex flex-col flex-1 min-h-screen bg-board overflow-y-auto">
+      <AppHeader
+        title="Your API keys"
+        showBack
+        onBack={() => router.back()}
+      />
       <div className="flex flex-col flex-1 max-w-2xl w-full mx-auto pb-12">
-        <header
-          className="z-30 mx-3 mt-2 flex flex-row items-center px-4 py-3"
-          style={clay({ color: colors.surface, radius: 24 })}
-        >
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="mr-2 cursor-pointer border-0 bg-transparent text-ink lg:hidden"
-            aria-label="Back"
-          >
-            <ChevronLeft size={24} color={colors.ink} strokeWidth={3} />
-          </button>
-          <h1 className="ml-2 text-xl font-bold text-ink">Your API Keys</h1>
-        </header>
-
         <div className="px-5 py-6">
-          <p className="text-[13px] font-medium leading-5 text-muted">
+          <p className="text-sm font-medium leading-relaxed text-muted">
             Your key turns transcripts into sticky notes, billed by your provider — not in
             credits. Once saved it never leaves the server and never appears here again.
           </p>
@@ -125,14 +115,14 @@ export default function KeysPage() {
             className="mt-4 px-4 py-3 rounded-2xl"
             style={clay({ color: shade(colors.surface, -0.05), radius: 16, depth: 0.4 })}
           >
-            <div className="text-[12px] font-bold text-ink">Voice still runs on credits</div>
-            <p className="mt-1 text-[12px] leading-4 text-muted">
+            <div className="text-sm font-bold text-ink">Voice still runs on credits</div>
+            <p className="mt-1 text-sm leading-relaxed text-muted">
               Turning your voice into text always uses our OpenRouter key, so your plan includes
               credits for it. Your own key is only ever used for the writing.
             </p>
           </div>
 
-          <div className="mb-3 mt-8 text-xs font-bold uppercase tracking-wider text-muted">
+          <div className="mb-3 mt-8 text-sm font-bold uppercase tracking-wider text-muted">
             Provider
           </div>
           <div className="flex flex-row flex-wrap gap-2.5">
@@ -142,7 +132,7 @@ export default function KeysPage() {
                 <button
                   key={p.id}
                   type="button"
-                  className="px-4 py-2 cursor-pointer border-0 transition-all"
+                  className="px-4 py-2 min-h-[44px] flex items-center justify-center cursor-pointer border-0 transition-all"
                   style={clay({
                     color: isSelected ? `${colors.accent}20` : shade(colors.surface, -0.02),
                     radius: 16,
@@ -152,7 +142,7 @@ export default function KeysPage() {
                   onClick={() => setProvider(p.id)}
                 >
                   <span
-                    className="text-[13px] font-bold"
+                    className="text-sm font-bold"
                     style={{ color: isSelected ? colors.accent : colors.muted }}
                   >
                     {p.label}
@@ -177,7 +167,7 @@ export default function KeysPage() {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center py-4 cursor-pointer border-0 font-bold text-base text-on-accent transition-all disabled:opacity-50"
+              className="w-full min-h-[48px] flex items-center justify-center py-4 cursor-pointer border-0 font-bold text-base text-on-accent transition-all disabled:opacity-50"
               style={clayAccent(colors, 20)}
               disabled={saveKey.isPending}
             >
@@ -189,15 +179,15 @@ export default function KeysPage() {
             </button>
           </form>
 
-          <div className="mb-4 mt-10 text-xs font-bold uppercase tracking-wider text-muted">
+          <div className="mb-4 mt-10 text-sm font-bold uppercase tracking-wider text-muted">
             Saved keys
           </div>
           {isLoading ? (
-            <div className="py-4 text-center text-xs text-muted animate-pulse">Loading keys…</div>
+            <div className="py-4 text-center text-sm text-muted animate-pulse">Loading keys…</div>
           ) : keys?.length ? (
             keys.map((k) => <KeyRow key={k.id} item={k} onDelete={(id) => deleteKey.mutate(id)} />)
           ) : (
-            <div className="text-[13px] font-medium text-muted">
+            <div className="text-sm font-medium text-muted">
               No keys saved yet. Everything runs on MindSpace credits.
             </div>
           )}

@@ -52,6 +52,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-mindspace-super-secret-jwt-key-minimum-32-chars-long}
       BYOK_MASTER_KEY: ${BYOK_MASTER_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       AUDIO_DIR: ${AUDIO_DIR:-/data/audio}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-mock-openrouter-key-development}
     volumes:
@@ -83,6 +84,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-mindspace-super-secret-jwt-key-minimum-32-chars-long}
       BYOK_MASTER_KEY: ${BYOK_MASTER_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       AUDIO_DIR: ${AUDIO_DIR:-/data/audio}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-mock-openrouter-key-development}
     volumes:
@@ -137,6 +139,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-mindspace-super-secret-jwt-key-minimum-32-chars-long}
       BYOK_MASTER_KEY: ${BYOK_MASTER_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       AUDIO_DIR: ${AUDIO_DIR:-/data/audio}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-mock-openrouter-key-development}
     volumes:

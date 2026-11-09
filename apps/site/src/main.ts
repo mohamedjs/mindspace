@@ -86,6 +86,7 @@ function updateLinksUI(): void {
         }
       } else {
         // Empty value renders "Coming soon", never a dead link
+        let targetEl = el;
         if (el.tagName.toLowerCase() === 'a') {
           const span = document.createElement('span');
           span.className = el.className;
@@ -95,15 +96,20 @@ function updateLinksUI(): void {
           span.setAttribute('aria-disabled', 'true');
           span.innerHTML = el.innerHTML;
           el.replaceWith(span);
+          targetEl = span;
         } else {
           el.classList.add('is-disabled');
           el.setAttribute('aria-disabled', 'true');
         }
-        const badge = el.querySelector('.badge-status');
-        if (badge) {
-          badge.textContent = dict.download.comingSoonBadge;
-          (badge as HTMLElement).style.display = 'inline-block';
+        let badge = targetEl.querySelector<HTMLElement>('.badge-status');
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'badge-status badge-coming-soon';
+          badge.setAttribute('data-i18n', 'download.comingSoonBadge');
+          targetEl.appendChild(badge);
         }
+        badge.textContent = dict.download.comingSoonBadge;
+        badge.style.display = 'inline-block';
       }
     });
   });

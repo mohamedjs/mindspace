@@ -15,8 +15,8 @@ export const apiKeyRepository: KeyRepository = {
       body: JSON.stringify({
         provider: input.provider,
         apiKey: input.apiKey,
-        label: input.label,
-        baseUrl: input.baseUrl,
+        ...(input.label ? { label: input.label } : {}),
+        ...(input.baseUrl ? { baseUrl: input.baseUrl } : {}),
       }),
     });
   },

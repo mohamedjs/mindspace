@@ -23,6 +23,7 @@ interface StickyNoteItemProps {
   onDelete?: (id: string) => void;
   onDragStart?: (id: string) => void;
   onPressNote?: (id: string, e?: React.PointerEvent) => void;
+  onLongPressNote?: (id: string) => void;
   canvasScale?: number;
   childCount?: number;
   activeDragId?: string | null;
@@ -52,6 +53,7 @@ export const StickyNoteItem = React.memo<StickyNoteItemProps>(function StickyNot
   onMoveClusterEnd,
   onDragStart,
   onPressNote,
+  onLongPressNote,
   canvasScale = 1,
   childCount,
   activeDragId,
@@ -128,6 +130,7 @@ export const StickyNoteItem = React.memo<StickyNoteItemProps>(function StickyNot
     pointerType: string;
     startTime: number;
     isDragging: boolean;
+    longPressed: boolean;
     timer?: ReturnType<typeof setTimeout>;
   } | null>(null);
 
@@ -170,19 +173,19 @@ export const StickyNoteItem = React.memo<StickyNoteItemProps>(function StickyNot
       pointerType,
       startTime,
       isDragging: false,
+      longPressed: false,
       timer: undefined as ReturnType<typeof setTimeout> | undefined,
     };
     pointerDownRef.current = info;
 
     if (pointerType === 'touch') {
+      // A held finger selects. Dragging starts only once the finger actually moves.
       info.timer = setTimeout(() => {
-        if (pointerDownRef.current) {
-          pointerDownRef.current.isDragging = true;
-          setIsLifted(true);
-          onDragStart?.(note.id);
-          onPointerDragStart?.(note.id);
+        if (pointerDownRef.current && !pointerDownRef.current.isDragging) {
+          pointerDownRef.current.longPressed = true;
+          onLongPressNote?.(note.id);
         }
-      }, 120);
+      }, 500);
     }
   };
 
@@ -195,7 +198,8 @@ export const StickyNoteItem = React.memo<StickyNoteItemProps>(function StickyNot
     const distance = Math.hypot(dxScreen, dyScreen);
 
     if (!info.isDragging) {
-      if (info.pointerType !== 'touch' && distance > 4) {
+      if (distance > (info.pointerType === 'touch' ? 8 : 4)) {
+        if (info.timer) clearTimeout(info.timer);
         info.isDragging = true;
         setIsLifted(true);
         onDragStart?.(note.id);
@@ -237,12 +241,7 @@ export const StickyNoteItem = React.memo<StickyNoteItemProps>(function StickyNot
         onMove?.(note.id, finalX, finalY);
       }
     } else {
-      const duration = Date.now() - info.startTime;
-      if (duration > 400 && info.pointerType === 'touch') {
-        setColorPickerVisible(true);
-      } else {
-        onPressNote?.(note.id, e);
-      }
+      if (!info.longPressed) onPressNote?.(note.id, e);
     }
   };
 

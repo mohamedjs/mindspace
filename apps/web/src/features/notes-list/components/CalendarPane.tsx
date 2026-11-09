@@ -40,8 +40,8 @@ export const CalendarPane: React.FC<CalendarPaneProps> = ({ calendar, tree, onPr
 
       <div className="flex flex-row items-center justify-between px-2 mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-extrabold text-ink">{formattedDayTitle}</span>
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${colors.accent}20`, color: colors.accent }}>
+          <span className="text-base font-extrabold text-ink">{formattedDayTitle}</span>
+          <span className="text-sm font-semibold px-2.5 py-0.5 rounded-full" style={{ backgroundColor: `${colors.accent}20`, color: colors.accent }}>
             {dayNotes.length} {dayNotes.length === 1 ? 'note' : 'notes'}
           </span>
         </div>
@@ -49,11 +49,11 @@ export const CalendarPane: React.FC<CalendarPaneProps> = ({ calendar, tree, onPr
         {selectedDay !== today && (
           <button
             type="button"
-            className="px-3 py-1 cursor-pointer border-0 transition-transform hover:scale-105 active:scale-95"
+            className="min-h-[44px] px-3.5 py-2 flex items-center cursor-pointer border-0 transition-transform hover:scale-105 active:scale-95"
             style={{ ...clay({ color: shade(colors.surface, -0.06), radius: 14, depth: 0.4 }) }}
             onClick={jumpToToday}
           >
-            <span className="text-[11px] font-extrabold tracking-wide" style={{ color: colors.accent }}>
+            <span className="text-sm font-extrabold tracking-wide" style={{ color: colors.accent }}>
               Jump to today
             </span>
           </button>

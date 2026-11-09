@@ -31,7 +31,7 @@ export const ViewTabs: React.FC<ViewTabsProps> = ({ value, onChange }) => {
           <button
             key={tab}
             type="button"
-            className="flex-1 flex flex-row items-center justify-center py-2.5 px-3 transition-all duration-200 cursor-pointer border-0 bg-transparent"
+            className="flex-1 min-h-[44px] flex flex-row items-center justify-center py-2.5 px-3 transition-all duration-200 cursor-pointer border-0 bg-transparent"
             style={
               active
                 ? {
@@ -43,13 +43,13 @@ export const ViewTabs: React.FC<ViewTabsProps> = ({ value, onChange }) => {
             onClick={() => onChange(tab)}
           >
             <Icon
-              size={15}
+              size={16}
               color={active ? colors.onAccent : colors.muted}
               strokeWidth={2.5}
               className="mr-2 transition-colors"
             />
             <span
-              className="text-xs font-bold tracking-wide transition-colors"
+              className="text-sm font-bold tracking-wide transition-colors"
               style={{ color: active ? colors.onAccent : colors.muted }}
             >
               {label}

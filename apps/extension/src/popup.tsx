@@ -59,6 +59,31 @@ export const PopupApp: React.FC = () => {
 
       if (session?.accessToken) {
         setToken(session.accessToken as string);
+      } else if (local?.refreshToken) {
+        try {
+          const res = await fetch(`${DEFAULT_API_URL}/auth/refresh`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-client': 'extension',
+            },
+            body: JSON.stringify({ refresh_token: local.refreshToken }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.access_token) {
+              setToken(data.access_token as string);
+              await chrome.storage.session.set({ accessToken: data.access_token });
+            }
+            if (data.refresh_token) {
+              await chrome.storage.local.set({ refreshToken: data.refresh_token });
+            }
+          } else {
+            await chrome.storage.local.remove(['refreshToken', 'user']);
+          }
+        } catch {
+          // Offline on popup open; keep refreshToken for later
+        }
       }
       if (local?.user) {
         setUser(local.user as UserProfile);
@@ -224,7 +249,7 @@ export const PopupApp: React.FC = () => {
   };
 
   const openSpaceUrl = (spaceId: string) => {
-    const url = `${WEB_URL}/spaces/${spaceId}`;
+    const url = `${WEB_URL}/space/${spaceId}`;
     chrome.tabs.create({ url });
   };
 

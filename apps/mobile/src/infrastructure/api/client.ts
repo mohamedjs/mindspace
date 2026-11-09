@@ -6,18 +6,19 @@ export const API_BASE_URL =
 
 let refreshPromise: Promise<string | null> | null = null;
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   if (refreshPromise) {
     return refreshPromise;
   }
 
-  const refreshToken = tokenStore.getRefreshToken();
-  if (!refreshToken) {
-    tokenStore.setSession(null);
-    return null;
-  }
-
   refreshPromise = (async () => {
+    await tokenStore.init();
+    const refreshToken = tokenStore.getRefreshToken();
+    if (!refreshToken) {
+      tokenStore.setSession(null);
+      return null;
+    }
+
     try {
       const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
@@ -59,7 +60,11 @@ export async function apiFetch<T>(
   path: string,
   init: RequestInit = {}
 ): Promise<T> {
-  const token = tokenStore.getAccessToken();
+  await tokenStore.init();
+  let token = tokenStore.getAccessToken();
+  if (!token && tokenStore.getRefreshToken() && path !== '/auth/refresh' && path !== '/auth/sign-in') {
+    token = await refreshAccessToken();
+  }
   const headers = new Headers(init.headers || {});
 
   if (!headers.has('X-Client')) {
@@ -71,7 +76,7 @@ export async function apiFetch<T>(
     typeof Blob !== 'undefined' && init.body instanceof Blob ||
     typeof ArrayBuffer !== 'undefined' && init.body instanceof ArrayBuffer;
 
-  if (!headers.has('Content-Type') && !isBinary) {
+  if (init.body != null && !headers.has('Content-Type') && !isBinary) {
     headers.set('Content-Type', 'application/json');
   }
 

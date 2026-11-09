@@ -184,6 +184,31 @@ export class ExtensionBackgroundService {
     }
   }
 
+  private async authedFetch(url: string, init: RequestInit): Promise<Response> {
+    let token = await this.getAccessToken();
+    if (!token) {
+      throw new Error('You must be signed in to record a meeting');
+    }
+
+    const doRequest = (bearer: string) =>
+      fetch(url, {
+        ...init,
+        headers: {
+          ...(init.headers || {}),
+          Authorization: `Bearer ${bearer}`,
+        },
+      });
+
+    let res = await doRequest(token);
+    if (res.status === 401) {
+      token = await this.refreshAccessToken();
+      if (token) {
+        res = await doRequest(token);
+      }
+    }
+    return res;
+  }
+
   public async startRecording(tab: chrome.tabs.Tab): Promise<ActiveRecordingState> {
     if (!tab.id) {
       throw new Error('No active tab identified for recording');
@@ -207,11 +232,10 @@ export class ExtensionBackgroundService {
 
     // 3. Create Space for the meeting
     const title = detectMeetingTitleFromTab(tab.url, tab.title);
-    const spaceRes = await fetch(`${this.apiUrl}/spaces`, {
+    const spaceRes = await this.authedFetch(`${this.apiUrl}/spaces`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         name: title,
@@ -226,11 +250,10 @@ export class ExtensionBackgroundService {
     const space = await spaceRes.json();
 
     // 4. Create Recording in the newly created space
-    const recRes = await fetch(`${this.apiUrl}/spaces/${space.id}/recordings`, {
+    const recRes = await this.authedFetch(`${this.apiUrl}/spaces/${space.id}/recordings`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         kind: 'meeting',
@@ -271,12 +294,11 @@ export class ExtensionBackgroundService {
     return state;
   }
 
-  public async stopRecording(recordingId: string, reason = 'user_action'): Promise<void> {
+  public async stopRecording(recordingId: string, _reason = 'user_action'): Promise<void> {
     const local = await chrome.storage.local.get('activeRecording');
     const state = local.activeRecording as ActiveRecordingState | undefined;
 
     if (!state || state.recordingId !== recordingId) {
-      // Nothing active matching this ID
       return;
     }
 
@@ -295,14 +317,20 @@ export class ExtensionBackgroundService {
       console.warn('[Background] Offscreen stop message failed (may already be closed):', err);
     }
 
-    // 2. Upload remaining parts and finalize recording
-    try {
-      await this.uploader.finishRecording(recordingId);
-    } catch (err) {
-      console.error('[Background] Failed to finish recording parts:', err);
+    // 2. Close offscreen document now that capture has stopped
+    if (typeof chrome !== 'undefined' && chrome.offscreen?.closeDocument) {
+      try {
+        await chrome.offscreen.closeDocument();
+      } catch {
+        // Ignored
+      }
     }
 
-    // 3. Mark completed and store lastFinishedRecording for popup link
+    // 3. Upload remaining parts and finalize recording.
+    // Keep activeRecording in local storage if finishRecording fails so browser startup can retry.
+    await this.uploader.finishRecording(recordingId);
+
+    // 4. Mark completed and store lastFinishedRecording for popup link
     await chrome.storage.local.remove('activeRecording');
     await chrome.storage.local.set({
       lastFinishedRecording: {
@@ -312,15 +340,6 @@ export class ExtensionBackgroundService {
         finishedAt: Date.now(),
       },
     });
-
-    // 4. Close offscreen document if desired
-    if (typeof chrome !== 'undefined' && chrome.offscreen?.closeDocument) {
-      try {
-        await chrome.offscreen.closeDocument();
-      } catch {
-        // Ignored
-      }
-    }
   }
 
   public async onBrowserStartup(): Promise<void> {
@@ -335,22 +354,29 @@ export class ExtensionBackgroundService {
     }
 
     // Resume any pending part uploads and finalize
-    await this.uploader.resumePendingRecordings({
+    const resumeResult = await this.uploader.resumePendingRecordings({
       isRecordingActive: (recId) => state?.status === 'recording' && state.recordingId === recId,
     });
 
     if (state && state.status === 'stopping') {
       const pending = await this.partsStore.getPendingParts(state.recordingId);
       if (pending.length === 0) {
-        await chrome.storage.local.remove('activeRecording');
-        await chrome.storage.local.set({
-          lastFinishedRecording: {
-            recordingId: state.recordingId,
-            spaceId: state.spaceId,
-            title: state.title,
-            finishedAt: Date.now(),
-          },
-        });
+        try {
+          if (!resumeResult.finished.includes(state.recordingId)) {
+            await this.uploader.finishRecording(state.recordingId);
+          }
+          await chrome.storage.local.remove('activeRecording');
+          await chrome.storage.local.set({
+            lastFinishedRecording: {
+              recordingId: state.recordingId,
+              spaceId: state.spaceId,
+              title: state.title,
+              finishedAt: Date.now(),
+            },
+          });
+        } catch (err) {
+          console.error('[Background] Failed to finalize interrupted recording on startup:', err);
+        }
       }
     }
   }

@@ -10,10 +10,21 @@ export const apiRecordingRepository: RecordingRepository = {
     return (data ?? []).map(toRecording);
   },
 
-  async create(input: { spaceId: string; durationMs: number }): Promise<string> {
+  async create(input: {
+    spaceId: string;
+    durationMs: number;
+    parentNoteId?: string;
+    fillNoteId?: string;
+  }): Promise<string> {
     const data = await apiFetch<{ id: string }>(`/spaces/${input.spaceId}/recordings`, {
       method: 'POST',
-      body: JSON.stringify({ duration_ms: input.durationMs }),
+      body: JSON.stringify({
+        duration_ms: input.durationMs,
+        ...(input.parentNoteId ? { parent_note_id: input.parentNoteId } : {}),
+        ...(input.fillNoteId
+          ? { target_note_id: input.fillNoteId, process_mode: 'note_write' }
+          : {}),
+      }),
     });
     return data.id;
   },

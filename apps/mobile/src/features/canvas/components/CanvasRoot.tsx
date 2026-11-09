@@ -18,7 +18,7 @@ import { NoteGroupFrame } from './NoteGroupFrame';
 import { CanvasToolbar, type ToolMode } from './CanvasToolbar';
 import { screenToWorld, zoomAbout } from '../utils/coords';
 import Toast from 'react-native-toast-message';
-import { notesInsideRect, withDescendants, wouldCycle } from '../utils/graph';
+import { noteBox, notesInsideRect, withDescendants, wouldCycle } from '../utils/graph';
 import { UndoManager } from '../utils/undoStack';
 import type { NoteGroup } from '../api/groups.api';
 import { clay, shade } from '../../../shared/theme/clay';
@@ -43,7 +43,7 @@ interface CanvasRootProps {
   onPressNote?: (noteId: string) => void;
   /** Called with the world-space centre of the current viewport. */
   onAddNote?: (x: number, y: number) => void;
-  onAddGroup?: (x: number, y: number) => void;
+  onAddGroup?: (x: number, y: number, width?: number, height?: number) => Promise<string | void> | string | void;
   onRenameGroup?: (groupId: string, title: string) => void;
   onMoveGroup?: (groupId: string, x: number, y: number) => void;
   onResizeGroup?: (groupId: string, width: number, height: number) => void;
@@ -462,7 +462,6 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
           syncUndoState();
         }
         setLinkSourceId(null);
-        setToolMode('pan');
         return;
       }
 
@@ -619,31 +618,36 @@ export const CanvasRoot: React.FC<CanvasRootProps> = ({
   }, [scaleValue, translateX, translateY]);
 
   // ─── Selection Bar Handlers ───────────────────────────────────────────────
-  const handleGroupSelection = useCallback(() => {
+  const handleGroupSelection = useCallback(async () => {
     const selectedNotes = displayNotes.filter((n) => selectedIds.includes(n.id));
     if (selectedNotes.length === 0 || !onAddGroup) return;
 
-    const minX = Math.min(...selectedNotes.map((n) => n.x));
-    const minY = Math.min(...selectedNotes.map((n) => n.y));
-    const maxX = Math.max(...selectedNotes.map((n) => n.x + (n.width || 240)));
-    const maxY = Math.max(...selectedNotes.map((n) => n.y + (n.height || 200)));
+    const boxes = selectedNotes.map(noteBox);
+    const minX = Math.min(...boxes.map((b) => b.x));
+    const minY = Math.min(...boxes.map((b) => b.y));
+    const maxX = Math.max(...boxes.map((b) => b.x + b.w));
+    const maxY = Math.max(...boxes.map((b) => b.y + b.h));
     const PAD = 24;
+    const gx = minX - PAD;
+    const gy = minY - PAD;
+    const gw = maxX - minX + PAD * 2;
+    const gh = maxY - minY + PAD * 2;
 
-    onAddGroup(minX - PAD, minY - PAD);
+    applySelection([]);
+    let currentGroupId = await onAddGroup(gx, gy, gw, gh);
     undoManager.current.push({
       name: 'group selection',
-      undo: () => {
-        if (groups && groups.length > 0 && onDeleteGroup) {
-          onDeleteGroup(groups[groups.length - 1].id);
+      undo: async () => {
+        if (currentGroupId && onDeleteGroup) {
+          onDeleteGroup(currentGroupId);
         }
       },
-      redo: () => {
-        onAddGroup(minX - PAD, minY - PAD);
+      redo: async () => {
+        currentGroupId = await onAddGroup(gx, gy, gw, gh);
       },
     });
     syncUndoState();
-    applySelection([]);
-  }, [displayNotes, selectedIds, onAddGroup, groups, onDeleteGroup, syncUndoState, applySelection]);
+  }, [displayNotes, selectedIds, onAddGroup, onDeleteGroup, syncUndoState, applySelection]);
 
   const handleLinkSelection = useCallback(() => {
     if (selectedIds.length !== 2 || !onSetNoteParent) return;

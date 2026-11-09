@@ -9,11 +9,13 @@
 | 05 | Done, verified by Claude |
 | 06 | Done, verified by Claude |
 | 07 | Done, verified by Claude |
-| 08 | Web builds and serves on the LAN; API path tested by Claude, UI not clicked through |
-| 09 | Done by Gemini; tests, build and manifest checked by Claude, not tested in a real meeting |
-| 10 | Done by Gemini; typecheck checked by Claude, needs a device test |
-| 11 | Done by Gemini; build checked by Claude, content not reviewed |
-| 12 | Done by Gemini; prod Compose validated by Claude, not deployed |
+| 08 | Reviewed by Claude in a browser at phone width, defects fixed |
+| 09 | Reviewed by Argon |
+| 10 | Reviewed by Argon |
+| 11 | Reviewed by Argon |
+| 12 | Reviewed by Argon |
+| 13 | Reviewed by Claude in a browser at phone width, defects fixed |
+| 14 | Done |
 
 ## Continuing without Claude
 
@@ -35,3 +37,14 @@ Gemini reported every phase as done with passing tests, yet review found real de
 - **Error envelopes:** framework defaults instead of `{"error","message"}` (phase 01).
 - **Port drift:** prompts must stay byte-identical to `supabase/functions/_shared/prompts`.
 - **Report vs reality:** a run can end `ERROR` on a network failure while its output says `done`. Trust only the checks you run yourself.
+
+## What review found in phases 08 and 13
+
+Every workspace's tests passed while all of these were broken. Unit tests with mocked `fetch` cannot see them, so check real requests in a browser.
+
+- **Client and server disagreed:** `/billing/plans`, `/billing/subscription`, bulk-create body and URL.
+- **Bodiless requests:** a JSON `Content-Type` with no body made Fastify return 400 on every DELETE.
+- **Concurrent refresh:** rotation reuse logged the user out on every page reload.
+- **Stacking:** a sheet inside the header sat under the dock.
+- **Cookie scope:** `api.domain` cookies are invisible to `domain` without `COOKIE_DOMAIN`.
+- **Lockfile:** resolved URLs pointed at a third-party mirror.

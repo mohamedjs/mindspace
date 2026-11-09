@@ -27,6 +27,8 @@ export interface CreateRecordingRowArgs {
   spaceId: string;
   durationMs: number;
   sizeBytes?: number;
+  parentNoteId?: string;
+  fillNoteId?: string;
 }
 
 /**
@@ -37,8 +39,10 @@ export interface CreateRecordingRowArgs {
 export async function createRecordingRow({
   spaceId,
   durationMs,
+  parentNoteId,
+  fillNoteId,
 }: CreateRecordingRowArgs): Promise<string> {
-  return container.recordings.create({ spaceId, durationMs });
+  return container.recordings.create({ spaceId, durationMs, parentNoteId, fillNoteId });
 }
 
 

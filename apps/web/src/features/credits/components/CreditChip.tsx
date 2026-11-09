@@ -23,15 +23,16 @@ export const CreditChip: React.FC<CreditChipProps> = ({ balance = 100, onPress }
   return (
     <button
       type="button"
-      className="flex flex-row items-center rounded-full border px-3 py-1.5 transition-all cursor-pointer"
+      className="min-h-[44px] min-w-[44px] flex flex-row items-center justify-center rounded-full border px-3.5 py-2 transition-all cursor-pointer"
       style={{
         backgroundColor: isZero || isLow ? `${accentColor}${tintAlpha}` : colors.canvas,
         borderColor: isZero || isLow ? accentColor : colors.line,
       }}
       onClick={onPress}
+      aria-label={`Credits balance: ${balance}`}
     >
-      <span className="mr-1.5 h-2 w-2 rounded-full inline-block" style={{ backgroundColor: accentColor }} />
-      <span className="text-[13px] font-semibold" style={{ color: textColor }}>
+      <span className="mr-2 h-2.5 w-2.5 rounded-full inline-block" style={{ backgroundColor: accentColor }} />
+      <span className="text-sm font-semibold" style={{ color: textColor }}>
         {balance}
       </span>
     </button>

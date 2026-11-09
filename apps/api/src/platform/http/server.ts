@@ -99,8 +99,10 @@ export async function buildServer(deps: ServerDependencies): Promise<FastifyInst
   app.decorate('config', deps.config);
 
   const corsOrigins = deps.config.CORS_ORIGINS.split(',').map((s) => s.trim());
+  // Development only: a laptop's LAN IP changes, and phones on the network must still work.
+  const devLanOrigin = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+):\d+$/;
   await app.register(cors, {
-    origin: corsOrigins,
+    origin: deps.config.NODE_ENV === 'development' ? [...corsOrigins, devLanOrigin] : corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],

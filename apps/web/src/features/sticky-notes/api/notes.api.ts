@@ -28,3 +28,13 @@ export const deleteNote = (noteId: string) => notes.remove(noteId);
 export const bulkMoveNotes = (moves: NoteMove[]) => notes.moveMany(moves);
 export const updateNoteParent = (noteId: string, parentId: string | null) =>
   notes.updateParent(noteId, parentId);
+export const bulkUpdateNotes = (ids: string[], patch: { color?: string; type?: NoteType }) =>
+  notes.bulkUpdate ? notes.bulkUpdate(ids, patch) : Promise.resolve();
+export const bulkDeleteNotes = (ids: string[]) =>
+  notes.bulkDelete ? notes.bulkDelete(ids) : Promise.all(ids.map((id) => notes.remove(id))).then(() => {});
+export const bulkRestoreNotes = (ids: string[]) =>
+  notes.bulkRestore ? notes.bulkRestore(ids) : Promise.resolve();
+export const bulkCreateNotes = (spaceId: string, inputs: CreateNoteInput[]) =>
+  notes.bulkCreate
+    ? notes.bulkCreate(spaceId, inputs)
+    : Promise.all(inputs.map((input) => notes.create(spaceId, input)));

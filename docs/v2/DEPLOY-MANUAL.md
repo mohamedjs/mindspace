@@ -51,6 +51,7 @@ DB_POOL_MAX=20
 JWT_SECRET=<openssl rand -hex 32>
 BYOK_MASTER_KEY=<openssl rand -base64 32>
 CORS_ORIGINS=https://yourdomain.com
+COOKIE_DOMAIN=yourdomain.com
 AUDIO_DIR=/srv/mindspace/audio
 OPENROUTER_API_KEY=<your key>
 ```

@@ -12,3 +12,6 @@ export const signedAudioUrl = (storagePath: string) =>
 
 export const finishRecording = (recordingId: string) =>
   container.recordings.finish(recordingId);
+
+export const markRecordingFailed = (recordingId: string, errorMessage: string) =>
+  container.recordings.markFailed(recordingId, errorMessage);

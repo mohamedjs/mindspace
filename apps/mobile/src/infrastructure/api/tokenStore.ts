@@ -28,9 +28,13 @@ class TokenStore {
           SecureStore.getItemAsync(USER_KEY).catch(() => null),
         ]);
 
-        if (storedAccess && storedUser) {
+        if (storedRefresh) {
+          this.refreshToken = storedRefresh;
+        }
+        if (storedAccess) {
           this.accessToken = storedAccess;
-          this.refreshToken = storedRefresh ?? null;
+        }
+        if (storedUser) {
           try {
             this.user = JSON.parse(storedUser);
           } catch {

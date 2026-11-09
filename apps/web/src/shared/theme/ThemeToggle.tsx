@@ -24,7 +24,7 @@ export const ThemeToggle: React.FC = () => {
           <button
             key={option.value}
             type="button"
-            className="flex-1 items-center py-2 cursor-pointer border-0 bg-transparent transition-all"
+            className="flex-1 min-h-[44px] flex items-center justify-center py-2 cursor-pointer border-0 bg-transparent transition-all"
             style={isActive ? clay({ color: colors.accent, radius: 15, depth: 0.7 }) : undefined}
             onClick={() => setPreference(option.value)}
           >

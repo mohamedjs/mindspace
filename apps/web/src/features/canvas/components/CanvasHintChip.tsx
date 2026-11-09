@@ -52,18 +52,19 @@ export const CanvasHintChip: React.FC<CanvasHintChipProps> = ({
   return (
     <div
       className={`fixed ${
-        isMobile ? 'bottom-20 left-1/2 -translate-x-1/2' : 'bottom-6 left-1/2 -translate-x-1/2'
-      } z-30 flex items-center gap-3 px-4 py-2 rounded-full shadow-lg pointer-events-auto transition-all`}
+        isMobile ? 'left-1/2 -translate-x-1/2' : 'bottom-6 left-1/2 -translate-x-1/2'
+      } z-30 flex items-center gap-3 px-4 py-2.5 rounded-full shadow-lg pointer-events-auto transition-all`}
       style={{
         backgroundColor: colors.surface,
         borderColor: colors.line,
         borderWidth: 1,
         color: colors.ink,
+        ...(isMobile ? { bottom: 'calc(76px + env(safe-area-inset-bottom, 0px))' } : {}),
       }}
       role="status"
       aria-live="polite"
     >
-      <span className="text-xs sm:text-sm font-medium">{hintText}</span>
+      <span className="text-sm font-medium">{hintText}</span>
       {onCancel && (
         <button
           type="button"
@@ -72,7 +73,7 @@ export const CanvasHintChip: React.FC<CanvasHintChipProps> = ({
           style={{ color: colors.muted }}
           title={lang === 'ar' ? 'إلغاء (Esc)' : 'Cancel (Esc)'}
         >
-          Esc
+          {isMobile ? (lang === 'ar' ? 'إلغاء' : 'Cancel') : 'Esc'}
         </button>
       )}
     </div>

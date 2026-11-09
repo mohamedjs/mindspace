@@ -10,7 +10,7 @@ const LAST_SPACE_KEY = 'mindspace:lastSpaceId';
 
 export default function Page() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { data: spaces, isLoading } = useQuery({
     queryKey: queryKeys.spaces.all,
     queryFn: fetchSpaces,
@@ -18,6 +18,10 @@ export default function Page() {
   });
 
   useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/sign-in');
+      return;
+    }
     if (!user || isLoading) return;
     if (spaces?.length) {
       const savedSpaceId = localStorage.getItem(LAST_SPACE_KEY);
@@ -28,7 +32,7 @@ export default function Page() {
         router.replace(`/space/${spaces[0].id}`);
       }
     }
-  }, [user, spaces, isLoading, router]);
+  }, [user, authLoading, spaces, isLoading, router]);
 
   return (
     <div className="flex flex-1 items-center justify-center min-h-screen bg-canvas">

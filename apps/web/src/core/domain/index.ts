@@ -150,6 +150,7 @@ export interface SubscriptionPlan {
   isFeatured: boolean;
   maxRecordingMinutes: number;
   isByok: boolean;
+  aiEnabled: boolean;
 }
 
 export interface ActiveSubscription {

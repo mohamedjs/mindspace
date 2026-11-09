@@ -103,7 +103,7 @@ export default function HomeScreen() {
   const { data: notes } = useNotes(spaceId);
   const { data: balance } = useBalance();
   const recolor = useUpdateNoteColor(spaceId);
-  const updateNoteTypeMutation = useUpdateNoteType();
+  const updateNoteTypeMutation = useUpdateNoteType(spaceId);
   const moveNote = useMoveNote(spaceId);
   const moveCluster = useMoveCluster(spaceId);
   const removeNote = useDeleteNote(spaceId);
@@ -114,7 +114,7 @@ export default function HomeScreen() {
   const editGroup = useUpdateGroup(spaceId);
   const removeGroup = useDeleteGroup(spaceId);
   const setNoteParent = useSetNoteParent(spaceId);
-  const saveNoteContent = useUpdateNoteContent();
+  const saveNoteContent = useUpdateNoteContent(spaceId);
   const { aiEnabled } = useEntitlements();
   const { status: recordingStatus, error: recordingError } = useRecordingStatus(recordingId ?? null);
   const [outOfCreditsOpen, setOutOfCreditsOpen] = useState(false);
@@ -259,7 +259,10 @@ export default function HomeScreen() {
   );
 
   const handleAddGroup = useCallback(
-    (x: number, y: number) => addGroup.mutate({ x, y }),
+    async (x: number, y: number, width?: number, height?: number) => {
+      const created = await addGroup.mutateAsync({ x, y, width, height });
+      return created.id;
+    },
     [addGroup]
   );
 

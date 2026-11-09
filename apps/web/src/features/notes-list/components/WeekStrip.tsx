@@ -33,15 +33,15 @@ export const WeekStrip: React.FC<WeekStripProps> = ({
     >
       <button
         type="button"
-        className="h-9 w-9 flex items-center justify-center rounded-full cursor-pointer border-0 transition-transform active:scale-90"
-        style={{ ...clay({ color: shade(colors.surface, -0.06), radius: 18, depth: 0.4 }) }}
+        className="min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full cursor-pointer border-0 transition-transform active:scale-90"
+        style={{ ...clay({ color: shade(colors.surface, -0.06), radius: 22, depth: 0.4 }) }}
         onClick={() => onShiftWeek(-1)}
         aria-label="Previous week"
       >
-        <ChevronLeft size={18} color={colors.muted} strokeWidth={2.5} />
+        <ChevronLeft size={20} color={colors.muted} strokeWidth={2.5} />
       </button>
 
-      <div className="flex-1 flex flex-row justify-around px-2">
+      <div className="flex-1 flex flex-row justify-around px-1">
         {week.map((day, i) => {
           const isSelected = day === selectedDay;
           const isToday = day === today;
@@ -51,18 +51,18 @@ export const WeekStrip: React.FC<WeekStripProps> = ({
             <button
               key={day}
               type="button"
-              className="flex flex-col items-center px-1.5 py-1 cursor-pointer bg-transparent border-0 group"
+              className="min-h-[44px] min-w-[36px] flex flex-col items-center px-1 py-1 cursor-pointer bg-transparent border-0 group"
               onClick={() => onSelectDay(day)}
             >
               <span
-                className="mb-1 text-[11px] font-bold tracking-wider uppercase"
+                className="mb-1 text-xs font-bold tracking-wider uppercase"
                 style={{ color: isSelected ? colors.accent : isToday ? colors.accent : colors.muted }}
               >
                 {WEEKDAY_INITIALS[i]}
               </span>
 
               <span
-                className="h-9 w-9 flex items-center justify-center rounded-2xl transition-all duration-200"
+                className="h-10 w-10 flex items-center justify-center rounded-2xl transition-all duration-200"
                 style={
                   isSelected
                     ? {
@@ -82,7 +82,7 @@ export const WeekStrip: React.FC<WeekStripProps> = ({
                 }
               >
                 <span
-                  className="text-[14px] font-extrabold"
+                  className="text-sm font-extrabold"
                   style={{
                     color: isSelected ? colors.onAccent : isToday ? colors.accent : colors.ink,
                   }}
@@ -108,12 +108,12 @@ export const WeekStrip: React.FC<WeekStripProps> = ({
 
       <button
         type="button"
-        className="h-9 w-9 flex items-center justify-center rounded-full cursor-pointer border-0 transition-transform active:scale-90"
-        style={{ ...clay({ color: shade(colors.surface, -0.06), radius: 18, depth: 0.4 }) }}
+        className="min-h-[44px] min-w-[44px] h-11 w-11 flex items-center justify-center rounded-full cursor-pointer border-0 transition-transform active:scale-90"
+        style={{ ...clay({ color: shade(colors.surface, -0.06), radius: 22, depth: 0.4 }) }}
         onClick={() => onShiftWeek(1)}
         aria-label="Next week"
       >
-        <ChevronRight size={18} color={colors.muted} strokeWidth={2.5} />
+        <ChevronRight size={20} color={colors.muted} strokeWidth={2.5} />
       </button>
     </div>
   );

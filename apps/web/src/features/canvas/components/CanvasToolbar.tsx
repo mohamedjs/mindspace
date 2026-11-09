@@ -98,7 +98,9 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
   onStartRecord,
   lang = 'en',
 }) => {
-  const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 1024 : false
+  );
 
   useEffect(() => {
     const checkMobile = () => {
@@ -142,13 +144,16 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
       {/* Floating Zoom / Fit on Mobile */}
       {isMobile && (
         <div
-          className="fixed right-3 bottom-24 z-30 flex flex-col gap-1.5 p-1 rounded-2xl shadow-lg border pointer-events-auto bg-surface"
+          className="fixed right-3 z-30 flex flex-col gap-1.5 p-1 rounded-2xl shadow-lg border pointer-events-auto bg-surface"
+          style={{
+            bottom: 'calc(76px + env(safe-area-inset-bottom, 0px))',
+          }}
           onPointerDown={(e) => e.stopPropagation()}
         >
           <button
             type="button"
             onClick={onFitToView}
-            className="h-10 w-10 flex items-center justify-center rounded-xl hover:bg-black/10 active:scale-95 text-xs font-semibold"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-black/10 active:scale-95 text-xs font-semibold cursor-pointer border-0 bg-transparent text-ink"
             aria-label="Fit to view"
           >
             Fit
@@ -156,7 +161,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           <button
             type="button"
             onClick={onZoomOut}
-            className="h-10 w-10 flex items-center justify-center rounded-xl hover:bg-black/10 active:scale-95 text-base font-bold"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-black/10 active:scale-95 text-base font-bold cursor-pointer border-0 bg-transparent text-ink"
             aria-label="Zoom out"
           >
             -
@@ -164,7 +169,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           <button
             type="button"
             onClick={onZoomIn}
-            className="h-10 w-10 flex items-center justify-center rounded-xl hover:bg-black/10 active:scale-95 text-base font-bold"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-black/10 active:scale-95 text-base font-bold cursor-pointer border-0 bg-transparent text-ink"
             aria-label="Zoom in"
           >
             +
@@ -173,7 +178,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
       )}
 
       {/* Desktop: Zone 1 Left Mode Rail + Create */}
-      {!isMobile && (
+      <div className="hidden lg:block">
         <CanvasModeRail
           toolMode={toolMode}
           onSetToolMode={onSetToolMode}
@@ -184,21 +189,23 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           onStartRecord={onStartRecord}
           lang={lang}
         />
-      )}
+      </div>
 
       {/* Mobile: Bottom Dock OR Selection Bar */}
-      {isMobile && totalSelected === 0 && (
-        <CanvasMobileDock
-          toolMode={toolMode}
-          onSetToolMode={onSetToolMode}
-          selectedCount={totalSelected}
-          onAddNote={onAddNote}
-          onAddSubNote={onAddSubNote}
-          onAddGroup={onAddGroup}
-          onStartRecord={onStartRecord}
-          lang={lang}
-        />
-      )}
+      <div className="block lg:hidden">
+        {totalSelected === 0 && (
+          <CanvasMobileDock
+            toolMode={toolMode}
+            onSetToolMode={onSetToolMode}
+            selectedCount={totalSelected}
+            onAddNote={onAddNote}
+            onAddSubNote={onAddSubNote}
+            onAddGroup={onAddGroup}
+            onStartRecord={onStartRecord}
+            lang={lang}
+          />
+        )}
+      </div>
 
       {/* Zone 3: Selection Bar (desktop floating above selection, or mobile bottom replacement) */}
       <CanvasSelectionBar

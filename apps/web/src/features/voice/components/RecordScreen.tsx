@@ -24,12 +24,16 @@ function formatElapsed(ms: number) {
 
 interface RecordScreenProps {
   spaceId: string;
-  onRecorded?: (recordingId: string, localUri: string) => void;
+  parentNoteId?: string;
+  fillNoteId?: string;
+  onRecorded?: (recordingId: string, localUri: string) => void | Promise<void>;
   onCancel?: () => void;
 }
 
 export const RecordScreen: React.FC<RecordScreenProps> = ({
   spaceId,
+  parentNoteId,
+  fillNoteId,
   onRecorded,
   onCancel,
 }) => {
@@ -100,11 +104,13 @@ export const RecordScreen: React.FC<RecordScreenProps> = ({
       const recordingId = await repos.recordings.create({
         spaceId,
         durationMs: duration,
+        parentNoteId,
+        fillNoteId,
       });
 
       const blobUrl = URL.createObjectURL(audioBlob);
       if (onRecorded) {
-        onRecorded(recordingId, blobUrl);
+        await onRecorded(recordingId, blobUrl);
       }
     } catch (err) {
       toast.error('Could not upload', {
@@ -115,7 +121,7 @@ export const RecordScreen: React.FC<RecordScreenProps> = ({
       setUiState('idle');
       setLevel(0);
     }
-  }, [repos, spaceId, onRecorded, setIsRecording, resetRecording, cleanupAudio]);
+  }, [repos, spaceId, parentNoteId, fillNoteId, onRecorded, setIsRecording, resetRecording, cleanupAudio]);
 
   // Hard stop at plan limit
   useEffect(() => {

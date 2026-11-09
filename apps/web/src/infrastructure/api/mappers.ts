@@ -116,8 +116,9 @@ export const toPlan = (row: Record<string, unknown>): SubscriptionPlan => ({
   totalCredits: row.total_credits as number,
   bonusPct: (row.bonus_pct as number) ?? 0,
   isFeatured: Boolean(row.is_featured),
-  maxRecordingMinutes: row.max_recording_minutes as number,
+  maxRecordingMinutes: (row.max_recording_minutes as number) ?? 0,
   isByok: Boolean(row.is_byok),
+  aiEnabled: row.ai_enabled === undefined ? row.id !== 'free' : Boolean(row.ai_enabled),
 });
 
 export const toSubscription = (row: Record<string, unknown>): ActiveSubscription => ({

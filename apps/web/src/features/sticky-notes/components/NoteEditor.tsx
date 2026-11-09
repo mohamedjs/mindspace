@@ -246,7 +246,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
       <div className="flex flex-col flex-1 w-full mx-auto relative shadow-2xl">
         {/* Top Header */}
         <header
-          className="px-4 py-3 flex flex-col gap-2 shrink-0 border-b"
+          className="px-4 py-3 flex flex-col gap-2 shrink-0 border-b sticky top-0 z-30 pt-[calc(12px+env(safe-area-inset-top,0px))]"
           style={{
             backgroundColor: paperBg,
             borderColor: shade(paperBg, -0.14),
@@ -256,17 +256,18 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
             <button
               type="button"
               onClick={handleBack}
-              className="h-10 w-10 flex items-center justify-center rounded-xl cursor-pointer border-0 transition-opacity"
+              className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl cursor-pointer border-0 transition-opacity"
               style={clay({ color: shade(paperBg, -0.08), radius: 14, depth: 0.5 })}
+              aria-label="Back"
             >
-              <ArrowLeft size={20} color={textColor} strokeWidth={2.5} />
+              <ArrowLeft size={20} color={textColor} strokeWidth={2.5} className="rtl:rotate-180" />
             </button>
 
             <div className="flex flex-row items-center gap-2">
               <button
                 type="button"
                 onClick={() => setTypePickerVisible(!typePickerVisible)}
-                className="h-10 w-10 flex items-center justify-center rounded-xl cursor-pointer border-0 transition-opacity"
+                className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl cursor-pointer border-0 transition-opacity"
                 style={clay({
                   color: typePickerVisible ? shade(paperBg, -0.18) : shade(paperBg, -0.08),
                   radius: 14,
@@ -274,6 +275,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                   pressed: typePickerVisible,
                 })}
                 title="Change Type"
+                aria-label="Change Type"
               >
                 <Tag size={18} color={textColor} strokeWidth={2.5} />
               </button>
@@ -281,9 +283,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               <button
                 type="button"
                 onClick={() => setColorPickerVisible(true)}
-                className="h-10 w-10 flex items-center justify-center rounded-xl cursor-pointer border-0 transition-opacity"
+                className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl cursor-pointer border-0 transition-opacity"
                 style={clay({ color: shade(paperBg, -0.08), radius: 14, depth: 0.5 })}
                 title="Change Color"
+                aria-label="Change Color"
               >
                 <Palette size={18} color={textColor} strokeWidth={2.5} />
               </button>
@@ -292,9 +295,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                 type="button"
                 onClick={startVoiceIntoNote}
                 disabled={isThinking}
-                className="h-10 w-10 flex items-center justify-center rounded-xl cursor-pointer border-0 transition-opacity disabled:opacity-50"
+                className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl cursor-pointer border-0 transition-opacity disabled:opacity-50"
                 style={clay({ color: colors.accent, radius: 14, depth: isThinking ? 0.2 : 0.6 })}
                 title="Speak into this note"
+                aria-label="Speak into this note"
               >
                 <Mic size={18} color={colors.onAccent} strokeWidth={2.5} />
               </button>
@@ -302,9 +306,10 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
               <button
                 type="button"
                 onClick={handleDelete}
-                className="h-10 w-10 flex items-center justify-center rounded-xl cursor-pointer border-0 transition-opacity"
+                className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl cursor-pointer border-0 transition-opacity"
                 style={clay({ color: '#C6453C', radius: 14, depth: 0.6 })}
                 title="Delete note"
+                aria-label="Delete note"
               >
                 <Trash2 size={18} color="#FFF" strokeWidth={2.5} />
               </button>
@@ -317,7 +322,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                 type="button"
                 onClick={handleSave}
                 disabled={updateContent.isPending}
-                className="flex flex-row items-center px-4 py-2 rounded-xl text-sm font-bold text-white cursor-pointer border-0 transition-opacity"
+                className="flex flex-row items-center px-4 py-2 min-h-[44px] rounded-xl text-sm font-bold text-white cursor-pointer border-0 transition-opacity"
                 style={clay({ color: colors.accent, radius: 16, depth: 0.8 })}
               >
                 {updateContent.isPending ? (
@@ -349,7 +354,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                   key={type}
                   type="button"
                   onClick={() => handleTypeSelect(type)}
-                  className="flex flex-row items-center px-3 py-2 rounded-xl cursor-pointer border-0 shrink-0 transition-all"
+                  className="flex flex-row items-center px-3 py-2 min-h-[44px] rounded-xl cursor-pointer border-0 shrink-0 transition-all"
                   style={clay({
                     color: active ? typeBg : shade(paperBg, -0.06),
                     radius: 12,
@@ -392,7 +397,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                 );
               })()}
               <span
-                className="text-[10px] font-bold uppercase tracking-wider"
+                className="text-xs font-bold uppercase tracking-wider"
                 style={{ color: textColor }}
               >
                 {note.type}
@@ -430,7 +435,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
           {effectiveSpaceId && (
             <div className="mt-8">
               <div
-                className="mb-3 text-xs font-bold uppercase tracking-wider"
+                className="mb-3 text-sm font-bold uppercase tracking-wider"
                 style={{ color: mutedTextColor }}
               >
                 Sub-notes{children.length ? ` (${children.length})` : ''}
@@ -458,7 +463,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                             {child.title}
                           </div>
                         )}
-                        <div className="text-xs line-clamp-2" style={{ color: mutedTextColor }}>
+                        <div className="text-sm line-clamp-2" style={{ color: mutedTextColor }}>
                           {child.content}
                         </div>
                       </div>
@@ -476,7 +481,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                       className="w-4 h-4 mr-2.5 border-2 border-t-transparent rounded-full animate-spin shrink-0"
                       style={{ borderColor: `${colors.accent} transparent ${colors.accent} ${colors.accent}` }}
                     />
-                    <span className="text-xs" style={{ color: mutedTextColor }}>
+                    <span className="text-sm" style={{ color: mutedTextColor }}>
                       {recordingStatus === 'transcribing'
                         ? 'Listening to what you said…'
                         : 'Writing up what you said…'}
@@ -490,7 +495,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({
                     value={subNoteText}
                     onChange={(e) => setSubNoteText(e.target.value)}
                     placeholder="Add a sub-note…"
-                    className="flex-1 px-3.5 py-3 text-sm rounded-xl border-0 outline-none"
+                    className="flex-1 px-3.5 py-3 text-base rounded-xl border-0 outline-none"
                     style={{ backgroundColor: shade(paperBg, -0.08), color: textColor }}
                   />
                   <button

@@ -63,16 +63,16 @@ export const PaymentMethodSheet: React.FC<PaymentMethodSheetProps> = ({
           style={{ backgroundColor: shade(colors.surface, -0.18) }}
         />
 
-        <h3 className="text-lg font-bold text-ink">How would you like to pay?</h3>
+        <h3 className="text-xl font-bold text-ink">How would you like to pay?</h3>
         {plan && (
-          <p className="mb-5 mt-0.5 text-xs text-muted">
+          <p className="mb-5 mt-1 text-sm text-muted">
             {plan.name} · {plan.priceEgp} EGP a month ·{' '}
             {plan.totalCredits.toLocaleString()} credits
           </p>
         )}
 
         {!providers && (
-          <div className="py-6 text-center text-xs text-muted animate-pulse">Loading payment methods…</div>
+          <div className="py-6 text-center text-sm text-muted animate-pulse">Loading payment methods…</div>
         )}
 
         {providers?.map((provider) => {
@@ -84,7 +84,7 @@ export const PaymentMethodSheet: React.FC<PaymentMethodSheetProps> = ({
             <button
               key={provider.channel}
               type="button"
-              className="mb-2.5 w-full flex flex-row items-center px-4 py-3.5 cursor-pointer border-0 text-left transition-all disabled:opacity-50 disabled:cursor-default"
+              className="mb-2.5 w-full min-h-[48px] flex flex-row items-center px-4 py-3.5 cursor-pointer border-0 text-left transition-all disabled:opacity-50 disabled:cursor-default"
               style={clay({
                 color: shade(colors.surface, -0.05),
                 radius: 18,
@@ -94,7 +94,7 @@ export const PaymentMethodSheet: React.FC<PaymentMethodSheetProps> = ({
               onClick={() => onPick(provider.channel)}
             >
               <Icon
-                size={20}
+                size={22}
                 color={provider.isConfigured ? colors.ink : colors.muted}
                 strokeWidth={2.2}
               />
@@ -106,7 +106,7 @@ export const PaymentMethodSheet: React.FC<PaymentMethodSheetProps> = ({
                   {provider.displayName}
                 </div>
                 {!provider.isConfigured && (
-                  <div className="mt-0.5 text-[11px] text-muted">Not available yet</div>
+                  <div className="mt-0.5 text-sm text-muted">Not available yet</div>
                 )}
               </div>
               {busy && (

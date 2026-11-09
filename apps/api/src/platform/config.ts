@@ -11,6 +11,7 @@ export interface AppConfig {
   CORS_ORIGINS: string;
   AUDIO_DIR: string;
   OPENROUTER_API_KEY: string;
+  COOKIE_DOMAIN?: string;
   ALLOW_TEST_PAY?: boolean;
   STT_CONCURRENCY?: number;
   LLM_CONCURRENCY?: number;
@@ -45,6 +46,7 @@ const configSchema = yup.object({
   CORS_ORIGINS: yup.string().required('CORS_ORIGINS is required'),
   AUDIO_DIR: yup.string().required('AUDIO_DIR is required').default('/data/audio'),
   OPENROUTER_API_KEY: yup.string().required('OPENROUTER_API_KEY is required'),
+  COOKIE_DOMAIN: yup.string().optional(),
   ALLOW_TEST_PAY: yup.boolean().default(false),
   STT_CONCURRENCY: yup.number().integer().positive().default(16),
   LLM_CONCURRENCY: yup.number().integer().positive().default(16),

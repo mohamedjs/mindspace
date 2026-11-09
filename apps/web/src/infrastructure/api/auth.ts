@@ -1,5 +1,5 @@
 import type { AuthPort, AuthSession } from '../../core/ports';
-import { apiFetch } from './client';
+import { apiFetch, refreshAccessToken } from './client';
 import { tokenStore } from './tokenStore';
 
 export const apiAuth: AuthPort = {
@@ -7,33 +7,9 @@ export const apiAuth: AuthPort = {
     const cached = tokenStore.getSession();
     if (cached) return cached;
 
-    // On page reload, try to refresh via httpOnly cookie
-    try {
-      const data = await apiFetch<{
-        access_token: string;
-        user: { id: string; email: string; user_metadata?: { full_name?: string } };
-      }>('/auth/refresh', {
-        method: 'POST',
-        body: JSON.stringify({}),
-      });
-
-      if (data?.access_token && data.user) {
-        const session: AuthSession = {
-          accessToken: data.access_token,
-          user: {
-            id: data.user.id,
-            email: data.user.email ?? null,
-            fullName: data.user.user_metadata?.full_name ?? null,
-          },
-        };
-        tokenStore.setSession(session);
-        return session;
-      }
-    } catch {
-      tokenStore.setSession(null);
-    }
-
-    return null;
+    // After a page reload the access token is gone; the httpOnly cookie restores it.
+    await refreshAccessToken();
+    return tokenStore.getSession();
   },
 
   onSessionChange(listener: (session: AuthSession | null) => void): () => void {

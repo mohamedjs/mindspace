@@ -83,6 +83,8 @@ export interface TranslationDictionary {
     rule2Desc: string;
     rule3Title: string;
     rule3Desc: string;
+    rule4Title: string;
+    rule4Desc: string;
     plans: {
       free: { name: string; tagline: string; talk: string; maxRec: string; desc: string };
       hobby: { name: string; tagline: string; talk: string; maxRec: string; desc: string };
@@ -242,6 +244,9 @@ export const translations: Record<Lang, TranslationDictionary> = {
       rule3Title: 'Volume Rewards Commitment',
       rule3Desc:
         'Higher tiers provide progressively higher bonus credits (up to +60%), and subscriptions always beat one-time top-ups.',
+      rule4Title: 'Per-Tier Recording Caps & Split BYOK',
+      rule4Desc:
+        'Each plan caps single-recording length (5 min on Free up to 120 min on Max & BYOK), and BYOK splits billing cleanly: your key for text, our credits for speech.',
       plans: {
         free: {
           name: 'Free',
@@ -435,6 +440,9 @@ export const translations: Record<Lang, TranslationDictionary> = {
       rule3Title: 'الباقات الكبيرة أوفر، والاشتراك يكسب',
       rule3Desc:
         'كل ما الباقة تكبر بتاخد بونص أكبر بيوصل لـ +60% كريديت، والاشتراك الشهري دايماً أوفر من باقات الشحن الفردية.',
+      rule4Title: 'حد أقصى للتسجيل وتقسيم واضح للـ BYOK',
+      rule4Desc:
+        'كل باقة ليها حد أقصى لمدة التسجيل الواحد (من 5 دقائق لحد 120 دقيقة في باقتي Max و BYOK)، وباقة مفتاحك الخاص بتفصل بوضوح: مفتاحك للنصوص، وكريديتنا للصوت.',
       plans: {
         free: {
           name: 'المجانية (Free)',

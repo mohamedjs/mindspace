@@ -15,7 +15,7 @@ export async function runThinkingPipeline(
   _parentNoteId?: string | null,
   _fillNoteId?: string | null
 ): Promise<ExtractResult> {
-  await container.recordings.finish(recordingId).catch(() => {});
+  await container.recordings.finish(recordingId);
   return {
     aiActionId: recordingId,
     noteIds: [],

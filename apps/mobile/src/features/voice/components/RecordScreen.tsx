@@ -32,6 +32,8 @@ function formatElapsed(ms: number) {
 
 interface RecordScreenProps {
   spaceId: string;
+  parentNoteId?: string;
+  fillNoteId?: string;
   /** Called with the new recordings row id + local file uri once stopped. */
   onRecorded?: (recordingId: string, localUri: string) => void;
   onCancel?: () => void;
@@ -39,6 +41,8 @@ interface RecordScreenProps {
 
 export const RecordScreen: React.FC<RecordScreenProps> = ({
   spaceId,
+  parentNoteId,
+  fillNoteId,
   onRecorded,
   onCancel,
 }) => {
@@ -89,6 +93,8 @@ export const RecordScreen: React.FC<RecordScreenProps> = ({
       const recordingId = await createRecordingRow({
         spaceId,
         durationMs: elapsedMs,
+        parentNoteId,
+        fillNoteId,
       });
 
       if (uri) onRecorded?.(recordingId, uri);
@@ -103,7 +109,17 @@ export const RecordScreen: React.FC<RecordScreenProps> = ({
       setUiState('idle');
       level.value = 0;
     }
-  }, [recorder, elapsedMs, spaceId, onRecorded, setIsRecording, resetRecording, level]);
+  }, [
+    recorder,
+    elapsedMs,
+    spaceId,
+    parentNoteId,
+    fillNoteId,
+    onRecorded,
+    setIsRecording,
+    resetRecording,
+    level,
+  ]);
 
   // Hard stop at the plan's cap. Whatever was captured is kept.
   useEffect(() => {

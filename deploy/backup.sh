@@ -27,11 +27,11 @@ echo "Target backup directory: ${BACKUP_DIR_ABS}"
 # 1. Database dump
 echo "Backing up PostgreSQL database '${POSTGRES_DB}'..."
 if command -v pg_dump >/dev/null 2>&1 && [ -n "${DATABASE_URL:-}" ]; then
-  pg_dump -Fc "${DATABASE_URL}" > "${DB_DUMP_FILE}"
+  pg_dump -Fc --no-owner --no-privileges "${DATABASE_URL}" > "${DB_DUMP_FILE}"
 elif command -v docker >/dev/null 2>&1; then
   # Use docker compose exec on the running postgres service
   docker compose -f "${COMPOSE_FILE}" exec -T postgres \
-    pg_dump -U "${POSTGRES_USER}" -Fc "${POSTGRES_DB}" > "${DB_DUMP_FILE}"
+    pg_dump -U "${POSTGRES_USER}" -Fc --no-owner --no-privileges "${POSTGRES_DB}" > "${DB_DUMP_FILE}"
 else
   echo "Error: Neither host pg_dump nor docker compose is available." >&2
   exit 1
@@ -43,13 +43,13 @@ echo "Database dump completed: ${DB_DUMP_FILE} (${DB_SIZE} bytes)"
 # 2. Audio archive
 echo "Backing up audio files..."
 if [ -n "${AUDIO_DIR}" ] && [ -d "${AUDIO_DIR}" ]; then
-  tar czf "${AUDIO_ARCHIVE_FILE}" -C "$(dirname "${AUDIO_DIR}")" "$(basename "${AUDIO_DIR}")"
+  tar czf "${AUDIO_ARCHIVE_FILE}" -C "${AUDIO_DIR}" .
 elif command -v docker >/dev/null 2>&1; then
   # Use a lightweight container with the audio volume attached
   docker run --rm \
     -v "${AUDIO_VOLUME}:/data/audio:ro" \
     -v "${BACKUP_DIR_ABS}:/backup" \
-    alpine sh -c "tar czf /backup/$(basename "${AUDIO_ARCHIVE_FILE}") -C /data audio 2>/dev/null || tar czf /backup/$(basename "${AUDIO_ARCHIVE_FILE}") -C /data ."
+    alpine sh -c "tar czf /backup/$(basename "${AUDIO_ARCHIVE_FILE}") -C /data/audio ."
 else
   echo "Warning: Audio directory not found and Docker unavailable; creating empty audio archive." >&2
   tar czf "${AUDIO_ARCHIVE_FILE}" --files-from /dev/null

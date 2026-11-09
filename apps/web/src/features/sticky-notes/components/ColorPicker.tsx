@@ -49,16 +49,21 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
   return (
     <dialog
       ref={dialogRef}
-      className="backdrop:bg-black/65 bg-transparent border-0 p-0 m-auto fixed inset-0 z-50 flex items-center justify-center select-none"
+      className="backdrop:bg-black/65 bg-transparent border-0 p-0 m-0 w-full sm:m-auto fixed inset-x-0 bottom-0 sm:inset-0 z-50 flex items-end sm:items-center justify-center select-none"
       onClick={(e) => {
         if (e.target === dialogRef.current) onClose();
       }}
       onCancel={onClose}
     >
       <div
-        className="w-full max-w-[340px] p-5 shadow-2xl rounded-3xl flex flex-col gap-4"
-        style={claySurface(colors, 28)}
+        className="w-full sm:max-w-[340px] p-5 shadow-2xl rounded-t-3xl sm:rounded-3xl flex flex-col gap-4"
+        style={{
+          ...claySurface(colors, 28),
+          paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))',
+        }}
       >
+        <div className="sm:hidden mb-1 h-1.5 w-12 mx-auto rounded-full bg-muted/40" />
+
         {/* Header */}
         <div className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
@@ -73,7 +78,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
             <button
               type="button"
               onClick={() => setMode(mode === 'presets' ? 'custom' : 'presets')}
-              className="h-8 px-2.5 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer border-0 transition-transform active:scale-95"
+              className="min-h-[44px] px-3 rounded-xl text-sm font-bold flex items-center gap-1 cursor-pointer border-0 transition-transform active:scale-95"
               style={{
                 ...clay({
                   color: mode === 'custom' ? colors.accent : shade(colors.surface, -0.06),
@@ -83,17 +88,18 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
                 color: mode === 'custom' ? colors.onAccent : colors.ink,
               }}
             >
-              <Palette size={14} />
+              <Palette size={16} />
               <span>{mode === 'presets' ? 'Custom' : 'Presets'}</span>
             </button>
 
             <button
               type="button"
               onClick={onClose}
-              className="h-8 w-8 flex items-center justify-center cursor-pointer border-0 rounded-xl"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer border-0 rounded-xl"
               style={clay({ color: shade(colors.surface, -0.06), radius: 12, depth: 0.4 })}
+              aria-label="Close"
             >
-              <X size={16} color={colors.muted} strokeWidth={2.5} />
+              <X size={18} color={colors.muted} strokeWidth={2.5} />
             </button>
           </div>
         </div>
@@ -127,7 +133,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
 
             <div className="w-full flex flex-row items-center gap-2 mt-1">
               <div
-                className="flex-1 px-3 py-2 rounded-xl flex items-center justify-between text-xs font-mono font-bold"
+                className="flex-1 px-3 py-2.5 rounded-xl flex items-center justify-between text-sm font-mono font-bold"
                 style={clay({ color: shade(colors.surface, -0.06), radius: 12, pressed: true })}
               >
                 <span className="text-muted">HEX</span>
@@ -136,7 +142,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({
 
               <button
                 type="button"
-                className="px-4 py-2 rounded-xl text-xs font-extrabold cursor-pointer border-0 transition-transform active:scale-95 shadow-md"
+                className="min-h-[44px] px-5 py-2.5 rounded-xl text-sm font-extrabold cursor-pointer border-0 transition-transform active:scale-95 shadow-md"
                 style={{
                   ...clay({ color: colors.accent, radius: 12, depth: 0.6 }),
                   color: colors.onAccent,

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { PartsStore } from '../src/parts-store.js';
 import { Uploader } from '../src/uploader.js';
+import { ExtensionBackgroundService } from '../src/background.js';
 
 describe('Uploader - retry, resume, and order', () => {
   let store: PartsStore;
@@ -264,6 +265,124 @@ describe('Uploader - retry, resume, and order', () => {
       // All parts uploaded and cleaned up
       const remaining = await store.getPendingParts('interrupted-rec');
       expect(remaining.length).toBe(0);
+    });
+
+    it('coalesces concurrent uploadPendingParts and finishRecording without dropping parts', async () => {
+      const uploadedParts: number[] = [];
+      let finishedCalled = false;
+
+      let releasePart0!: () => void;
+      const part0Gate = new Promise<void>((r) => {
+        releasePart0 = r;
+      });
+
+      mockFetch.mockImplementation(async (url: string) => {
+        if (url.endsWith('/parts/0')) {
+          await part0Gate;
+          uploadedParts.push(0);
+          return { ok: true, status: 200, text: async () => '{}' };
+        }
+        if (url.endsWith('/parts/1')) {
+          uploadedParts.push(1);
+          return { ok: true, status: 200, text: async () => '{}' };
+        }
+        if (url.endsWith('/finish')) {
+          finishedCalled = true;
+          return { ok: true, status: 200, text: async () => '{"status":"queued"}' };
+        }
+        return { ok: true, status: 200, text: async () => '{}' };
+      });
+
+      await store.savePart({
+        recordingId: 'rec-race',
+        partIndex: 0,
+        blob: new Uint8Array([1]).buffer,
+      });
+
+      const uploader = new Uploader({
+        apiUrl: 'http://localhost:8080',
+        partsStore: store,
+        getAccessToken: async () => token,
+        refreshAccessToken: async () => null,
+        fetchFn: mockFetch as any,
+        initialRetryDelayMs: 1,
+      });
+
+      // Start background upload of part 0 (simulating PART_READY)
+      const inFlightUpload = uploader.uploadPendingParts('rec-race');
+
+      // While part 0 is uploading, final part 1 is saved and user clicks Stop (finishRecording)
+      await store.savePart({
+        recordingId: 'rec-race',
+        partIndex: 1,
+        blob: new Uint8Array([2]).buffer,
+      });
+      const finishPromise = uploader.finishRecording('rec-race');
+
+      // Release part 0 upload
+      releasePart0();
+
+      const [uploadOk, finishOk] = await Promise.all([inFlightUpload, finishPromise]);
+      expect(uploadOk).toBe(true);
+      expect(finishOk).toBe(true);
+      expect(uploadedParts).toEqual([0, 1]);
+      expect(finishedCalled).toBe(true);
+    });
+
+    it('finishes an interrupted activeRecording on browser startup even when 0 parts are pending', async () => {
+      const localStore: Record<string, any> = {
+        activeRecording: {
+          recordingId: 'rec-zero-pending',
+          spaceId: 'space-1',
+          tabId: 10,
+          title: 'Daily Standup',
+          startedAt: Date.now() - 60000,
+          status: 'recording',
+        },
+      };
+
+      (globalThis as any).chrome = {
+        storage: {
+          local: {
+            get: vi.fn(async (key: string) => ({ [key]: localStore[key] })),
+            set: vi.fn(async (items: Record<string, any>) => Object.assign(localStore, items)),
+            remove: vi.fn(async (key: string) => {
+              delete localStore[key];
+            }),
+          },
+          session: {
+            get: vi.fn(async () => ({ accessToken: 'tok' })),
+          },
+        },
+      };
+
+      const finishedIds: string[] = [];
+      mockFetch.mockImplementation(async (url: string) => {
+        const match = url.match(/\/recordings\/([^/]+)\/finish$/);
+        if (match) finishedIds.push(match[1]);
+        return { ok: true, status: 200, text: async () => '{"status":"queued"}' };
+      });
+
+      const uploader = new Uploader({
+        apiUrl: 'http://localhost:8080',
+        partsStore: store,
+        getAccessToken: async () => 'tok',
+        refreshAccessToken: async () => null,
+        fetchFn: mockFetch as any,
+        initialRetryDelayMs: 1,
+      });
+
+      const service = new ExtensionBackgroundService({
+        apiUrl: 'http://localhost:8080',
+        partsStore: store,
+        uploader,
+      });
+
+      await service.onBrowserStartup();
+
+      expect(finishedIds).toEqual(['rec-zero-pending']);
+      expect(localStore.activeRecording).toBeUndefined();
+      expect(localStore.lastFinishedRecording?.recordingId).toBe('rec-zero-pending');
     });
   });
 });

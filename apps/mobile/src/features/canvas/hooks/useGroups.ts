@@ -18,10 +18,17 @@ export function useGroups(spaceId: string | null) {
 
 export function useCreateGroup(spaceId: string | null) {
   const qc = useQueryClient();
+  const key = queryKeys.groups.bySpace(spaceId ?? '');
   return useMutation({
-    mutationFn: (group: { title?: string | null; x: number; y: number }) =>
+    mutationFn: (group: { title?: string | null; x: number; y: number; width?: number; height?: number }) =>
       createGroup(spaceId!, group),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.groups.bySpace(spaceId ?? '') }),
+    onSuccess: (created) => {
+      qc.setQueryData<NoteGroup[]>(key, (old) => {
+        if (!old) return [created];
+        if (old.some((g) => g.id === created.id)) return old;
+        return [...old, created];
+      });
+    },
   });
 }
 

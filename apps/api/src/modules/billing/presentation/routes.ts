@@ -68,7 +68,8 @@ export async function registerBillingRoutes(
     { preHandler: [deps.requireAuth] },
     async () => {
       try {
-        return await deps.listPlansUseCase.execute();
+        const { plans } = await deps.listPlansUseCase.execute();
+        return plans;
       } catch (err) {
         mapBillingDomainError(err);
       }
@@ -80,7 +81,8 @@ export async function registerBillingRoutes(
     { preHandler: [deps.requireAuth] },
     async (request) => {
       try {
-        return await deps.getSubscriptionUseCase.execute(currentUserId(request));
+        const { subscription } = await deps.getSubscriptionUseCase.execute(currentUserId(request));
+        return subscription;
       } catch (err) {
         mapBillingDomainError(err);
       }

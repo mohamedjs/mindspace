@@ -199,9 +199,9 @@ export function HomeScreen({
   );
 
   const handleAddNote = useCallback(
-    (x: number, y: number) =>
+    (x: number, y: number, parentId?: string | null) =>
       addNote.mutate(
-        { content: 'New note', x, y },
+        { content: 'New note', x, y, parentId: parentId ?? null },
         {
           onSuccess: (note) =>
             router.push(`/note/${note.id}?spaceId=${spaceId ?? ''}`),
@@ -213,8 +213,14 @@ export function HomeScreen({
   );
 
   const handleAddGroup = useCallback(
-    (x: number, y: number, width?: number, height?: number) =>
-      addGroup.mutate({ x, y, width, height }),
+    (
+      x: number,
+      y: number,
+      width?: number,
+      height?: number,
+      title?: string | null,
+      color?: string | null
+    ) => addGroup.mutateAsync({ x, y, width, height, title, color }),
     [addGroup]
   );
 
@@ -322,7 +328,16 @@ export function HomeScreen({
           onOpenSpaces={() => setSpacesSheetOpen(true)}
           onOpenSettings={() => router.push('/settings')}
           onOpenRecordings={() => setRecordingsSheetOpen(true)}
-          onTidy={notes?.length ? () => tidyNotes.mutate(notes) : undefined}
+          onTidy={
+            notes?.length
+              ? (subsetIds?: string[]) => {
+                  const target = subsetIds?.length
+                    ? notes.filter((n) => subsetIds.includes(n.id))
+                    : notes;
+                  if (target.length) tidyNotes.mutate(target);
+                }
+              : undefined
+          }
           onPressNote={openNote}
           onStartRecord={startRecord}
         />

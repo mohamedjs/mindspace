@@ -8,6 +8,8 @@ import type { NoteGroup } from '../api/groups.api';
 
 interface NoteGroupFrameProps {
   group: NoteGroup;
+  selected?: boolean;
+  onSelect?: (id: string, e: React.PointerEvent) => void;
   onRename?: (id: string, title: string) => void;
   onMoveStart?: (id: string) => void;
   onPointerDragMove?: (id: string, dx: number, dy: number) => void;
@@ -19,6 +21,8 @@ interface NoteGroupFrameProps {
 
 export const NoteGroupFrame: React.FC<NoteGroupFrameProps> = ({
   group,
+  selected = false,
+  onSelect,
   onRename,
   onMoveStart,
   onPointerDragMove,
@@ -53,6 +57,8 @@ export const NoteGroupFrame: React.FC<NoteGroupFrameProps> = ({
   const handleDragStart = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
     e.stopPropagation();
+
+    onSelect?.(group.id, e);
 
     const target = e.currentTarget as HTMLElement;
     target.setPointerCapture(e.pointerId);
@@ -148,7 +154,10 @@ export const NoteGroupFrame: React.FC<NoteGroupFrameProps> = ({
     >
       <div
         className="absolute inset-0 rounded-3xl border-2 border-dashed pointer-events-none"
-        style={{ borderColor: `${frameColor}66`, backgroundColor: `${frameColor}${tint}` }}
+        style={{
+          borderColor: selected ? colors.accent : `${frameColor}66`,
+          backgroundColor: `${frameColor}${tint}`,
+        }}
       />
 
       {/* Header bar */}

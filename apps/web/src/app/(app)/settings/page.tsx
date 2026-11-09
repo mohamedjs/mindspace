@@ -17,6 +17,7 @@ import { useTheme } from '@/shared/theme';
 import { clay, shade } from '@/shared/theme/clay';
 import { useAuth } from '@/providers/AuthProvider';
 import { Check, ChevronLeft, LogOut, Pencil, Trash2 } from 'lucide-react';
+import { AppHeader } from '@/components/AppHeader';
 
 function SectionDot({ color }: { color: string }) {
   return <span className="mr-2 h-2 w-2 rounded-full inline-block" style={{ backgroundColor: color }} />;
@@ -26,7 +27,7 @@ function SectionHeading({ dot, children }: { dot: string; children: string }) {
   return (
     <div className="mb-3 flex flex-row items-center">
       <SectionDot color={dot} />
-      <span className="text-xs uppercase font-bold text-muted">{children}</span>
+      <span className="text-sm uppercase font-bold text-muted">{children}</span>
     </div>
   );
 }
@@ -95,14 +96,14 @@ function ProfileCard() {
         ) : (
           <button
             type="button"
-            className="flex flex-row items-center text-left cursor-pointer border-0 bg-transparent p-0"
+            className="flex flex-row items-center text-left cursor-pointer border-0 bg-transparent p-0 min-h-[44px]"
             onClick={startEditing}
           >
             <span className="text-base font-bold text-ink truncate">{label || 'Add your name'}</span>
             <Pencil size={14} color={colors.muted} strokeWidth={2.5} className="ml-2 shrink-0" />
           </button>
         )}
-        {profile?.email && <div className="mt-0.5 text-xs text-muted truncate">{profile.email}</div>}
+        {profile?.email && <div className="mt-0.5 text-sm text-muted truncate">{profile.email}</div>}
       </div>
     </div>
   );
@@ -189,7 +190,7 @@ function AppearanceSection() {
 
       <div className="mb-2.5 px-4 py-3.5" style={rowStyle}>
         <div className="text-base font-semibold text-ink">Sticky note size</div>
-        <p className="mb-3 mt-0.5 text-xs text-muted leading-4">
+        <p className="mb-3 mt-0.5 text-sm text-muted leading-relaxed">
           Controls card dimensions and how much content text is displayed on the board.
         </p>
         <div
@@ -208,7 +209,7 @@ function AppearanceSection() {
               <button
                 key={option.value}
                 type="button"
-                className="flex-1 flex flex-col items-center py-1.5 px-1 cursor-pointer border-0 bg-transparent transition-all"
+                className="flex-1 flex flex-col items-center justify-center min-h-[44px] py-1.5 px-1 cursor-pointer border-0 bg-transparent transition-all"
                 style={isActive ? clay({ color: colors.accent, radius: 12, depth: 0.7 }) : undefined}
                 onClick={() => setNoteSize(option.value)}
               >
@@ -219,7 +220,7 @@ function AppearanceSection() {
                   {option.label}
                 </span>
                 <span
-                  className="text-[10px] font-medium"
+                  className="text-xs font-semibold"
                   style={{ color: isActive ? colors.onAccent : colors.muted }}
                 >
                   {option.desc}
@@ -232,7 +233,7 @@ function AppearanceSection() {
 
       <div className="mb-2.5 px-4 py-3.5" style={rowStyle}>
         <div className="text-base font-semibold text-ink">Your notes as</div>
-        <p className="mb-3 mt-0.5 text-xs text-muted leading-4">
+        <p className="mb-3 mt-0.5 text-sm text-muted leading-relaxed">
           A board you arrange, or a list you scroll — with its own calendar tab. Both record and
           both keep sub-notes with their parent.
         </p>
@@ -251,7 +252,7 @@ function AppearanceSection() {
               <button
                 key={option.value}
                 type="button"
-                className="flex-1 items-center py-2 cursor-pointer border-0 bg-transparent transition-all"
+                className="flex-1 flex items-center justify-center min-h-[44px] py-2 cursor-pointer border-0 bg-transparent transition-all"
                 style={isActive ? clay({ color: colors.accent, radius: 12, depth: 0.7 }) : undefined}
                 onClick={() => setNotesView(option.value)}
               >
@@ -270,50 +271,50 @@ function AppearanceSection() {
       <div className="mb-2.5 flex flex-row items-center justify-between px-4 py-3.5" style={rowStyle}>
         <div className="flex-1 pr-3">
           <div className="text-base font-semibold text-ink">Hand-drawn text</div>
-          <div className="mt-0.5 text-xs text-muted">Excalidraw-style font instead of system font.</div>
+          <div className="mt-0.5 text-sm text-muted">Excalidraw-style font instead of system font.</div>
         </div>
-        <label className="relative inline-flex items-center cursor-pointer">
+        <label className="relative inline-flex items-center min-h-[44px] min-w-[44px] justify-end cursor-pointer">
           <input
             type="checkbox"
             checked={handDrawnEnabled}
             onChange={(e) => setHandDrawnEnabled(e.target.checked)}
             className="sr-only peer"
           />
-          <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
+          <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[12px] after:right-[22px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
         </label>
       </div>
 
       <div className="mb-2.5 flex flex-row items-center justify-between px-4 py-3.5" style={rowStyle}>
         <div className="flex-1 pr-3">
           <div className="text-base font-semibold text-ink">Canvas background</div>
-          <div className="mt-0.5 text-xs text-muted">Grid and colour orbs, or a plain solid board.</div>
+          <div className="mt-0.5 text-sm text-muted">Grid and colour orbs, or a plain solid board.</div>
         </div>
-        <label className="relative inline-flex items-center cursor-pointer">
+        <label className="relative inline-flex items-center min-h-[44px] min-w-[44px] justify-end cursor-pointer">
           <input
             type="checkbox"
             checked={canvasBackgroundEnabled}
             onChange={(e) => setCanvasBackgroundEnabled(e.target.checked)}
             className="sr-only peer"
           />
-          <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
+          <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[12px] after:right-[22px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
         </label>
       </div>
 
       <div className="mb-6 flex flex-row items-center justify-between px-4 py-3.5" style={rowStyle}>
         <div className="flex-1 pr-3">
           <div className="text-base font-semibold text-ink">Sub-notes on canvas</div>
-          <div className="mt-0.5 text-xs text-muted">
+          <div className="mt-0.5 text-sm text-muted">
             Show them as connected cards, or just the idea they belong to.
           </div>
         </div>
-        <label className="relative inline-flex items-center cursor-pointer">
+        <label className="relative inline-flex items-center min-h-[44px] min-w-[44px] justify-end cursor-pointer">
           <input
             type="checkbox"
             checked={showChildNotes}
             onChange={(e) => setShowChildNotes(e.target.checked)}
             className="sr-only peer"
           />
-          <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
+          <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[12px] after:right-[22px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
         </label>
       </div>
     </>
@@ -357,7 +358,7 @@ function AccountSection() {
         onClick={() => router.push('/plans')}
       >
         <div className="text-base font-semibold text-ink">Plans</div>
-        <div className="mt-0.5 text-xs text-muted">
+        <div className="mt-0.5 text-sm text-muted">
           Monthly credits, longer recordings — or bring your own AI key.
         </div>
       </button>
@@ -370,7 +371,7 @@ function AccountSection() {
           onClick={() => router.push('/keys')}
         >
           <div className="text-base font-semibold text-ink">Your API keys</div>
-          <div className="mt-0.5 text-xs text-muted">
+          <div className="mt-0.5 text-sm text-muted">
             Requests run on your own provider account, not on credits.
           </div>
         </button>
@@ -383,7 +384,7 @@ function AccountSection() {
         onClick={() => router.push('/credits')}
       >
         <div className="text-base font-semibold text-ink">Credits & billing</div>
-        <div className="mt-0.5 text-xs text-muted">Balance and history.</div>
+        <div className="mt-0.5 text-sm text-muted">Balance and history.</div>
       </button>
 
       <button
@@ -414,26 +415,15 @@ function AccountSection() {
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { colors } = useTheme();
 
   return (
     <div className="flex flex-col flex-1 min-h-screen bg-board overflow-y-auto">
+      <AppHeader
+        title="Settings"
+        showBack
+        onBack={() => router.back()}
+      />
       <div className="flex flex-col flex-1 max-w-2xl w-full mx-auto pb-12">
-        <header
-          className="z-30 mx-3 mt-2 flex flex-row items-center px-4 py-3"
-          style={clay({ color: colors.surface, radius: 24 })}
-        >
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="mr-2 cursor-pointer border-0 bg-transparent text-ink lg:hidden"
-            aria-label="Back"
-          >
-            <ChevronLeft size={24} color={colors.ink} strokeWidth={3} />
-          </button>
-          <h1 className="ml-2 text-xl font-bold text-ink">Settings</h1>
-        </header>
-
         <div className="px-5 py-5 space-y-2">
           <ProfileCard />
           <AiModelsSection />

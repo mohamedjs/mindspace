@@ -154,8 +154,8 @@ describe('Billing, Entitlements, Disk Abuse Protections & Worker Maintenance (Ph
       });
       expect(res.statusCode).toBe(200);
       const body = res.json();
-      expect(Array.isArray(body.plans)).toBe(true);
-      expect(body.plans.map((p: any) => p.id)).toEqual([
+      expect(Array.isArray(body)).toBe(true);
+      expect(body.map((p: any) => p.id)).toEqual([
         'free',
         'hobby',
         'plus',
@@ -203,7 +203,7 @@ describe('Billing, Entitlements, Disk Abuse Protections & Worker Maintenance (Ph
           headers: { authorization: `Bearer ${token}` },
         });
         expect(plansFallback.statusCode).toBe(200);
-        expect(plansFallback.json().plans.length).toBe(6);
+        expect(plansFallback.json().length).toBe(6);
 
         const modelsFallback = await app.server.inject({
           method: 'GET',
@@ -324,7 +324,7 @@ describe('Billing, Entitlements, Disk Abuse Protections & Worker Maintenance (Ph
         headers: { authorization: `Bearer ${token}` },
       });
       expect(activeSubRes.statusCode).toBe(200);
-      expect(activeSubRes.json().subscription.plan_id).toBe('plus');
+      expect(activeSubRes.json().plan_id).toBe('plus');
 
       const ent = await app.billingModule.entitlements.forUser(userId);
       expect(ent.planId).toBe('plus');

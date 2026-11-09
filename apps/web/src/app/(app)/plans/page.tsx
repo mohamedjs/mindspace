@@ -3,9 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ChevronLeft } from 'lucide-react';
-import { useTheme } from '@/shared/theme';
-import { clay } from '@/shared/theme/clay';
+import { AppHeader } from '@/components/AppHeader';
 import { PlanCard } from '@/features/billing/components/PlanCard';
 import { PaymentMethodSheet } from '@/features/billing/components/PaymentMethodSheet';
 import {
@@ -18,7 +16,6 @@ import type { PaymentChannel } from '@/features/billing/api/billing.api';
 
 export default function PlansPage() {
   const router = useRouter();
-  const { colors } = useTheme();
 
   const { data: plans, isLoading } = usePlans();
   const { data: subscription } = useActiveSubscription();
@@ -62,22 +59,12 @@ export default function PlansPage() {
 
   return (
     <div className="flex flex-col flex-1 min-h-screen bg-board overflow-y-auto">
+      <AppHeader
+        title="Plans"
+        showBack
+        onBack={() => router.back()}
+      />
       <div className="flex flex-col flex-1 max-w-2xl w-full mx-auto pb-12">
-        <header
-          className="z-30 mx-3 mt-2 flex flex-row items-center px-4 py-3"
-          style={clay({ color: colors.surface, radius: 24 })}
-        >
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="mr-2 cursor-pointer border-0 bg-transparent text-ink lg:hidden"
-            aria-label="Back"
-          >
-            <ChevronLeft size={24} color={colors.ink} strokeWidth={3} />
-          </button>
-          <h1 className="ml-2 text-xl font-bold text-ink">Plans</h1>
-        </header>
-
         <div className="px-5 py-5">
           <h2 className="text-2xl font-bold text-ink mb-1">Keep thinking out loud</h2>
           <p className="mb-6 text-sm text-muted">
@@ -85,7 +72,7 @@ export default function PlansPage() {
           </p>
 
           {isLoading && (
-            <div className="py-8 text-center text-xs text-muted animate-pulse">Loading plans…</div>
+            <div className="py-8 text-center text-sm text-muted animate-pulse">Loading plans…</div>
           )}
 
           {plans?.map((plan) => (
@@ -99,7 +86,7 @@ export default function PlansPage() {
           ))}
 
           {subscription?.currentPeriodEnd && (
-            <div className="mt-4 text-center text-xs text-muted">
+            <div className="mt-4 text-center text-sm text-muted">
               Your credits last renewed for the period ending{' '}
               {new Date(subscription.currentPeriodEnd).toLocaleDateString()}.
             </div>

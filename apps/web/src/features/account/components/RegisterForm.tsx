@@ -118,7 +118,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) =
 
       <button
         type="button"
-        className="mt-6 py-2 text-sm text-muted hover:text-ink transition-colors cursor-pointer text-center"
+        className="mt-6 min-h-[44px] flex items-center justify-center py-2 text-sm text-muted hover:text-ink transition-colors cursor-pointer text-center"
         onClick={onSwitchToLogin}
       >
         Already have an account? Sign in

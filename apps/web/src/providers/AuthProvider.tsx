@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { AuthSession } from '../core/ports';
 import { container } from '../infrastructure/container';
+import { queryClient } from '../lib/query-client';
 
 const auth = container.auth;
 
@@ -47,6 +48,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
     const unsubscribe = auth.onSessionChange((next) => {
+      if (!next) {
+        // The cache persists to localStorage; the next person on this browser must not inherit it.
+        queryClient.clear();
+        window.localStorage.removeItem('mindspace-query-cache');
+      }
       if (mounted) setSession(next);
     });
 

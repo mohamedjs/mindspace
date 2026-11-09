@@ -7,7 +7,7 @@ import type { LedgerEntry } from '@/features/credits/api/credits.api';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/shared/theme';
 import { clay } from '@/shared/theme/clay';
-import { ChevronLeft } from 'lucide-react';
+import { AppHeader } from '@/components/AppHeader';
 
 const REASON_LABELS: Record<string, string> = {
   signup_grant: 'Welcome bonus',
@@ -23,12 +23,12 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
   const date = new Date(entry.createdAt).toLocaleDateString();
 
   return (
-    <div className="flex flex-row items-center justify-between border-b px-5 py-3 border-line">
+    <div className="flex flex-row items-center justify-between border-b px-5 py-3 border-line min-h-[48px]">
       <div className="flex-1">
         <div className="text-sm font-semibold text-ink">
           {REASON_LABELS[entry.reason] ?? entry.reason}
         </div>
-        <div className="mt-0.5 text-xs text-muted">
+        <div className="mt-0.5 text-sm text-muted">
           {date}
         </div>
       </div>
@@ -40,7 +40,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
           {isCredit ? '+' : ''}
           {entry.delta}
         </div>
-        <div className="mt-0.5 text-xs text-muted">
+        <div className="mt-0.5 text-sm text-muted">
           {entry.balanceAfter}
         </div>
       </div>
@@ -65,42 +65,31 @@ export default function CreditsPage() {
 
   return (
     <div className="flex flex-col flex-1 min-h-screen bg-board overflow-y-auto">
-      <div className="flex flex-col flex-1 max-w-2xl w-full mx-auto pb-12">
-        {/* Header */}
-        <header
-          className="z-30 mx-3 mt-2 flex flex-row items-center justify-between px-4 py-3"
-          style={clay({ color: colors.surface, radius: 24 })}
-        >
-          <div className="flex flex-row items-center">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="mr-2 cursor-pointer border-0 bg-transparent text-ink lg:hidden"
-              aria-label="Back"
-            >
-              <ChevronLeft size={24} color={colors.ink} strokeWidth={3} />
-            </button>
-            <h1 className="text-[19px] font-bold text-ink">Credits</h1>
-          </div>
+      <AppHeader
+        title="Credits & billing"
+        showBack
+        onBack={() => router.back()}
+        actions={
           <button
             type="button"
             onClick={handleSignOut}
-            className="text-sm font-semibold text-muted cursor-pointer border-0 bg-transparent"
+            className="min-h-[44px] px-2 text-sm font-semibold text-muted cursor-pointer border-0 bg-transparent flex items-center"
           >
             Sign out
           </button>
-        </header>
-
+        }
+      />
+      <div className="flex flex-col flex-1 max-w-2xl w-full mx-auto pb-12">
         {/* Balance Card */}
         <div
           className="m-5 p-6"
           style={clay({ color: colors.surface, radius: 32, depth: 0.5 })}
         >
           {balanceLoading ? (
-            <div className="py-4 text-center text-xs text-muted animate-pulse">Loading balance…</div>
+            <div className="py-4 text-center text-sm text-muted animate-pulse">Loading balance…</div>
           ) : (
             <>
-              <div className="text-xs font-bold uppercase tracking-wider text-muted">
+              <div className="text-sm font-bold uppercase tracking-wider text-muted">
                 Available balance
               </div>
               <div className="mt-2 text-5xl font-bold text-ink">{available}</div>
@@ -109,10 +98,10 @@ export default function CreditsPage() {
               </div>
               <button
                 type="button"
-                className="mt-4 cursor-pointer border-0 bg-transparent p-0"
+                className="mt-4 cursor-pointer border-0 bg-transparent p-0 min-h-[44px] flex items-center"
                 onClick={() => router.push('/plans')}
               >
-                <div style={clay({ color: colors.accent, radius: 12, depth: 0.7 })} className="px-4 py-2.5">
+                <div style={clay({ color: colors.accent, radius: 12, depth: 0.7 })} className="px-4 py-2.5 min-h-[44px] flex items-center justify-center">
                   <span className="text-sm font-bold" style={{ color: colors.onAccent }}>
                     Get monthly credits →
                   </span>
@@ -120,7 +109,7 @@ export default function CreditsPage() {
               </button>
 
               {Boolean(balance?.creditsReserved) && (
-                <div className="mt-3 text-xs font-semibold text-warning">
+                <div className="mt-3 text-sm font-semibold text-warning">
                   {balance?.creditsReserved} credits reserved for in-flight work
                 </div>
               )}
@@ -129,11 +118,11 @@ export default function CreditsPage() {
         </div>
 
         {/* Ledger */}
-        <div className="px-5 pb-2 text-xs uppercase font-bold text-muted">
+        <div className="px-5 pb-2 text-sm uppercase font-bold text-muted">
           History
         </div>
         {ledgerLoading ? (
-          <div className="py-6 text-center text-xs text-muted animate-pulse">Loading history…</div>
+          <div className="py-6 text-center text-sm text-muted animate-pulse">Loading history…</div>
         ) : (
           <div className="divide-y divide-line">
             {ledger?.length === 0 ? (

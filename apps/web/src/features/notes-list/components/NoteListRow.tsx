@@ -53,7 +53,7 @@ export const NoteListRow: React.FC<NoteListRowProps> = ({
               {note.title}
             </div>
           )}
-          <div className={`text-xs text-muted leading-relaxed ${depth ? 'line-clamp-2' : 'line-clamp-3'}`}>
+          <div className={`text-sm text-muted leading-relaxed ${depth ? 'line-clamp-2' : 'line-clamp-3'}`}>
             {note.content}
           </div>
 
@@ -63,7 +63,7 @@ export const NoteListRow: React.FC<NoteListRowProps> = ({
               style={{ backgroundColor: paper }}
             >
               <span
-                className="text-[10px] font-extrabold uppercase tracking-wider"
+                className="text-xs font-extrabold uppercase tracking-wider"
                 style={{ color: readableTextOn(paper) }}
               >
                 {note.type}
@@ -72,10 +72,10 @@ export const NoteListRow: React.FC<NoteListRowProps> = ({
 
             {Boolean(note.dueAt) && (
               <span
-                className="inline-flex items-center gap-1 text-[11px] font-semibold rounded-md px-2 py-0.5"
+                className="inline-flex items-center gap-1 text-sm font-semibold rounded-md px-2 py-0.5"
                 style={{ backgroundColor: `${colors.accent}18`, color: colors.accent }}
               >
-                <Clock size={12} strokeWidth={2.5} />
+                <Clock size={14} strokeWidth={2.5} />
                 {dateStyle === 'time-only'
                   ? timeLabel(note.dueAt!)
                   : `${dayLabel(startOfDay(note.dueAt!))} · ${timeLabel(note.dueAt!)}`}
@@ -84,10 +84,10 @@ export const NoteListRow: React.FC<NoteListRowProps> = ({
 
             {kids.length > 0 && (
               <span
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted rounded-md px-2 py-0.5"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-muted rounded-md px-2 py-0.5"
                 style={{ backgroundColor: shade(colors.surface, -0.08) }}
               >
-                <CornerDownRight size={12} strokeWidth={2.5} />
+                <CornerDownRight size={14} strokeWidth={2.5} />
                 {kids.length} {kids.length === 1 ? 'sub-note' : 'sub-notes'}
               </span>
             )}

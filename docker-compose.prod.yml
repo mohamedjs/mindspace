@@ -55,12 +55,13 @@ services:
     environment:
       NODE_ENV: production
       PORT: 8080
-      DATABASE_URL: ${DATABASE_URL:-postgres://mindspace:mindspace@postgres:5432/mindspace}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-mindspace}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-mindspace}}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       DB_POOL_MAX: ${DB_POOL_MAX:-20}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       BYOK_MASTER_KEY: ${BYOK_MASTER_KEY:?BYOK_MASTER_KEY must be set}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://${DOMAIN:-localhost}}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       AUDIO_DIR: /data/audio
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?OPENROUTER_API_KEY must be set}
     volumes:
@@ -95,12 +96,13 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL:-postgres://mindspace:mindspace@postgres:5432/mindspace}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-mindspace}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-mindspace}}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       DB_POOL_MAX: ${DB_POOL_MAX:-20}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       BYOK_MASTER_KEY: ${BYOK_MASTER_KEY:?BYOK_MASTER_KEY must be set}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://${DOMAIN:-localhost}}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       AUDIO_DIR: /data/audio
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?OPENROUTER_API_KEY must be set}
       PIPELINE_WORKERS: ${PIPELINE_WORKERS:-32}
@@ -137,7 +139,7 @@ services:
     restart: "no"
     environment:
       NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL:-postgres://mindspace:mindspace@postgres:5432/mindspace}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-mindspace}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-mindspace}}
     networks:
       - backend
     depends_on:
@@ -154,7 +156,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-mindspace}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mindspace}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       POSTGRES_DB: ${POSTGRES_DB:-mindspace}
     volumes:
       - pgdata:/var/lib/postgresql

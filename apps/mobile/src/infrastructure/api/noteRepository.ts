@@ -1,5 +1,5 @@
 import type { Note, NoteType } from '../../core/domain';
-import type { CreateNoteInput, NoteMove, NoteRepository } from '../../core/ports';
+import type { CreateNoteInput, NoteMove, NotePatch, NoteRepository } from '../../core/ports';
 import { PipelineError } from '../../core/errors';
 import { apiFetch } from './client';
 import { toNote, type NoteRow } from './mappers';
@@ -26,8 +26,10 @@ export const apiNoteRepository: NoteRepository = {
     const row = await apiFetch<NoteRow>(`/spaces/${spaceId}/notes`, {
       method: 'POST',
       body: JSON.stringify({
+        title: note.title ?? null,
         content: note.content,
         type: note.type ?? 'idea',
+        color: note.color ?? undefined,
         x: note.x,
         y: note.y,
         parent_id: note.parentId ?? null,
@@ -40,7 +42,7 @@ export const apiNoteRepository: NoteRepository = {
     noteId: string,
     fields: { title?: string | null; content: string }
   ): Promise<void> {
-    await apiFetch(`/notes/${noteId}`, {
+    await apiFetch(`/notes/${noteId}/content`, {
       method: 'PATCH',
       body: JSON.stringify({
         title: fields.title ?? null,
@@ -89,5 +91,58 @@ export const apiNoteRepository: NoteRepository = {
       method: 'PATCH',
       body: JSON.stringify({ parent_id: parentId }),
     });
+  },
+
+  async bulkUpdate(patches: NotePatch[]): Promise<void> {
+    if (!patches.length) return;
+    await apiFetch('/notes/bulk-update', {
+      method: 'POST',
+      body: JSON.stringify({
+        patches: patches.map((p) => ({
+          id: p.id,
+          ...(p.color !== undefined ? { color: p.color } : {}),
+          ...(p.type !== undefined ? { type: p.type } : {}),
+          ...(p.parentId !== undefined ? { parent_id: p.parentId } : {}),
+          ...(p.x !== undefined ? { x: p.x } : {}),
+          ...(p.y !== undefined ? { y: p.y } : {}),
+        })),
+      }),
+    });
+  },
+
+  async bulkDelete(ids: string[]): Promise<void> {
+    if (!ids.length) return;
+    await apiFetch('/notes/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    });
+  },
+
+  async bulkRestore(ids: string[]): Promise<void> {
+    if (!ids.length) return;
+    await apiFetch('/notes/bulk-restore', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    });
+  },
+
+  async bulkCreate(spaceId: string, notes: CreateNoteInput[]): Promise<Note[]> {
+    if (!notes.length) return [];
+    const data = await apiFetch<{ notes: NoteRow[] }>('/notes/bulk-create', {
+      method: 'POST',
+      body: JSON.stringify({
+        notes: notes.map((n) => ({
+          space_id: spaceId,
+          title: n.title ?? null,
+          content: n.content,
+          type: n.type ?? 'idea',
+          color: n.color ?? null,
+          x: n.x,
+          y: n.y,
+          parent_id: n.parentId ?? null,
+        })),
+      }),
+    });
+    return (data?.notes ?? []).map(toNote);
   },
 };

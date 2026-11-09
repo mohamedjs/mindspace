@@ -13,10 +13,6 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/sign-in', request.url));
   }
 
-  if (hasSession && path === '/sign-in') {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
-
   return response;
 }
 

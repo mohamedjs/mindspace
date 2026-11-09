@@ -63,7 +63,7 @@ export default function RecordRoute() {
     [user, spaceId, parentNoteId, fillNoteId, targetNoteId, router, qc]
   );
 
-  if (!spaceId) {
+  if (!spaceId || planLoading) {
     return null;
   }
 
@@ -72,13 +72,15 @@ export default function RecordRoute() {
   // here as well is what makes "Free has no recording" true rather than merely
   // invisible — and it fails closed, so a plan that has not loaded yet cannot
   // start a recording either.
-  if (!planLoading && !aiEnabled) {
+  if (!aiEnabled) {
     return <Redirect href="/plans" />;
   }
 
   return (
     <RecordScreen
       spaceId={spaceId}
+      parentNoteId={parentNoteId}
+      fillNoteId={fillNoteId}
       onRecorded={handleRecorded}
       onCancel={() => router.back()}
     />

@@ -16,7 +16,6 @@ export const apiKeyRepository: KeyRepository = {
         provider: input.provider,
         apiKey: input.apiKey,
         label: input.label,
-        baseUrl: input.baseUrl,
       }),
     });
   },

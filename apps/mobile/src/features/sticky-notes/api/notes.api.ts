@@ -26,6 +26,12 @@ export const updateNoteContent = (
 ) => notes.updateContent(noteId, fields);
 export const deleteNote = (noteId: string) => notes.remove(noteId);
 export const bulkMoveNotes = (moves: NoteMove[]) => notes.moveMany(moves);
+export const bulkUpdateNotes = (ids: string[], patch: { color?: string; type?: NoteType }) =>
+  notes.bulkUpdate(ids.map((id) => ({ id, ...patch })));
+export const bulkDeleteNotes = (ids: string[]) => notes.bulkDelete(ids);
+export const bulkRestoreNotes = (ids: string[]) => notes.bulkRestore(ids);
+export const bulkCreateNotes = (spaceId: string, inputs: CreateNoteInput[]) =>
+  notes.bulkCreate(spaceId, inputs);
 /** Re-parent a note, or detach it with null. Callers must reject cycles first. */
 export const updateNoteParent = (noteId: string, parentId: string | null) =>
   notes.updateParent(noteId, parentId);

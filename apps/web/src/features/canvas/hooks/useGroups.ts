@@ -22,8 +22,14 @@ export function useCreateGroup(spaceId: string | null) {
   const key = queryKeys.groups.bySpace(spaceId ?? '');
 
   return useMutation({
-    mutationFn: (group: { title?: string | null; x: number; y: number; width?: number; height?: number }) =>
-      createGroup(spaceId!, group),
+    mutationFn: (group: {
+      title?: string | null;
+      color?: string | null;
+      x: number;
+      y: number;
+      width?: number;
+      height?: number;
+    }) => createGroup(spaceId!, group),
     onSuccess: (newGroup) => {
       qc.setQueryData<NoteGroup[]>(key, (old) => {
         if (!old) return [newGroup];

@@ -26,8 +26,11 @@ export const apiBillingRepository: BillingRepository = {
   },
 
   async listPaymentProviders(): Promise<ProviderOption[]> {
-    const data = await apiFetch<ProviderOption[]>('/billing/providers');
-    return data ?? [];
+    const data = await apiFetch<ProviderOption[] | { providers?: ProviderOption[] }>(
+      '/billing/providers'
+    );
+    if (Array.isArray(data)) return data;
+    return data?.providers ?? [];
   },
 
   async start(planId: string, channel?: PaymentChannel): Promise<StartSubscriptionResult> {

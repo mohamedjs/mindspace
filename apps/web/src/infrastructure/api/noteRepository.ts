@@ -26,8 +26,10 @@ export const apiNoteRepository: NoteRepository = {
     const row = await apiFetch<NoteRow>(`/spaces/${spaceId}/notes`, {
       method: 'POST',
       body: JSON.stringify({
+        ...(note.title !== undefined ? { title: note.title } : {}),
         content: note.content,
         type: note.type ?? 'idea',
+        ...(note.color !== undefined ? { color: note.color } : {}),
         x: note.x,
         y: note.y,
         parent_id: note.parentId ?? null,
@@ -40,7 +42,7 @@ export const apiNoteRepository: NoteRepository = {
     noteId: string,
     fields: { title?: string | null; content: string }
   ): Promise<void> {
-    await apiFetch(`/notes/${noteId}`, {
+    await apiFetch(`/notes/${noteId}/content`, {
       method: 'PATCH',
       body: JSON.stringify({
         title: fields.title ?? null,
@@ -89,5 +91,53 @@ export const apiNoteRepository: NoteRepository = {
       method: 'PATCH',
       body: JSON.stringify({ parent_id: parentId }),
     });
+  },
+
+  async bulkUpdate(ids: string[], patch: { color?: string; type?: NoteType }): Promise<void> {
+    if (!ids.length) return;
+    await apiFetch('/notes/bulk-update', {
+      method: 'POST',
+      body: JSON.stringify({
+        ids,
+        ...(patch.color !== undefined ? { color: patch.color } : {}),
+        ...(patch.type !== undefined ? { note_type: patch.type } : {}),
+      }),
+    });
+  },
+
+  async bulkDelete(ids: string[]): Promise<void> {
+    if (!ids.length) return;
+    await apiFetch('/notes/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    });
+  },
+
+  async bulkRestore(ids: string[]): Promise<void> {
+    if (!ids.length) return;
+    await apiFetch('/notes/bulk-restore', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    });
+  },
+
+  async bulkCreate(spaceId: string, notes: CreateNoteInput[]): Promise<Note[]> {
+    if (!notes.length) return [];
+    const data = await apiFetch<{ notes: NoteRow[] }>('/notes/bulk-create', {
+      method: 'POST',
+      body: JSON.stringify({
+        notes: notes.map((n) => ({
+          space_id: spaceId,
+          title: n.title ?? null,
+          content: n.content,
+          type: n.type ?? 'idea',
+          color: n.color ?? null,
+          x: n.x,
+          y: n.y,
+          parent_id: n.parentId ?? null,
+        })),
+      }),
+    });
+    return (data?.notes ?? []).map(toNote);
   },
 };

@@ -38,8 +38,10 @@ export interface NoteMove {
 }
 
 export interface CreateNoteInput {
+  title?: string | null;
   content: string;
   type?: NoteType;
+  color?: string | null;
   x: number;
   y: number;
   parentId?: string | null;
@@ -59,6 +61,10 @@ export interface NoteRepository {
   remove(noteId: string): Promise<void>;
   /** Re-parent a note, or detach it with null. */
   updateParent(noteId: string, parentId: string | null): Promise<void>;
+  bulkUpdate?(ids: string[], patch: { color?: string; type?: NoteType }): Promise<void>;
+  bulkDelete?(ids: string[]): Promise<void>;
+  bulkRestore?(ids: string[]): Promise<void>;
+  bulkCreate?(spaceId: string, notes: CreateNoteInput[]): Promise<Note[]>;
 }
 
 // ─── Spaces & groups ──────────────────────────────────────────────────────
@@ -104,7 +110,12 @@ export interface GroupRepository {
 
 export interface RecordingRepository {
   listBySpace(spaceId: string): Promise<Recording[]>;
-  create(input: { spaceId: string; durationMs: number }): Promise<string>;
+  create(input: {
+    spaceId: string;
+    durationMs: number;
+    parentNoteId?: string;
+    fillNoteId?: string;
+  }): Promise<string>;
   markFailed(recordingId: string, error: string): Promise<void>;
   markCompleted(recordingId: string): Promise<void>;
   findTranscriptId(recordingId: string): Promise<string | null>;

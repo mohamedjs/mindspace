@@ -1,7 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../../lib/query-client/keys';
 import {
+  bulkCreateNotes,
+  bulkDeleteNotes,
   bulkMoveNotes,
+  bulkRestoreNotes,
+  bulkUpdateNotes,
   createNote,
   deleteNote,
   fetchNote,
@@ -14,6 +18,7 @@ import {
 } from '../api/notes.api';
 import { tidyLayout } from '../../ai/services/layout';
 import type { Note as StickyNoteData } from '../../../core/domain';
+import type { CreateNoteInput } from '../../../core/ports';
 import type { NoteType } from '../../../shared/constants/tokens';
 
 export function useNotes(spaceId: string | null) {
@@ -36,15 +41,15 @@ export function useUpdateNoteColor(spaceId: string | null) {
     onMutate: async ({ noteId, color }) => {
       await qc.cancelQueries({ queryKey: key });
       await qc.cancelQueries({ queryKey: queryKeys.notes.detail(noteId) });
-      
+
       const previousList = qc.getQueryData<StickyNoteData[]>(key);
       const previousDetail = qc.getQueryData<StickyNoteData>(queryKeys.notes.detail(noteId));
 
       qc.setQueryData<StickyNoteData[]>(key, (old) =>
         (old ?? []).map((note) => (note.id === noteId ? { ...note, color } : note))
       );
-      
-      qc.setQueryData<StickyNoteData>(queryKeys.notes.detail(noteId), (old) => 
+
+      qc.setQueryData<StickyNoteData>(queryKeys.notes.detail(noteId), (old) =>
         old ? { ...old, color } : old
       );
 
@@ -53,9 +58,6 @@ export function useUpdateNoteColor(spaceId: string | null) {
     onError: (_err, { noteId }, context) => {
       if (context?.previousList) qc.setQueryData(key, context.previousList);
       if (context?.previousDetail) qc.setQueryData(queryKeys.notes.detail(noteId), context.previousDetail);
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['notes'] });
     },
   });
 }
@@ -67,28 +69,54 @@ export function useMoveNote(spaceId: string | null) {
   return useMutation({
     mutationFn: ({ noteId, x, y }: { noteId: string; x: number; y: number }) =>
       updateNotePosition(noteId, x, y),
-    onSettled: () => qc.invalidateQueries({ queryKey: key }),
+    onMutate: async ({ noteId, x, y }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previousNotes = qc.getQueryData<StickyNoteData[]>(key);
+      qc.setQueryData<StickyNoteData[]>(key, (old) =>
+        (old ?? []).map((note) => (note.id === noteId ? { ...note, x, y } : note))
+      );
+      return { previousNotes };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousNotes) qc.setQueryData(key, context.previousNotes);
+    },
   });
 }
 
 export function useCreateNote(spaceId: string | null) {
   const qc = useQueryClient();
+  const key = queryKeys.notes.bySpace(spaceId ?? '');
 
   return useMutation({
-    mutationFn: (note: { content: string; x: number; y: number; parentId?: string | null }) =>
+    mutationFn: (note: CreateNoteInput) =>
       createNote(spaceId!, note),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: queryKeys.notes.bySpace(spaceId ?? '') }),
+    onSuccess: (newNote) => {
+      qc.setQueryData<StickyNoteData[]>(key, (old) => {
+        if (!old) return [newNote];
+        if (old.some((n) => n.id === newNote.id)) return old;
+        return [...old, newNote];
+      });
+    },
   });
 }
 
 export function useDeleteNote(spaceId: string | null) {
   const qc = useQueryClient();
+  const key = queryKeys.notes.bySpace(spaceId ?? '');
 
   return useMutation({
     mutationFn: (noteId: string) => deleteNote(noteId),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: queryKeys.notes.bySpace(spaceId ?? '') }),
+    onMutate: async (noteId) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previousNotes = qc.getQueryData<StickyNoteData[]>(key);
+      qc.setQueryData<StickyNoteData[]>(key, (old) =>
+        (old ?? []).filter((note) => note.id !== noteId)
+      );
+      return { previousNotes };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousNotes) qc.setQueryData(key, context.previousNotes);
+    },
   });
 }
 
@@ -144,7 +172,6 @@ export function useTidyNotes(spaceId: string | null) {
     onError: (_err, _vars, context) => {
       if (context?.previous) qc.setQueryData(key, context.previous);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: key }),
   });
 }
 
@@ -170,7 +197,6 @@ export function useMoveCluster(spaceId: string | null) {
     onError: (_err, _vars, context) => {
       if (context?.previous) qc.setQueryData(key, context.previous);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: key }),
   });
 }
 
@@ -184,8 +210,9 @@ export function useNote(noteId: string | null) {
 }
 
 /** Update a note's title and body text. */
-export function useUpdateNoteContent() {
+export function useUpdateNoteContent(spaceId?: string | null) {
   const qc = useQueryClient();
+  const key = queryKeys.notes.bySpace(spaceId ?? '');
 
   return useMutation({
     mutationFn: ({
@@ -197,23 +224,64 @@ export function useUpdateNoteContent() {
       title?: string | null;
       content: string;
     }) => updateNoteContent(noteId, { title, content }),
-    onSuccess: () => {
-      // Invalidate both the single-note and the parent space list caches
-      // so the canvas sees the updated text immediately on back-nav.
-      qc.invalidateQueries({ queryKey: ['notes'] });
+    onMutate: async ({ noteId, title, content }) => {
+      if (spaceId) await qc.cancelQueries({ queryKey: key });
+      await qc.cancelQueries({ queryKey: queryKeys.notes.detail(noteId) });
+
+      const previousList = spaceId ? qc.getQueryData<StickyNoteData[]>(key) : undefined;
+      const previousDetail = qc.getQueryData<StickyNoteData>(queryKeys.notes.detail(noteId));
+
+      if (spaceId) {
+        qc.setQueryData<StickyNoteData[]>(key, (old) =>
+          (old ?? []).map((n) =>
+            n.id === noteId ? { ...n, title: title !== undefined ? title : n.title, content } : n
+          )
+        );
+      }
+      qc.setQueryData<StickyNoteData>(queryKeys.notes.detail(noteId), (old) =>
+        old ? { ...old, title: title !== undefined ? title : old.title, content } : old
+      );
+
+      return { previousList, previousDetail };
+    },
+    onError: (_err, { noteId }, context) => {
+      if (spaceId && context?.previousList) qc.setQueryData(key, context.previousList);
+      if (context?.previousDetail)
+        qc.setQueryData(queryKeys.notes.detail(noteId), context.previousDetail);
     },
   });
 }
 
 /** Update a note's type tag. */
-export function useUpdateNoteType() {
+export function useUpdateNoteType(spaceId?: string | null) {
   const qc = useQueryClient();
+  const key = queryKeys.notes.bySpace(spaceId ?? '');
 
   return useMutation({
     mutationFn: ({ noteId, type }: { noteId: string; type: NoteType }) =>
       updateNoteType(noteId, type),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['notes'] });
+    onMutate: async ({ noteId, type }) => {
+      if (spaceId) await qc.cancelQueries({ queryKey: key });
+      await qc.cancelQueries({ queryKey: queryKeys.notes.detail(noteId) });
+
+      const previousList = spaceId ? qc.getQueryData<StickyNoteData[]>(key) : undefined;
+      const previousDetail = qc.getQueryData<StickyNoteData>(queryKeys.notes.detail(noteId));
+
+      if (spaceId) {
+        qc.setQueryData<StickyNoteData[]>(key, (old) =>
+          (old ?? []).map((n) => (n.id === noteId ? { ...n, type } : n))
+        );
+      }
+      qc.setQueryData<StickyNoteData>(queryKeys.notes.detail(noteId), (old) =>
+        old ? { ...old, type } : old
+      );
+
+      return { previousList, previousDetail };
+    },
+    onError: (_err, { noteId }, context) => {
+      if (spaceId && context?.previousList) qc.setQueryData(key, context.previousList);
+      if (context?.previousDetail)
+        qc.setQueryData(queryKeys.notes.detail(noteId), context.previousDetail);
     },
   });
 }
@@ -256,8 +324,97 @@ export function useSetNoteParent(spaceId: string | null) {
         qc.setQueryData(queryKeys.notes.detail(noteId), context.previousDetail);
       }
     },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['notes'] });
+  });
+}
+
+export function useBulkUpdateNotes(spaceId: string | null) {
+  const qc = useQueryClient();
+  const key = queryKeys.notes.bySpace(spaceId ?? '');
+
+  return useMutation({
+    mutationFn: ({ ids, patch }: { ids: string[]; patch: { color?: string; type?: NoteType } }) =>
+      bulkUpdateNotes(ids, patch),
+    onMutate: async ({ ids, patch }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previousNotes = qc.getQueryData<StickyNoteData[]>(key);
+      const idSet = new Set(ids);
+      qc.setQueryData<StickyNoteData[]>(key, (old) =>
+        (old ?? []).map((n) =>
+          idSet.has(n.id)
+            ? {
+                ...n,
+                ...(patch.color !== undefined ? { color: patch.color } : {}),
+                ...(patch.type !== undefined ? { type: patch.type } : {}),
+              }
+            : n
+        )
+      );
+      return { previousNotes };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousNotes) qc.setQueryData(key, context.previousNotes);
     },
   });
 }
+
+export function useBulkDeleteNotes(spaceId: string | null) {
+  const qc = useQueryClient();
+  const key = queryKeys.notes.bySpace(spaceId ?? '');
+
+  return useMutation({
+    mutationFn: (ids: string[]) => bulkDeleteNotes(ids),
+    onMutate: async (ids) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previousNotes = qc.getQueryData<StickyNoteData[]>(key);
+      const idSet = new Set(ids);
+      qc.setQueryData<StickyNoteData[]>(key, (old) =>
+        (old ?? []).filter((n) => !idSet.has(n.id))
+      );
+      return { previousNotes };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousNotes) qc.setQueryData(key, context.previousNotes);
+    },
+  });
+}
+
+export function useBulkRestoreNotes(spaceId: string | null) {
+  const qc = useQueryClient();
+  const key = queryKeys.notes.bySpace(spaceId ?? '');
+
+  return useMutation({
+    mutationFn: ({ ids }: { ids: string[]; notes?: StickyNoteData[] }) => bulkRestoreNotes(ids),
+    onMutate: async ({ notes }) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previousNotes = qc.getQueryData<StickyNoteData[]>(key);
+      if (notes?.length) {
+        qc.setQueryData<StickyNoteData[]>(key, (old) => {
+          const existingIds = new Set((old ?? []).map((n) => n.id));
+          const restored = notes.filter((n) => !existingIds.has(n.id));
+          return [...(old ?? []), ...restored];
+        });
+      }
+      return { previousNotes };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousNotes) qc.setQueryData(key, context.previousNotes);
+    },
+  });
+}
+
+export function useBulkCreateNotes(spaceId: string | null) {
+  const qc = useQueryClient();
+  const key = queryKeys.notes.bySpace(spaceId ?? '');
+
+  return useMutation({
+    mutationFn: (notes: CreateNoteInput[]) => bulkCreateNotes(spaceId!, notes),
+    onSuccess: (created) => {
+      qc.setQueryData<StickyNoteData[]>(key, (old) => {
+        const existingIds = new Set((old ?? []).map((n) => n.id));
+        const fresh = created.filter((n) => !existingIds.has(n.id));
+        return [...(old ?? []), ...fresh];
+      });
+    },
+  });
+}
+

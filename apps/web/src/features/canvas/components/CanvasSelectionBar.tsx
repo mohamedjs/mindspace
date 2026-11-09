@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { useTheme } from '@/shared/theme';
 import { noteColors, type NoteType } from '@/shared/constants/tokens';
+import { CANVAS_DOCK_HEIGHT } from '@/shared/constants/layout';
+import { useVirtualKeyboard } from '@/shared/hooks/useVirtualKeyboard';
 
 const NOTE_TYPES: Array<{ type: NoteType; labelEn: string; labelAr: string }> = [
   { type: 'idea', labelEn: 'Idea', labelAr: 'فكرة' },
@@ -77,6 +79,7 @@ export const CanvasSelectionBar: React.FC<CanvasSelectionBarProps> = ({
   const [colorMenuOpen, setColorMenuOpen] = useState(false);
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
+  const isKeyboardOpen = useVirtualKeyboard();
 
   const totalSelected = selectedNoteCount + selectedGroupCount;
   if (totalSelected === 0) return null;
@@ -89,8 +92,15 @@ export const CanvasSelectionBar: React.FC<CanvasSelectionBarProps> = ({
   if (isMobile) {
     return (
       <div
-        className="fixed bottom-0 inset-x-0 h-16 z-40 px-4 flex items-center justify-between shadow-2xl border-t animate-in slide-in-from-bottom duration-200"
-        style={{ backgroundColor: colors.surface, borderColor: colors.line }}
+        className={`fixed bottom-0 inset-x-0 z-40 px-4 flex items-center justify-between shadow-2xl border-t animate-in slide-in-from-bottom duration-200 ${
+          isKeyboardOpen ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+        }`}
+        style={{
+          height: `calc(${CANVAS_DOCK_HEIGHT}px + env(safe-area-inset-bottom, 0px))`,
+          backgroundColor: colors.surface,
+          borderColor: colors.line,
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
         role="toolbar"
         aria-label="Selection commands"
       >
@@ -98,12 +108,12 @@ export const CanvasSelectionBar: React.FC<CanvasSelectionBarProps> = ({
           <button
             type="button"
             onClick={onClear}
-            className="h-10 w-10 flex items-center justify-center rounded-xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-95 cursor-pointer"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl hover:bg-black/10 dark:hover:bg-white/10 active:scale-95 cursor-pointer border-0 bg-transparent"
             aria-label="Clear selection (Esc)"
           >
-            <X size={18} color={colors.ink} />
+            <X size={20} color={colors.ink} />
           </button>
-          <span className="text-xs font-semibold text-ink">{countLabel}</span>
+          <span className="text-sm font-semibold text-ink">{countLabel}</span>
         </div>
 
         <div className="flex items-center gap-1">
@@ -111,7 +121,7 @@ export const CanvasSelectionBar: React.FC<CanvasSelectionBarProps> = ({
             <button
               type="button"
               onClick={onGroup}
-              className="h-11 px-3 flex items-center gap-1.5 rounded-xl border text-xs font-medium active:scale-95 cursor-pointer"
+              className="min-h-[44px] px-3 flex items-center gap-1.5 rounded-xl border text-sm font-medium active:scale-95 cursor-pointer"
               style={{ backgroundColor: colors.surface, borderColor: colors.line }}
             >
               <Frame size={16} color={colors.ink} />
@@ -123,7 +133,7 @@ export const CanvasSelectionBar: React.FC<CanvasSelectionBarProps> = ({
             <button
               type="button"
               onClick={onLink}
-              className="h-11 px-3 flex items-center gap-1.5 rounded-xl border text-xs font-medium active:scale-95 cursor-pointer"
+              className="min-h-[44px] px-3 flex items-center gap-1.5 rounded-xl border text-sm font-medium active:scale-95 cursor-pointer"
               style={{ backgroundColor: colors.surface, borderColor: colors.line }}
             >
               <Link size={16} color={colors.ink} />
@@ -154,7 +164,7 @@ export const CanvasSelectionBar: React.FC<CanvasSelectionBarProps> = ({
                       onColor?.(color);
                       setColorMenuOpen(false);
                     }}
-                    className="w-7 h-7 rounded-full shadow border border-black/10 active:scale-90"
+                    className="w-8 h-8 rounded-full shadow border border-black/10 active:scale-90 cursor-pointer"
                     style={{ backgroundColor: color }}
                   />
                 ))}
@@ -187,7 +197,7 @@ export const CanvasSelectionBar: React.FC<CanvasSelectionBarProps> = ({
             </button>
             {overflowMenuOpen && (
               <div
-                className="absolute bottom-14 right-0 w-44 rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 border bg-surface z-50"
+                className="absolute bottom-14 right-0 w-48 rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 border bg-surface z-50"
                 style={{ backgroundColor: colors.surface, borderColor: colors.line }}
               >
                 {selectedGroupCount > 0 && onUngroup && (
@@ -197,9 +207,9 @@ export const CanvasSelectionBar: React.FC<CanvasSelectionBarProps> = ({
                       onUngroup();
                       setOverflowMenuOpen(false);
                     }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5"
+                    className="min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer border-0 bg-transparent text-left"
                   >
-                    <Ungroup size={15} />
+                    <Ungroup size={16} />
                     <span>{lang === 'ar' ? 'فك التجميع' : 'Ungroup'}</span>
                   </button>
                 )}
@@ -210,9 +220,9 @@ export const CanvasSelectionBar: React.FC<CanvasSelectionBarProps> = ({
                       onUnlink();
                       setOverflowMenuOpen(false);
                     }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5"
+                    className="min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer border-0 bg-transparent text-left"
                   >
-                    <Unlink size={15} />
+                    <Unlink size={16} />
                     <span>{lang === 'ar' ? 'إلغاء الربط' : 'Unlink'}</span>
                   </button>
                 )}
@@ -223,9 +233,9 @@ export const CanvasSelectionBar: React.FC<CanvasSelectionBarProps> = ({
                       onTidy();
                       setOverflowMenuOpen(false);
                     }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5"
+                    className="min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer border-0 bg-transparent text-left"
                   >
-                    <LayoutGrid size={15} />
+                    <LayoutGrid size={16} />
                     <span>{lang === 'ar' ? 'ترتيب' : 'Tidy'}</span>
                   </button>
                 )}
@@ -236,9 +246,9 @@ export const CanvasSelectionBar: React.FC<CanvasSelectionBarProps> = ({
                       onDuplicate();
                       setOverflowMenuOpen(false);
                     }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium hover:bg-black/5 dark:hover:bg-white/5"
+                    className="min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer border-0 bg-transparent text-left"
                   >
-                    <Copy size={15} />
+                    <Copy size={16} />
                     <span>{lang === 'ar' ? 'نسخ' : 'Duplicate'}</span>
                   </button>
                 )}

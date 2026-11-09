@@ -108,7 +108,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
 
       <button
         type="button"
-        className="mt-4 py-2 text-sm text-muted hover:text-ink transition-colors cursor-pointer text-center"
+        className="mt-4 min-h-[44px] flex items-center justify-center py-2 text-sm text-muted hover:text-ink transition-colors cursor-pointer text-center"
         onClick={handleForgotPassword}
       >
         Forgot your password?
@@ -116,7 +116,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
 
       <button
         type="button"
-        className="mt-6 py-2 text-sm text-muted hover:text-ink transition-colors cursor-pointer text-center"
+        className="mt-2 min-h-[44px] flex items-center justify-center py-2 text-sm text-muted hover:text-ink transition-colors cursor-pointer text-center"
         onClick={onSwitchToRegister}
       >
         New here? Create an account

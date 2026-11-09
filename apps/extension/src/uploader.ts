@@ -27,7 +27,7 @@ export class Uploader {
   private readonly onFinished?: (recordingId: string) => void;
   private readonly onError?: (error: Error, part?: RecordingPart) => void;
 
-  private isProcessing = false;
+  private processingPromise: Promise<void> | null = null;
 
   constructor(options: UploaderOptions) {
     this.apiUrl = options.apiUrl.replace(/\/+$/, '');
@@ -129,46 +129,53 @@ export class Uploader {
   }
 
   public async uploadPendingParts(recordingId?: string): Promise<boolean> {
-    if (this.isProcessing) {
-      return false;
+    while (this.processingPromise) {
+      await this.processingPromise;
     }
-    this.isProcessing = true;
+
+    let release!: () => void;
+    this.processingPromise = new Promise<void>((resolve) => {
+      release = resolve;
+    });
 
     try {
-      const pendingParts = await this.partsStore.getPendingParts(recordingId);
-      // Strictly enforce order: part 0, then part 1, then part 2...
-      pendingParts.sort((a, b) => {
-        if (a.recordingId !== b.recordingId) {
-          return a.recordingId.localeCompare(b.recordingId);
+      while (true) {
+        const pendingParts = await this.partsStore.getPendingParts(recordingId);
+        if (pendingParts.length === 0) {
+          return true;
         }
-        return a.partIndex - b.partIndex;
-      });
 
-      for (const part of pendingParts) {
-        const success = await this.uploadPartWithRetry(part);
-        if (!success) {
-          // Preserve order: never skip a failed part to upload a subsequent part
-          return false;
+        // Strictly enforce order: part 0, then part 1, then part 2...
+        pendingParts.sort((a, b) => {
+          if (a.recordingId !== b.recordingId) {
+            return a.recordingId.localeCompare(b.recordingId);
+          }
+          return a.partIndex - b.partIndex;
+        });
+
+        for (const part of pendingParts) {
+          const success = await this.uploadPartWithRetry(part);
+          if (!success) {
+            // Preserve order: never skip a failed part to upload a subsequent part
+            return false;
+          }
         }
       }
-      return true;
     } finally {
-      this.isProcessing = false;
+      this.processingPromise = null;
+      release();
     }
   }
 
   public async finishRecording(recordingId: string): Promise<boolean> {
-    // 1. Upload any pending parts for this recording first
-    let pending = await this.partsStore.getPendingParts(recordingId);
+    // 1. Drain any in-flight or pending parts for this recording first
+    const ok = await this.uploadPendingParts(recordingId);
+    if (!ok) {
+      throw new Error(`Cannot finish recording ${recordingId}; some parts failed to upload.`);
+    }
+    const pending = await this.partsStore.getPendingParts(recordingId);
     if (pending.length > 0) {
-      const ok = await this.uploadPendingParts(recordingId);
-      if (!ok) {
-        throw new Error(`Cannot finish recording ${recordingId}; some parts failed to upload.`);
-      }
-      pending = await this.partsStore.getPendingParts(recordingId);
-      if (pending.length > 0) {
-        throw new Error(`Cannot finish recording ${recordingId}; ${pending.length} parts remain pending.`);
-      }
+      throw new Error(`Cannot finish recording ${recordingId}; ${pending.length} parts remain pending.`);
     }
 
     // 2. Call finish endpoint

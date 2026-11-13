@@ -1,579 +1,164 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MindSpace — Talk. Get organised thoughts.</title>
-  <meta name="description" content="MindSpace is a voice-first thinking app. Capture ideas at the speed of speech and organise them into structured notes, sub-notes and visual mind-maps.">
-  <link rel="stylesheet" href="./src/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%236366f1'/><circle cx='50' cy='50' r='24' fill='white'/></svg>">
+  <title>MindSpace: أفكارك تبقى sticky notes</title>
+  <meta name="description" content="MindSpace turns what you type or say into sticky notes on a canvas, and connects to Claude over MCP so your assistant can build and read your boards.">
+  <meta property="og:title" content="MindSpace">
+  <meta property="og:description" content="Think out loud. MindSpace sorts it into notes, and Claude can build your boards over MCP.">
+  <meta property="og:image" content="./media/poster.jpg">
+  <meta name="theme-color" content="#F5EDE3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#202124" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="./media/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Baloo+Bhaijaan+2:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./src/landing.css">
 </head>
 <body>
+  <a class="skip" href="#main" data-i18n="nav.skip">تخطّى للمحتوى</a>
 
-  <!-- Site Header -->
-  <header class="site-header">
-    <div class="container nav-container">
-      <a href="./" class="brand-link" aria-label="MindSpace Home">
-        <span class="brand-icon">✦</span>
+  <header class="top">
+    <div class="wrap top-row">
+      <a href="./" class="brand" aria-label="MindSpace">
+        <img src="./media/logo.png" alt="" width="40" height="40">
         <span>MindSpace</span>
       </a>
-
-      <nav id="primary-nav" class="nav-menu" aria-label="Main Navigation">
-        <a href="#how-it-works" data-i18n="nav.howItWorks">How it works</a>
-        <a href="#meeting-mode" data-i18n="nav.meetingMode">Meeting Mode</a>
-        <a href="#byok" data-i18n="nav.byok">Your AI (BYOK)</a>
-        <a href="#pricing" data-i18n="nav.pricing">Pricing</a>
-        <a href="#download" data-i18n="nav.download">Download</a>
-        <a href="#faq" data-i18n="nav.faq">FAQ</a>
+      <nav class="nav" aria-label="Main">
+        <a href="#video" data-i18n="nav.video">الفيديو</a>
+        <a href="#features" data-i18n="nav.features">المميزات</a>
+        <a href="#claude" data-i18n="nav.claude">Claude و MCP</a>
+        <a href="#faq" data-i18n="nav.faq">أسئلة</a>
       </nav>
-
-      <div class="nav-actions">
-        <button type="button" class="lang-toggle-btn" aria-label="Toggle language">العربية</button>
-        <a href="./" class="btn btn-primary" data-app-link="webApp">
-          <span class="btn-text" data-i18n="nav.openApp">Open App</span>
-        </a>
-        <button type="button" class="mobile-menu-btn" id="mobile-menu-toggle" aria-expanded="false" aria-label="Open menu">
-          ☰
-        </button>
-      </div>
+      <button type="button" class="chip lang" id="lang" aria-label="English" title="English">English</button>
     </div>
   </header>
 
-  <!-- Hero Section -->
-  <main>
-    <section class="section hero-section">
-      <div class="hero-glow"></div>
-      <div class="container hero-content">
-        <span class="section-tag" data-i18n="hero.badge">Voice-first thinking app</span>
-        <h1 class="hero-title" data-i18n="hero.title">Talk. Get organised thoughts.</h1>
-        <p class="hero-subtitle" data-i18n="hero.subtitle">
-          You press record and talk the way you actually think — messy, out of order, doubling back. MindSpace listens, works out the separate ideas inside what you said, rewrites each one as a clean sentence in your own voice, and lays them out as sticky notes you can move, nest, group and revisit.
-        </p>
-
-        <div class="hero-contrast-box">
-          <p data-i18n="hero.contrast">
-            It is not a transcription app. A transcript gives you back the mess. MindSpace gives you back the thinking.
-          </p>
+  <main id="main">
+    <!-- Hero -->
+    <section class="hero wrap">
+      <div class="hero-text">
+        <span class="tag" data-i18n="hero.tag">بتكتب أو بتتكلم، والباقي علينا</span>
+        <h1 data-i18n="hero.title">فكّر براحتك، وسيب الترتيب علينا.</h1>
+        <p class="lead" data-i18n="hero.lead">MindSpace بيحوّل اللي بتكتبه أو بتقوله لـ sticky notes مترتبة على canvas: أفكار، وتاسكات بمواعيد، وأسئلة، وكل نوتة متوصلة بأصلها. ومتوصل بـ Claude عن طريق MCP، فـ Claude يقدر يبني بوردك ويقراه بنفسه.</p>
+        <div class="ctas">
+          <a href="#video" class="btn primary" data-i18n="hero.watch">اتفرج على الفيديو</a>
+          <a href="#claude" class="btn" data-i18n="hero.mcp">إزاي توصّل Claude</a>
         </div>
-
-        <div class="hero-ctas">
-          <a href="./" class="btn btn-primary" data-app-link="webApp">
-            <span class="btn-text" data-i18n="hero.ctaPrimary">Open Web App</span>
-          </a>
-          <a href="#how-it-works" class="btn btn-secondary">
-            <span data-i18n="hero.ctaSecondary">See How It Works</span> ↓
-          </a>
-        </div>
+      </div>
+      <div class="hero-notes" aria-hidden="true">
+        <div class="note n-idea"><b data-i18n="notes.idea.t">رحلة إسكندرية</b><span data-i18n="notes.idea.c">مع أختي، آخر الأسبوع</span><i>IDEA</i></div>
+        <div class="note n-task"><b data-i18n="notes.task.t">احجز القطر</b><span data-i18n="notes.task.c">الجمعة الصبح، 9:00</span><i>TASK</i></div>
+        <div class="note n-question"><b data-i18n="notes.q.t">نروح المتحف؟</b><span data-i18n="notes.q.c">ولا نوفّر الفلوس؟</span><i>QUESTION</i></div>
+        <div class="note n-decision"><b data-i18n="notes.d.t">فندق على الكورنيش</b><span data-i18n="notes.d.c">اتفقنا</span><i>DECISION</i></div>
       </div>
     </section>
 
-    <!-- How It Works Section -->
-    <section id="how-it-works" class="section">
-      <div class="container">
-        <div class="text-center">
-          <span class="section-tag" data-i18n="howItWorks.sectionTag">Architecture of Thought</span>
-          <h2 class="section-title" data-i18n="howItWorks.title">From raw speech to structured clarity</h2>
-          <p class="section-subtitle" data-i18n="howItWorks.subtitle">Capture at the speed of speech, structure at the quality of writing.</p>
-        </div>
+    <!-- Video -->
+    <section id="video" class="wrap block">
+      <div class="video-card">
+        <video controls playsinline preload="metadata" poster="./media/poster.jpg" aria-label="MindSpace intro video">
+          <source src="./media/mindspace-intro.mp4" type="video/mp4">
+        </video>
+      </div>
+      <p class="caption" data-i18n="video.caption">دقيقتين: الشات في الموقع، و Claude بيبني بورد كامل عن طريق MCP، والـ views، والإعدادات. كل اللي في الفيديو متصوّر من الأبلكيشن الحقيقي.</p>
+    </section>
 
-        <div class="grid-3">
-          <!-- Step 1: Talk -->
-          <div class="card step-card">
-            <span class="step-badge" data-i18n="howItWorks.step1Tag">01. Talk</span>
-            <h3 class="card-title" data-i18n="howItWorks.step1Title">Capture without typing or filtering</h3>
-            <p class="card-desc" data-i18n="howItWorks.step1Desc">
-              Press the microphone and talk freely in Arabic or English. Say everything in any order without tidying as you go. Audio streams securely for transcription preserving your slang, tone, and nuances.
-            </p>
-          </div>
-
-          <!-- Step 2: Notes -->
-          <div class="card step-card">
-            <span class="step-badge" data-i18n="howItWorks.step2Tag">02. Notes</span>
-            <h3 class="card-title" data-i18n="howItWorks.step2Title">Idea extraction & faithful rewriting</h3>
-            <p class="card-desc" data-i18n="howItWorks.step2Desc">
-              The AI separates distinct thoughts into individual notes — not raw sentence chunks. Filler words and stuttering are stripped, leaving clean titles and concise bodies colour-coded by type: idea, task, question, or decision.
-            </p>
-          </div>
-
-          <!-- Step 3: Map -->
-          <div class="card step-card">
-            <span class="step-badge" data-i18n="howItWorks.step3Tag">03. Map</span>
-            <h3 class="card-title" data-i18n="howItWorks.step3Title">Spatial canvas, sub-notes & calendar</h3>
-            <p class="card-desc" data-i18n="howItWorks.step3Desc">
-              Arrange thoughts on an infinite canvas. Drill into any note with child sub-notes orbiting their parent. Switch anytime to linear list or calendar view with automatic date resolution and local reminders.
-            </p>
-          </div>
-        </div>
-
-        <!-- Deliberate Tools -->
-        <div class="pricing-rules-box text-center" style="margin-top: 2.5rem;">
-          <h4 data-i18n="howItWorks.toolsTitle" style="color: var(--accent-light); margin-bottom: 0.5rem; font-size: 1.15rem;">
-            Deliberately 6 Canvas Tools
-          </h4>
-          <p data-i18n="howItWorks.toolsDesc" style="color: var(--text-muted); font-size: 0.95rem;">
-            Add Note • Add Group Frame • Tidy Grid • Fit to View • Recordings Log • Show/Hide Sub-notes. No cluttered menus.
-          </p>
-        </div>
+    <!-- Features -->
+    <section id="features" class="wrap block">
+      <h2 data-i18n="features.title">كل اللي محتاجه عشان أفكارك ماتضيعش</h2>
+      <div class="grid">
+        <article class="card">
+          <span class="ico" style="--paper: var(--p-idea)"><svg viewBox="0 0 24 24"><path d="M4 5h16v10H8l-4 4z"/></svg></span>
+          <h3 data-i18n="f.chat.t">اكتب أو اتكلم</h3>
+          <p data-i18n="f.chat.c">قول الفكرة زي ما هي، عربي أو إنجليزي. الـ AI بيقسمها لنوتس لوحده: فكرة، وتاسك، وسؤال، وقرار.</p>
+        </article>
+        <article class="card">
+          <span class="ico" style="--paper: var(--p-task)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+          <h3 data-i18n="f.views.t">أربع طرق تشوف بيها</h3>
+          <p data-i18n="f.views.c">نفس النوتس على Canvas تحركها بإيدك، أو Mind Map، أو List، أو Calendar.</p>
+        </article>
+        <article class="card">
+          <span class="ico" style="--paper: var(--p-question)"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>
+          <h3 data-i18n="f.dates.t">بيفهم المواعيد</h3>
+          <p data-i18n="f.dates.c">«بكرة الصبح» أو «السبت» بتتحول لميعاد على النوتة، وتلاقيها في الـ Calendar، ويوصلك تذكير قبلها.</p>
+        </article>
+        <article class="card">
+          <span class="ico" style="--paper: var(--p-decision)"><svg viewBox="0 0 24 24"><path d="M9 3v4M15 3v4M7 7h10v5a5 5 0 0 1-10 0zM12 17v4"/></svg></span>
+          <h3 data-i18n="f.mcp.t">متوصل بـ Claude</h3>
+          <p data-i18n="f.mcp.c">عن طريق MCP: اطلب من Claude يعمل خطة أو يرتب أفكارك، وهو يبني البورد بنفسه في خطوة واحدة.</p>
+        </article>
+        <article class="card">
+          <span class="ico" style="--paper: var(--p-reference)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/></svg></span>
+          <h3 data-i18n="f.models.t">اختار الموديل</h3>
+          <p data-i18n="f.models.c">في الخطط المدفوعة تختار أي موديل من OpenRouter للكتابة وللفويس.</p>
+        </article>
+        <article class="card">
+          <span class="ico" style="--paper: var(--p-thought)"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg></span>
+          <h3 data-i18n="f.phone.t">من الموبايل كمان</h3>
+          <p data-i18n="f.phone.c">نفس الأبلكيشن في متصفح الموبايل، بشكل مظبوط على الشاشة الصغيرة.</p>
+        </article>
       </div>
     </section>
 
-    <!-- Meeting Mode Section -->
-    <section id="meeting-mode" class="section meeting-section">
-      <div class="container">
-        <div class="text-center">
-          <span class="section-tag" data-i18n="meetingMode.sectionTag">Meeting Mode</span>
-          <h2 class="section-title" data-i18n="meetingMode.title">Turn meetings into organized spaces</h2>
-          <p class="section-subtitle" data-i18n="meetingMode.subtitle">
-            A dedicated Chrome MV3 extension records tab audio and microphone in Google Meet, Zoom, and Teams web, generating a complete space of interconnected notes.
-          </p>
-        </div>
-
-        <div class="meeting-features-grid">
-          <div class="feature-pill-card">
-            <div class="feature-icon">⚖️</div>
-            <h3 class="card-title" style="font-size: 1.15rem;" data-i18n="meetingMode.f1Title">Consent First</h3>
-            <p class="card-desc" data-i18n="meetingMode.f1Desc">
-              Mandatory participant consent notice before recording starts. Respects local legal requirements and privacy regulations.
-            </p>
-          </div>
-
-          <div class="feature-pill-card">
-            <div class="feature-icon">🛡️</div>
-            <h3 class="card-title" style="font-size: 1.15rem;" data-i18n="meetingMode.f2Title">Crash-Proof IndexedDB</h3>
-            <p class="card-desc" data-i18n="meetingMode.f2Desc">
-              Splits audio into independent 5-minute chunks stored locally in browser IndexedDB before upload. A tab crash loses at most the current slice.
-            </p>
-          </div>
-
-          <div class="feature-pill-card">
-            <div class="feature-icon">⚡</div>
-            <h3 class="card-title" style="font-size: 1.15rem;" data-i18n="meetingMode.f3Title">Bounded Server Pipeline</h3>
-            <p class="card-desc" data-i18n="meetingMode.f3Desc">
-              Long meeting audio is transcribed with bounded concurrency, reassembled in order, and processed for structured action items and decisions.
-            </p>
-          </div>
-
-          <div class="feature-pill-card">
-            <div class="feature-icon">🗺️</div>
-            <h3 class="card-title" style="font-size: 1.15rem;" data-i18n="meetingMode.f4Title">Dedicated Meeting Space</h3>
-            <p class="card-desc" data-i18n="meetingMode.f4Desc">
-              Every meeting automatically becomes its own workspace on your canvas, ready to review, tidy, export, or branch.
-            </p>
-          </div>
-        </div>
+    <!-- Claude / MCP -->
+    <section id="claude" class="wrap block">
+      <h2 data-i18n="mcp.title">وصّل Claude في تلات خطوات</h2>
+      <p class="sub" data-i18n="mcp.sub">Claude هو اللي بيفكر ويكتب النوتس، فمش بيتخصم أي credits من رصيدك في MindSpace.</p>
+      <ol class="steps">
+        <li class="card step">
+          <span class="num">1</span>
+          <h3 data-i18n="mcp.s1.t">اعمل token</h3>
+          <p data-i18n="mcp.s1.c">من الإعدادات، جزء Connect AI assistants، اضغط Create token.</p>
+        </li>
+        <li class="card step">
+          <span class="num">2</span>
+          <h3 data-i18n="mcp.s2.t">انسخ الإعدادات</h3>
+          <p data-i18n="mcp.s2.c">الصفحة بتديك الإعدادات جاهزة لـ Claude Code و Claude Desktop و Cursor.</p>
+        </li>
+        <li class="card step">
+          <span class="num">3</span>
+          <h3 data-i18n="mcp.s3.t">اطلب اللي عايزه</h3>
+          <p data-i18n="mcp.s3.c">«اعمل لي خطة لفتح البيكري» أو «إيه اللي لازم أخلصه الأسبوع ده؟». Claude يقرا ويكتب في بوردك.</p>
+        </li>
+      </ol>
+      <div class="code" dir="ltr">
+        <span class="code-label">Claude Code</span>
+        <pre><code>claude mcp add --transport http mindspace https://&lt;your-mindspace&gt;/mcp \
+  --header "Authorization: Bearer &lt;your token&gt;"</code></pre>
+      </div>
+      <div class="flow" aria-label="How it connects">
+        <span class="pill" data-i18n="flow.you">إنت</span><span class="arrow" aria-hidden="true"></span>
+        <span class="pill">Claude</span><span class="arrow" aria-hidden="true"></span>
+        <span class="pill" data-i18n="flow.mcp">سيرفر MCP</span><span class="arrow" aria-hidden="true"></span>
+        <span class="pill">MindSpace API</span><span class="arrow" aria-hidden="true"></span>
+        <span class="pill" data-i18n="flow.board">بوردك</span>
       </div>
     </section>
 
-    <!-- BYOK Section -->
-    <section id="byok" class="section">
-      <div class="container">
-        <div class="text-center">
-          <span class="section-tag" data-i18n="byok.sectionTag">Transparency & Control</span>
-          <h2 class="section-title" data-i18n="byok.title">Bring Your Own AI (BYOK)</h2>
-          <p class="section-subtitle" data-i18n="byok.subtitle">
-            Already paying OpenAI, Anthropic, or Google? Use your own API key for text processing so you never pay twice.
-          </p>
-        </div>
-
-        <div class="byok-banner">
-          <h3 data-i18n="byok.honestTitle" style="font-size: 1.35rem; margin-bottom: 0.5rem;">An Honest Architectural Split</h3>
-          <p data-i18n="byok.honestDesc" style="color: var(--text-muted); font-size: 1rem;">
-            Speech-to-text always runs on platform credits to guarantee container decoding, while text extraction runs on your personal key.
-          </p>
-
-          <div class="split-grid">
-            <div class="split-box highlight">
-              <h4 data-i18n="byok.yourKeyTitle" style="color: var(--accent-light); margin-bottom: 0.75rem;">On Your Key (0 MindSpace credits)</h4>
-              <p data-i18n="byok.yourKeyDesc" style="color: var(--text-muted); font-size: 0.95rem;">
-                Idea extraction, note writing, and rewriting run directly through your provider (OpenAI GPT, Anthropic Claude, Google Gemini) billed at your rates.
-              </p>
-            </div>
-
-            <div class="split-box">
-              <h4 data-i18n="byok.ourKeyTitle" style="color: var(--success); margin-bottom: 0.75rem;">On Our Credits (Voice transcription)</h4>
-              <p data-i18n="byok.ourKeyDesc" style="color: var(--text-muted); font-size: 0.95rem;">
-                Voice-to-text uses our high-reliability transcription pipeline, covered by the included 900 credits (~2.5 hours of talking per month).
-              </p>
-            </div>
-          </div>
-
-          <div style="background: rgba(11, 15, 25, 0.6); padding: 1.25rem; border-radius: 8px; border: 1px solid var(--border-subtle);">
-            <h4 data-i18n="byok.securityTitle" style="font-size: 1rem; margin-bottom: 0.4rem; color: #f3f4f6;">Zero Client Key Exposure</h4>
-            <p data-i18n="byok.securityDesc" style="color: var(--text-muted); font-size: 0.9rem;">
-              Your API keys are encrypted server-side with AES-256-GCM and never returned to any client or browser. Only the last 4 characters are shown as a hint.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Pricing Section -->
-    <section id="pricing" class="section">
-      <div class="container">
-        <div class="text-center">
-          <span class="section-tag" data-i18n="pricing.sectionTag">Fair Pricing</span>
-          <h2 class="section-title" data-i18n="pricing.title">Honest pricing in Egyptian Pounds (EGP)</h2>
-          <p class="section-subtitle" data-i18n="pricing.subtitle">
-            All plans include our reserve-then-settle guarantee: you are never charged for a failed recording.
-          </p>
-        </div>
-
-        <div class="pricing-tabs-wrapper">
-          <div class="tab-switch" role="tablist">
-            <button type="button" id="pricing-tab-monthly" class="tab-btn active" role="tab" aria-selected="true" data-i18n="pricing.monthlyToggle">
-              Monthly Subscriptions
-            </button>
-            <button type="button" id="pricing-tab-packs" class="tab-btn" role="tab" aria-selected="false" data-i18n="pricing.packsToggle">
-              One-Time Credit Packs
-            </button>
-          </div>
-        </div>
-
-        <!-- Monthly Grid -->
-        <div id="pricing-grid-monthly" class="pricing-grid">
-          <!-- Free -->
-          <div class="pricing-card">
-            <h3 class="plan-name" data-i18n="pricing.plans.free.name">Free</h3>
-            <p class="plan-tagline" data-i18n="pricing.plans.free.tagline">Every board, every note — think it through yourself</p>
-            <div class="plan-price-row">
-              <span class="price-val">0</span>
-              <span class="price-currency" data-i18n="pricing.currency">EGP</span>
-              <span class="price-period" data-i18n="pricing.perMonth">/month</span>
-            </div>
-            <ul class="plan-details-list">
-              <li><span class="check-icon">✓</span> <span>100 <span data-i18n="pricing.creditsPerMonth">credits/mo</span></span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.free.talk">~11 min talking</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.free.maxRec">5 min cap</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.free.desc">Canvas & manual notes</span></li>
-            </ul>
-            <a href="./" class="btn btn-secondary" data-app-link="webApp">
-              <span class="btn-text" data-i18n="pricing.subscribeBtn">Choose Plan</span>
-            </a>
-          </div>
-
-          <!-- Hobby -->
-          <div class="pricing-card">
-            <h3 class="plan-name" data-i18n="pricing.plans.hobby.name">Hobby</h3>
-            <p class="plan-tagline" data-i18n="pricing.plans.hobby.tagline">For the odd thought worth keeping</p>
-            <div class="plan-price-row">
-              <span class="price-val">50</span>
-              <span class="price-currency" data-i18n="pricing.currency">EGP</span>
-              <span class="price-period" data-i18n="pricing.perMonth">/month</span>
-            </div>
-            <ul class="plan-details-list">
-              <li><span class="check-icon">✓</span> <span>625 <span data-i18n="pricing.creditsPerMonth">credits/mo</span> (+25%)</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.hobby.talk">~69 min talking</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.hobby.maxRec">15 min cap</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.hobby.desc">AI transcription & extraction</span></li>
-            </ul>
-            <a href="./" class="btn btn-secondary" data-app-link="webApp">
-              <span class="btn-text" data-i18n="pricing.subscribeBtn">Choose Plan</span>
-            </a>
-          </div>
-
-          <!-- Plus (Featured) -->
-          <div class="pricing-card featured">
-            <span class="featured-ribbon" data-i18n="pricing.featuredBadge">Most Popular</span>
-            <h3 class="plan-name" data-i18n="pricing.plans.plus.name">Plus</h3>
-            <p class="plan-tagline" data-i18n="pricing.plans.plus.tagline">A habit, not an experiment</p>
-            <div class="plan-price-row">
-              <span class="price-val">150</span>
-              <span class="price-currency" data-i18n="pricing.currency">EGP</span>
-              <span class="price-period" data-i18n="pricing.perMonth">/month</span>
-            </div>
-            <ul class="plan-details-list">
-              <li><span class="check-icon">✓</span> <span>2,025 <span data-i18n="pricing.creditsPerMonth">credits/mo</span> (+35%)</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.plus.talk">~3.8 hours talking</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.plus.maxRec">30 min cap</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.plus.desc">Daily brainstorming & tasks</span></li>
-            </ul>
-            <a href="./" class="btn btn-primary" data-app-link="webApp">
-              <span class="btn-text" data-i18n="pricing.subscribeBtn">Choose Plan</span>
-            </a>
-          </div>
-
-          <!-- Pro -->
-          <div class="pricing-card">
-            <h3 class="plan-name" data-i18n="pricing.plans.pro.name">Pro</h3>
-            <p class="plan-tagline" data-i18n="pricing.plans.pro.tagline">Thinking out loud every day</p>
-            <div class="plan-price-row">
-              <span class="price-val">300</span>
-              <span class="price-currency" data-i18n="pricing.currency">EGP</span>
-              <span class="price-period" data-i18n="pricing.perMonth">/month</span>
-            </div>
-            <ul class="plan-details-list">
-              <li><span class="check-icon">✓</span> <span>4,500 <span data-i18n="pricing.creditsPerMonth">credits/mo</span> (+50%)</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.pro.talk">~8.3 hours talking</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.pro.maxRec">60 min cap</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.pro.desc">For power users & consultants</span></li>
-            </ul>
-            <a href="./" class="btn btn-secondary" data-app-link="webApp">
-              <span class="btn-text" data-i18n="pricing.subscribeBtn">Choose Plan</span>
-            </a>
-          </div>
-
-          <!-- Max -->
-          <div class="pricing-card">
-            <h3 class="plan-name" data-i18n="pricing.plans.max.name">Max</h3>
-            <p class="plan-tagline" data-i18n="pricing.plans.max.tagline">Everything, all of it, no counting</p>
-            <div class="plan-price-row">
-              <span class="price-val">500</span>
-              <span class="price-currency" data-i18n="pricing.currency">EGP</span>
-              <span class="price-period" data-i18n="pricing.perMonth">/month</span>
-            </div>
-            <ul class="plan-details-list">
-              <li><span class="check-icon">✓</span> <span>8,000 <span data-i18n="pricing.creditsPerMonth">credits/mo</span> (+60%)</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.max.talk">~14.8 hours talking</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.max.maxRec">120 min cap</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.max.desc">Lectures, workshops & meetings</span></li>
-            </ul>
-            <a href="./" class="btn btn-secondary" data-app-link="webApp">
-              <span class="btn-text" data-i18n="pricing.subscribeBtn">Choose Plan</span>
-            </a>
-          </div>
-
-          <!-- BYOK Plan -->
-          <div class="pricing-card">
-            <h3 class="plan-name" data-i18n="pricing.plans.byok.name">Your AI</h3>
-            <p class="plan-tagline" data-i18n="pricing.plans.byok.tagline">Your key for the thinking, our credits for the listening</p>
-            <div class="plan-price-row">
-              <span class="price-val">50</span>
-              <span class="price-currency" data-i18n="pricing.currency">EGP</span>
-              <span class="price-period" data-i18n="pricing.perMonth">/month</span>
-            </div>
-            <ul class="plan-details-list">
-              <li><span class="check-icon">✓</span> <span>900 <span data-i18n="pricing.creditsPerMonth">credits/mo</span> (STT only)</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.byok.talk">~2.5 hours talking</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.byok.maxRec">120 min cap</span></li>
-              <li><span class="check-icon">✓</span> <span data-i18n="pricing.plans.byok.desc">Use your OpenAI/Claude/Gemini key</span></li>
-            </ul>
-            <a href="./" class="btn btn-secondary" data-app-link="webApp">
-              <span class="btn-text" data-i18n="pricing.subscribeBtn">Choose Plan</span>
-            </a>
-          </div>
-        </div>
-
-        <!-- One-Time Packs Grid (Initially hidden) -->
-        <div id="pricing-grid-packs" class="pricing-grid is-hidden">
-          <div class="pricing-card">
-            <h3 class="plan-name" data-i18n="pricing.packs.starter.name">Starter</h3>
-            <div class="plan-price-row" style="margin-top: 1rem;">
-              <span class="price-val">50</span>
-              <span class="price-currency" data-i18n="pricing.currency">EGP</span>
-            </div>
-            <p style="color: var(--text-muted); margin-bottom: 2rem;" data-i18n="pricing.packs.starter.credits">550 credits (500 + 10% bonus)</p>
-            <a href="./" class="btn btn-secondary" data-app-link="webApp">
-              <span class="btn-text" data-i18n="pricing.subscribeBtn">Top Up</span>
-            </a>
-          </div>
-
-          <div class="pricing-card featured">
-            <span class="featured-ribbon" data-i18n="pricing.featuredBadge">Most Popular</span>
-            <h3 class="plan-name" data-i18n="pricing.packs.regular.name">Regular</h3>
-            <div class="plan-price-row" style="margin-top: 1rem;">
-              <span class="price-val">100</span>
-              <span class="price-currency" data-i18n="pricing.currency">EGP</span>
-            </div>
-            <p style="color: var(--text-muted); margin-bottom: 2rem;" data-i18n="pricing.packs.regular.credits">1,200 credits (1,000 + 20% bonus) ⭐</p>
-            <a href="./" class="btn btn-primary" data-app-link="webApp">
-              <span class="btn-text" data-i18n="pricing.subscribeBtn">Top Up</span>
-            </a>
-          </div>
-
-          <div class="pricing-card">
-            <h3 class="plan-name" data-i18n="pricing.packs.pro.name">Pro</h3>
-            <div class="plan-price-row" style="margin-top: 1rem;">
-              <span class="price-val">250</span>
-              <span class="price-currency" data-i18n="pricing.currency">EGP</span>
-            </div>
-            <p style="color: var(--text-muted); margin-bottom: 2rem;" data-i18n="pricing.packs.pro.credits">3,250 credits (2,500 + 30% bonus)</p>
-            <a href="./" class="btn btn-secondary" data-app-link="webApp">
-              <span class="btn-text" data-i18n="pricing.subscribeBtn">Top Up</span>
-            </a>
-          </div>
-
-          <div class="pricing-card">
-            <h3 class="plan-name" data-i18n="pricing.packs.max.name">Max</h3>
-            <div class="plan-price-row" style="margin-top: 1rem;">
-              <span class="price-val">500</span>
-              <span class="price-currency" data-i18n="pricing.currency">EGP</span>
-            </div>
-            <p style="color: var(--text-muted); margin-bottom: 2rem;" data-i18n="pricing.packs.max.credits">7,000 credits (5,000 + 40% bonus)</p>
-            <a href="./" class="btn btn-secondary" data-app-link="webApp">
-              <span class="btn-text" data-i18n="pricing.subscribeBtn">Top Up</span>
-            </a>
-          </div>
-        </div>
-
-        <!-- Principles -->
-        <div class="pricing-rules-box">
-          <h3 data-i18n="pricing.rulesTitle" style="font-size: 1.25rem;">The Four Pricing Principles</h3>
-          <div class="pricing-rules-grid">
-            <div class="rule-item">
-              <h4 data-i18n="pricing.rule1Title">Reserve, Then Settle</h4>
-              <p data-i18n="pricing.rule1Desc">An estimated credit hold is placed before processing. Upon completion, only actual compute is billed. If a job fails, the hold is released in full.</p>
-            </div>
-            <div class="rule-item">
-              <h4 data-i18n="pricing.rule2Title">Monthly 100 Credit Safety Floor</h4>
-              <p data-i18n="pricing.rule2Desc">On the 1st of every month, every account sitting below 100 credits is automatically topped up back to 100.</p>
-            </div>
-            <div class="rule-item">
-              <h4 data-i18n="pricing.rule3Title">Volume Rewards Commitment</h4>
-              <p data-i18n="pricing.rule3Desc">Higher tiers provide progressively higher bonus credits (up to +60%), and subscriptions always beat one-time top-ups.</p>
-            </div>
-            <div class="rule-item">
-              <h4 data-i18n="pricing.rule4Title">Per-Tier Recording Caps &amp; Split BYOK</h4>
-              <p data-i18n="pricing.rule4Desc">Each plan caps single-recording length (5 min on Free up to 120 min on Max &amp; BYOK), and BYOK splits billing cleanly: your key for text, our credits for speech.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Download / Platforms Section -->
-    <section id="download" class="section">
-      <div class="container">
-        <div class="text-center">
-          <span class="section-tag" data-i18n="download.sectionTag">Platforms</span>
-          <h2 class="section-title" data-i18n="download.title">Think freely across all your devices</h2>
-          <p class="section-subtitle" data-i18n="download.subtitle">Capturing thoughts wherever you are — on mobile, in the browser, or during meetings.</p>
-        </div>
-
-        <div class="downloads-grid">
-          <!-- iOS -->
-          <div class="download-card">
-            <div class="download-icon">🍎</div>
-            <h3 class="card-title" data-i18n="download.iosTitle">iOS App</h3>
-            <span class="btn btn-secondary is-disabled" data-app-link="ios" role="status" aria-disabled="true">
-              <span class="btn-text">App Store</span>
-              <span class="badge-status badge-coming-soon" data-i18n="download.comingSoonBadge">Coming soon</span>
-            </span>
-          </div>
-
-          <!-- Android -->
-          <div class="download-card">
-            <div class="download-icon">🤖</div>
-            <h3 class="card-title" data-i18n="download.androidTitle">Android App</h3>
-            <span class="btn btn-secondary is-disabled" data-app-link="android" role="status" aria-disabled="true">
-              <span class="btn-text">Google Play</span>
-              <span class="badge-status badge-coming-soon" data-i18n="download.comingSoonBadge">Coming soon</span>
-            </span>
-          </div>
-
-          <!-- Chrome Extension -->
-          <div class="download-card">
-            <div class="download-icon">🧩</div>
-            <h3 class="card-title" data-i18n="download.chromeTitle">Chrome Extension</h3>
-            <span class="btn btn-secondary is-disabled" data-app-link="extension" role="status" aria-disabled="true">
-              <span class="btn-text">Chrome Web Store</span>
-              <span class="badge-status badge-coming-soon" data-i18n="download.comingSoonBadge">Coming soon</span>
-            </span>
-          </div>
-
-          <!-- Web App -->
-          <div class="download-card">
-            <div class="download-icon">🌐</div>
-            <h3 class="card-title" data-i18n="download.webTitle">Web Application</h3>
-            <span class="btn btn-primary is-disabled" data-app-link="webApp" role="status" aria-disabled="true">
-              <span class="btn-text" data-i18n="download.openWebBtn">Launch in Browser</span>
-              <span class="badge-status badge-coming-soon" data-i18n="download.comingSoonBadge">Coming soon</span>
-            </span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- FAQ Section -->
-    <section id="faq" class="section">
-      <div class="container">
-        <div class="text-center">
-          <span class="section-tag" data-i18n="faq.sectionTag">Answers</span>
-          <h2 class="section-title" data-i18n="faq.title">Frequently Asked Questions</h2>
-          <p class="section-subtitle" data-i18n="faq.subtitle">Real technical and product facts straight from our documentation.</p>
-        </div>
-
-        <div class="faq-grid">
-          <div class="faq-card">
-            <h3 class="faq-question" data-i18n="faq.q1">How is MindSpace different from a voice recorder or transcription app?</h3>
-            <p class="faq-answer" data-i18n="faq.a1">
-              Voice memos create an unsearchable audio pile you never listen to. Transcription apps dump a raw wall of text that still requires manual sorting. MindSpace extracts the distinct ideas buried in messy speech, rewrites each cleanly in your own voice, and places them as actionable cards on a canvas.
-            </p>
-          </div>
-
-          <div class="faq-card">
-            <h3 class="faq-question" data-i18n="faq.q2">Does it support Arabic and Egyptian dialect?</h3>
-            <p class="faq-answer" data-i18n="faq.a2">
-              Yes. MindSpace was built with the Egyptian market in mind. It handles Egyptian colloquial Arabic and English seamlessly. The AI responds and rewrites your thoughts in whichever language and dialect you spoke in.
-            </p>
-          </div>
-
-          <div class="faq-card">
-            <h3 class="faq-question" data-i18n="faq.q3">What happens if a recording or server connection fails?</h3>
-            <p class="faq-answer" data-i18n="faq.a3">
-              You are never charged for failed jobs. We use a reserve-then-settle credit model: the estimated cost is held before processing and released immediately if an error occurs. In Meeting Mode, audio is kept locally in browser storage until confirmed uploaded.
-            </p>
-          </div>
-
-          <div class="faq-card">
-            <h3 class="faq-question" data-i18n="faq.q4">How does Bring Your Own AI (BYOK) work?</h3>
-            <p class="faq-answer" data-i18n="faq.a4">
-              If you have an API key from OpenAI, Anthropic, or Google, MindSpace uses your key for idea extraction and card writing (charging you 0 MindSpace credits). Voice transcription always runs on our platform models using your included credits to ensure reliable audio handling.
-            </p>
-          </div>
-
-          <div class="faq-card">
-            <h3 class="faq-question" data-i18n="faq.q5">Can I view my thoughts as a list or calendar instead of a canvas?</h3>
-            <p class="faq-answer" data-i18n="faq.a5">
-              Yes. You can toggle between the spatial Canvas view and a linear List view anytime. The List view includes a calendar tab that maps notes by their deadlines (extracted automatically from your speech) or creation date.
-            </p>
-          </div>
-
-          <div class="faq-card">
-            <h3 class="faq-question" data-i18n="faq.q6">How is my private data and audio protected?</h3>
-            <p class="faq-answer" data-i18n="faq.a6">
-              Your data is secured per-row with PostgreSQL Row-Level Security — one account cannot read another. API keys are encrypted server-side with AES-256-GCM. Reminder alerts fire locally on device without external sync, and deleting your account permanently removes all spaces, recordings, and ledger data.
-            </p>
-          </div>
-        </div>
+    <!-- FAQ -->
+    <section id="faq" class="wrap block">
+      <h2 data-i18n="faq.title">أسئلة</h2>
+      <div class="faq">
+        <details class="card"><summary data-i18n="faq.q1">بيفهم العامية المصري؟</summary><p data-i18n="faq.a1">أيوه. تقدر تكتب أو تتكلم بالعامية أو بالإنجليزي أو الاتنين مع بعض، والنوتس بتطلع باللغة اللي اتكلمت بيها.</p></details>
+        <details class="card"><summary data-i18n="faq.q2">Claude بيصرف من الـ credits بتوعي؟</summary><p data-i18n="faq.a2">لأ. لما Claude يكتب عن طريق MCP، النوتس بتتحفظ زي ما بعتها، من غير ما MindSpace يشغّل الـ AI بتاعه.</p></details>
+        <details class="card"><summary data-i18n="faq.q3">أوصّل أنهي assistants؟</summary><p data-i18n="faq.a3">أي حاجة بتدعم MCP عن طريق HTTP، زي Claude Code و Claude Desktop و Cursor. صفحة الإعدادات بتديك الإعدادات جاهزة للنسخ.</p></details>
+        <details class="card"><summary data-i18n="faq.q4">الـ token يقدر يعمل إيه؟</summary><p data-i18n="faq.a4">يقرا ويكتب في الـ spaces والنوتس بس. مايقدرش يغيّر حسابك ولا الدفع ولا مفاتيحك، وتقدر تلغيه في أي وقت.</p></details>
       </div>
     </section>
   </main>
 
-  <!-- Site Footer -->
-  <footer class="site-footer">
-    <div class="container">
-      <div class="footer-top">
-        <div class="footer-brand">
-          <a href="./" class="brand-link" style="margin-bottom: 0.75rem;">
-            <span class="brand-icon">✦</span>
-            <span>MindSpace</span>
-          </a>
-          <p data-i18n="footer.tagline" style="color: var(--text-muted); font-size: 0.95rem;">Talk, and think properly afterwards.</p>
-        </div>
-
-        <div class="footer-links-group">
-          <ul class="footer-links-list">
-            <li><a href="#how-it-works" data-i18n="nav.howItWorks">How it works</a></li>
-            <li><a href="#meeting-mode" data-i18n="nav.meetingMode">Meeting Mode</a></li>
-            <li><a href="#byok" data-i18n="nav.byok">Your AI (BYOK)</a></li>
-            <li><a href="#pricing" data-i18n="nav.pricing">Pricing</a></li>
-          </ul>
-
-          <ul class="footer-links-list">
-            <li><a href="privacy.html" data-i18n="footer.privacy">Privacy Policy</a></li>
-            <li><a href="terms.html" data-i18n="footer.terms">Terms of Service</a></li>
-            <li><a href="https://github.com/mohamedjs/mindspace" target="_blank" rel="noopener noreferrer" data-i18n="footer.github">GitHub Repository</a></li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="footer-bottom">
-        <p><span data-i18n="footer.rights">© MindSpace. All rights reserved.</span> <span class="draft-notice" data-i18n="footer.legalNote">Draft documents subject to legal review.</span></p>
-        <button type="button" class="lang-toggle-btn" aria-label="Toggle language">العربية</button>
-      </div>
+  <footer class="foot">
+    <div class="wrap foot-row">
+      <span>© 2026 MindSpace</span>
+      <nav aria-label="Legal">
+        <a href="privacy.html" data-i18n="foot.privacy">الخصوصية</a>
+        <a href="terms.html" data-i18n="foot.terms">الشروط</a>
+      </nav>
     </div>
   </footer>
 
-  <script type="module" src="./src/main.ts"></script>
+  <script type="module" src="./src/landing.ts"></script>
 </body>
 </html>
